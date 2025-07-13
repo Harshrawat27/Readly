@@ -1,6 +1,18 @@
+'use client';
 import Image from 'next/image';
+import { signIn } from '@/lib/auth-client';
 
 export default function SignIn() {
+  const handleGoogleSignIn = async () => {
+    try {
+      await signIn.social({
+        provider: 'google',
+        callbackURL: '/dashboard', // or wherever you want to redirect after sign-in
+      });
+    } catch (error) {
+      console.error('Sign-in error:', error);
+    }
+  };
   return (
     <div className='min-h-screen flex'>
       {/* Left side - Sign in form */}
@@ -42,7 +54,10 @@ export default function SignIn() {
           {/* Sign in form */}
           <div className='space-y-4'>
             {/* Google Sign In */}
-            <button className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-gray-200 transition-colors bg-white'>
+            <button
+              onClick={handleGoogleSignIn}
+              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-gray-200 transition-colors bg-white'
+            >
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
                 <path
                   fill='#4285F4'
