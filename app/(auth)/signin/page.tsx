@@ -3,31 +3,38 @@ import Image from 'next/image';
 export default function SignIn() {
   return (
     <div className='min-h-screen flex'>
-      {/* Left side - Form */}
+      {/* Left side - Sign in form */}
       <div className='flex-1 flex items-center justify-center px-8 py-12'>
-        <div className='w-full max-w-md space-y-8'>
+        <div className='w-full max-w-[400px] space-y-8'>
           {/* Logo */}
-          <div className='flex items-center gap-2 mb-12'>
-            <div className='w-8 h-8 bg-accent rounded-full flex items-center justify-center'>
+          <div className='flex items-center gap-3 mb-16'>
+            <div className='w-7 h-7 bg-[#ff6b35] rounded-full flex items-center justify-center'>
               <svg
-                className='w-5 h-5 text-white'
+                className='w-4 h-4 text-white'
                 viewBox='0 0 24 24'
-                fill='currentColor'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
               >
-                <path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' />
+                <path d='M12 2L2 7v10c0 5.55 3.84 10 9 9 1.41-.07 2.72-.45 3.9-1.1' />
+                <path d='M22 12c0 1-.18 1.95-.5 2.84a10 10 0 0 1-2.4 3.16' />
+                <path d='M8.5 8.5l7 7' />
+                <path d='M15.5 8.5l-7 7' />
               </svg>
             </div>
-            <span className='text-xl font-semibold'>Claude</span>
+            <span className='text-[22px] font-medium text-[var(--text-primary)]'>
+              Claude
+            </span>
           </div>
 
           {/* Header */}
-          <div className='space-y-2'>
-            <h1 className='text-5xl font-normal leading-tight'>
+          <div className='space-y-3 mb-12'>
+            <h1 className='text-[56px] font-light leading-[1.1] text-[var(--text-primary)] tracking-[-0.02em]'>
               Your ideas,
               <br />
               amplified
             </h1>
-            <p className='text-lg text-secondary'>
+            <p className='text-[18px] text-[var(--text-secondary)] leading-[1.4] mt-4'>
               Privacy-first AI that helps you create in confidence.
             </p>
           </div>
@@ -35,7 +42,7 @@ export default function SignIn() {
           {/* Sign in form */}
           <div className='space-y-4'>
             {/* Google Sign In */}
-            <button className='w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-gray-50 transition-colors'>
+            <button className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-gray-50 transition-colors bg-white'>
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
                 <path
                   fill='#4285F4'
@@ -54,40 +61,45 @@ export default function SignIn() {
                   d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z'
                 />
               </svg>
-              <span className='text-sm font-medium'>Continue with Google</span>
+              <span className='text-[15px] font-medium text-[var(--text-primary)]'>
+                Continue with Google
+              </span>
             </button>
 
-            <div className='relative'>
+            {/* Divider */}
+            <div className='relative my-6'>
               <div className='absolute inset-0 flex items-center'>
-                <div className='w-full border-t border-divider'></div>
+                <div className='w-full border-t border-[var(--divider)]'></div>
               </div>
-              <div className='relative flex justify-center text-sm'>
-                <span className='px-2 bg-background text-muted'>OR</span>
+              <div className='relative flex justify-center text-[14px]'>
+                <span className='px-3 bg-[var(--background)] text-[var(--text-muted)]'>
+                  OR
+                </span>
               </div>
             </div>
 
             {/* Email input */}
-            <div className='space-y-3'>
+            <div className='space-y-4'>
               <input
                 type='email'
                 placeholder='Enter your personal or work email'
-                className='w-full input'
+                className='w-full px-4 py-[14px] border border-[var(--input-border)] rounded-[10px] text-[15px] placeholder-[var(--text-muted)] bg-[var(--input-background)] focus:outline-none focus:border-[var(--text-primary)] transition-colors'
               />
-              <button className='w-full button-primary'>
+              <button className='w-full bg-[var(--button-primary)] text-[var(--button-primary-text)] py-[14px] rounded-[10px] text-[15px] font-medium hover:opacity-90 transition-opacity'>
                 Continue with email
               </button>
             </div>
           </div>
 
           {/* Learn more link */}
-          <div className='flex justify-center pt-8'>
+          <div className='flex justify-center pt-12'>
             <a
               href='#'
-              className='text-sm text-secondary hover:text-primary flex items-center gap-1'
+              className='text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 transition-colors'
             >
               Learn more
               <svg
-                className='w-4 h-4'
+                className='w-4 h-4 transform rotate-90'
                 fill='none'
                 stroke='currentColor'
                 viewBox='0 0 24 24'
@@ -95,96 +107,35 @@ export default function SignIn() {
                 <path
                   strokeLinecap='round'
                   strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M19 9l-7 7-7-7'
+                  strokeWidth={1.5}
+                  d='M9 5l7 7-7 7'
                 />
               </svg>
             </a>
           </div>
 
           {/* Pagination dots */}
-          <div className='flex justify-center gap-2 pt-4'>
-            <div className='w-2 h-2 rounded-full bg-gray-300'></div>
-            <div className='w-2 h-2 rounded-full bg-gray-300'></div>
-            <div className='w-2 h-2 rounded-full bg-gray-900'></div>
+          <div className='flex justify-center gap-2 pt-6'>
+            <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
+            <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
+            <div className='w-2 h-2 rounded-full bg-[var(--text-primary)]'></div>
           </div>
         </div>
       </div>
 
-      {/* Right side - Feature showcase */}
-      <div className='hidden lg:flex flex-1 bg-gray-50 items-center justify-center px-8 py-12'>
-        <div className='max-w-lg'>
-          <div className='flex items-start gap-4 mb-6'>
-            <div className='w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0'>
-              <svg
-                className='w-6 h-6 text-gray-600'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                />
-              </svg>
-            </div>
-            <div className='space-y-2'>
-              <p className='text-sm text-gray-600'>
-                Claude, create a report to analyze product usage and user
-                feedback.
-              </p>
-            </div>
-          </div>
-
-          <div className='space-y-4'>
-            <p className='text-sm text-gray-600'>Here's the report.</p>
-
-            <div className='card p-6 space-y-4'>
-              <h3 className='text-lg font-semibold'>
-                Customer Insights Report
+      {/* Right side - Placeholder for slider */}
+      <div className='hidden lg:flex flex-1 bg-[#f8f7f5] items-center justify-center px-8 py-12'>
+        <div className='w-full max-w-lg'>
+          {/* Placeholder for slider content */}
+          <div className='bg-white rounded-[16px] border border-[var(--border)] p-8 shadow-sm'>
+            <div className='text-center space-y-4'>
+              <div className='w-16 h-16 bg-gray-100 rounded-full mx-auto'></div>
+              <h3 className='text-lg font-medium text-[var(--text-primary)]'>
+                Slider Content
               </h3>
-              <p className='text-sm text-secondary'>
-                This report provides an analysis of customer feedback across
-                various segments and time periods. The data presented offers
-                insights into our current performance and customer satisfaction
-                levels.
+              <p className='text-[var(--text-secondary)] text-sm'>
+                This area will contain the image slider content.
               </p>
-
-              <div className='space-y-2'>
-                <h4 className='text-sm font-semibold'>Overview</h4>
-                <div className='grid grid-cols-4 gap-4 text-sm'>
-                  <div>
-                    <div className='text-muted text-xs'>Users</div>
-                    <div className='font-semibold'>23,000</div>
-                  </div>
-                  <div>
-                    <div className='text-muted text-xs'>NPS score</div>
-                    <div className='font-semibold'>80</div>
-                  </div>
-                  <div>
-                    <div className='text-muted text-xs'>Projects</div>
-                    <div className='font-semibold'>45</div>
-                  </div>
-                  <div>
-                    <div className='text-muted text-xs'>Notes</div>
-                    <div className='font-semibold'>465</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className='space-y-2'>
-                <h4 className='text-sm font-semibold'>
-                  Trend: Users are creating more notes
-                </h4>
-                <p className='text-sm text-secondary'>
-                  The graph shows a clear upward trend in note creation over
-                  time. Starting from approximately 50 notes at the beginning of
-                  the observed period, it has increased to nearly 300 by the
-                  end. This
-                </p>
-              </div>
             </div>
           </div>
         </div>
