@@ -68,7 +68,7 @@ export default function SignIn() {
     try {
       await signIn.social({
         provider: 'github',
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Sign-in error:', error);
@@ -86,7 +86,7 @@ export default function SignIn() {
       await signIn.email({
         email,
         password,
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Email sign-in error:', error);

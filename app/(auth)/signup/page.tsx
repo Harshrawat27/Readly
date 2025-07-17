@@ -54,7 +54,7 @@ export default function SignUp() {
     try {
       await signIn.social({
         provider: 'google',
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Sign-up error:', error);
@@ -70,7 +70,7 @@ export default function SignUp() {
     try {
       await signIn.social({
         provider: 'github',
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Sign-up error:', error);
