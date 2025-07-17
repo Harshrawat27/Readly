@@ -2,19 +2,20 @@
 
 :root {
   /* Light mode colors */
-  --background: #faf9f7;
-  --foreground: #1a1a1a;
+  --background: #ffffff;
+  --foreground: #262624;
   --card-background: #ffffff;
-  --border: #e5e5e5;
+  --border: #f0f0f0;
   --input-background: #ffffff;
-  --input-border: #d4d4d4;
-  --button-primary: #1a1a1a;
+  --input-border: #e0e0e0;
+  --button-primary: #C96342;
   --button-primary-text: #ffffff;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --accent: #dc2626;
-  --divider: #e5e5e5;
+  --text-primary: #262624;
+  --text-secondary: #1F1E1D;
+  --text-muted: #888888;
+  --accent: #C96342;
+  --divider: #f0f0f0;
+  --faded-white: #fafafa;
 }
 
 @theme inline {
@@ -38,19 +39,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card-background: #1a1a1a;
-    --border: #333333;
-    --input-background: #1a1a1a;
-    --input-border: #404040;
-    --button-primary: #ededed;
-    --button-primary-text: #0a0a0a;
-    --text-primary: #ededed;
-    --text-secondary: #a8a8a8;
-    --text-muted: #666666;
-    --accent: #ef4444;
-    --divider: #333333;
+    --background: #1F1E1D;
+    --foreground: #ffffff;
+    --card-background: #262624;
+    --border: #404040;
+    --input-background: #262624;
+    --input-border: #505050;
+    --button-primary: #C96342;
+    --button-primary-text: #ffffff;
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-muted: #888888;
+    --accent: #C96342;
+    --divider: #404040;
+    --faded-white: #2a2a2a;
   }
 }
 

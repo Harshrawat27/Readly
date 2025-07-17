@@ -1,156 +1,151 @@
 'use client';
 
-import Image from 'next/image';
-import { useState } from 'react';
+import { useSession } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const { data: session } = useSession();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
 
-  const createSampleUser = async () => {
+  const handleSignOut = async () => {
     setIsLoading(true);
-    setMessage('');
-
     try {
-      const response = await fetch('/api/create-sample-user', {
+      // Sign out using better-auth
+      await fetch('/api/auth/sign-out', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setMessage(
-          `✅ ${data.message} User: ${data.user.name} (${data.user.email})`
-        );
-      } else {
-        setMessage(`❌ ${data.message}`);
-      }
+      
+      // Redirect to signin page
+      router.push('/signin');
     } catch (error) {
-      setMessage('❌ Network error occurred');
-      console.error('Error:', error);
+      console.error('Sign out error:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    if (!session) {
+      router.push('/signin');
+    }
+  }, [session, router]);
+
+  if (!session) {
+    return (
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]'></div>
+      </div>
+    );
+  }
+
   return (
-    <div className='grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]'>
-      <main className='flex flex-col gap-[32px] row-start-2 items-center sm:items-start'>
-        <Image
-          className='dark:invert'
-          src='/next.svg'
-          alt='Next.js logo'
-          width={180}
-          height={38}
-          priority
-        />
-
-        {/* Sample Data Button */}
-        <div className='flex flex-col gap-4 items-center'>
-          <button
-            onClick={createSampleUser}
-            disabled={isLoading}
-            className='rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5'
-          >
-            {isLoading ? 'Creating...' : 'Create Sample User in Database'}
-          </button>
-
-          {message && (
-            <div className='text-sm text-center max-w-md p-3 rounded-lg bg-gray-100 dark:bg-gray-800'>
-              {message}
+    <div className='min-h-screen bg-[var(--background)] text-[var(--text-primary)]'>
+      {/* Header */}
+      <header className='border-b border-[var(--border)] bg-white'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between items-center py-6'>
+            {/* Logo */}
+            <div className='flex items-center gap-3'>
+              <div className='w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center'>
+                <svg
+                  className='w-5 h-5 text-white'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M12 2L2 7v10c0 5.55 3.84 10 9 9 1.41-.07 2.72-.45 3.9-1.1' />
+                  <path d='M22 12c0 1-.18 1.95-.5 2.84a10 10 0 0 1-2.4 3.16' />
+                  <path d='M8.5 8.5l7 7' />
+                  <path d='M15.5 8.5l-7 7' />
+                </svg>
+              </div>
+              <h1 className='text-xl font-semibold text-[var(--text-primary)]'>
+                Readly
+              </h1>
             </div>
-          )}
+
+            {/* User Info and Logout */}
+            <div className='flex items-center gap-4'>
+              <div className='text-sm text-[var(--text-secondary)]'>
+                Welcome, {session.user.name}
+              </div>
+              <button
+                onClick={handleSignOut}
+                disabled={isLoading}
+                className='px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+              >
+                {isLoading ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+                    Signing out...
+                  </>
+                ) : (
+                  'Sign Out'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
+      </header>
 
-        <ol className='list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]'>
-          <li className='mb-2 tracking-[-.01em]'>
-            Get started by editing{' '}
-            <code className='bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold'>
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className='tracking-[-.01em]'>
-            Save and see your changes instantly.
-          </li>
-        </ol>
+      {/* Main Content */}
+      <main className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12'>
+        <div className='text-center space-y-8'>
+          {/* Welcome Message */}
+          <div className='space-y-4'>
+            <h2 className='text-4xl font-light text-[var(--text-primary)]'>
+              Welcome to Readly
+            </h2>
+            <p className='text-xl text-[var(--text-secondary)] max-w-2xl mx-auto'>
+              Your personal reading companion. Discover, organize, and enjoy your favorite books all in one place.
+            </p>
+          </div>
 
-        <div className='flex gap-4 items-center flex-col sm:flex-row'>
-          <a
-            className='rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto'
-            href='https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app'
-            target='_blank'
-            rel='noopener noreferrer'
-          >
-            <Image
-              className='dark:invert'
-              src='/vercel.svg'
-              alt='Vercel logomark'
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className='rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]'
-            href='https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app'
-            target='_blank'
-            rel='noopener noreferrer'
-          >
-            Read our docs
-          </a>
+          {/* User Stats Card */}
+          <div className='bg-white rounded-lg border border-[var(--border)] p-8 max-w-md mx-auto'>
+            <div className='space-y-4'>
+              <div className='w-16 h-16 bg-[var(--faded-white)] rounded-full mx-auto flex items-center justify-center'>
+                <svg
+                  className='w-8 h-8 text-[var(--accent)]'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+                </svg>
+              </div>
+              <div className='text-center'>
+                <h3 className='text-lg font-medium text-[var(--text-primary)]'>
+                  {session.user.name}
+                </h3>
+                <p className='text-sm text-[var(--text-secondary)]'>
+                  {session.user.email}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Coming Soon */}
+          <div className='bg-[var(--faded-white)] rounded-lg p-8 max-w-2xl mx-auto'>
+            <h3 className='text-2xl font-medium text-[var(--text-primary)] mb-4'>
+              More Features Coming Soon
+            </h3>
+            <p className='text-[var(--text-secondary)]'>
+              We're working on bringing you an amazing reading experience with book recommendations, 
+              reading progress tracking, and much more!
+            </p>
+          </div>
         </div>
       </main>
-      <footer className='row-start-3 flex gap-[24px] flex-wrap items-center justify-center'>
-        <a
-          className='flex items-center gap-2 hover:underline hover:underline-offset-4'
-          href='https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app'
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          <Image
-            aria-hidden
-            src='/file.svg'
-            alt='File icon'
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className='flex items-center gap-2 hover:underline hover:underline-offset-4'
-          href='https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app'
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          <Image
-            aria-hidden
-            src='/window.svg'
-            alt='Window icon'
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className='flex items-center gap-2 hover:underline hover:underline-offset-4'
-          href='https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app'
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          <Image
-            aria-hidden
-            src='/globe.svg'
-            alt='Globe icon'
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }

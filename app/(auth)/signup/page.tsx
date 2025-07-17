@@ -1,13 +1,14 @@
 'use client';
 import Image from 'next/image';
-import { signIn, useSession } from '@/lib/auth-client';
+import { signIn, signUp, useSession } from '@/lib/auth-client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function SignIn() {
+export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
@@ -31,7 +32,8 @@ export default function SignIn() {
       </div>
     );
   }
-  const handleGoogleSignIn = async () => {
+
+  const handleGoogleSignUp = async () => {
     setIsGoogleLoading(true);
     setError('');
     try {
@@ -40,14 +42,14 @@ export default function SignIn() {
         callbackURL: '/dashboard',
       });
     } catch (error) {
-      console.error('Sign-in error:', error);
-      setError('Failed to sign in with Google. Please try again.');
+      console.error('Sign-up error:', error);
+      setError('Failed to sign up with Google. Please try again.');
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
-  const handleGitHubSignIn = async () => {
+  const handleGitHubSignUp = async () => {
     setIsGitHubLoading(true);
     setError('');
     try {
@@ -56,33 +58,35 @@ export default function SignIn() {
         callbackURL: '/dashboard',
       });
     } catch (error) {
-      console.error('Sign-in error:', error);
-      setError('Failed to sign in with GitHub. Please try again.');
+      console.error('Sign-up error:', error);
+      setError('Failed to sign up with GitHub. Please try again.');
     } finally {
       setIsGitHubLoading(false);
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsEmailLoading(true);
     setError('');
     try {
-      await signIn.email({
+      await signUp.email({
         email,
         password,
+        name,
         callbackURL: '/dashboard',
       });
     } catch (error) {
-      console.error('Email sign-in error:', error);
-      setError('Invalid email or password. Please try again.');
+      console.error('Email sign-up error:', error);
+      setError('Failed to create account. Please try again.');
     } finally {
       setIsEmailLoading(false);
     }
   };
+
   return (
     <div className='min-h-screen flex'>
-      {/* Left side - Sign in form */}
+      {/* Left side - Sign up form */}
       <div className='flex-1 flex items-center justify-center px-8 py-12'>
         <div className='w-full max-w-[400px] space-y-8'>
           {/* Logo */}
@@ -109,16 +113,16 @@ export default function SignIn() {
           {/* Header */}
           <div className='space-y-3 mb-12'>
             <h1 className='text-[56px] font-light leading-[1.1] text-[var(--text-primary)] tracking-[-0.02em]'>
-              Your ideas,
+              Create your
               <br />
-              amplified
+              account
             </h1>
             <p className='text-[18px] text-[var(--text-secondary)] leading-[1.4] mt-4'>
-              Privacy-first AI that helps you create in confidence.
+              Join thousands of users who trust our platform.
             </p>
           </div>
 
-          {/* Sign in form */}
+          {/* Sign up form */}
           <div className='space-y-4'>
             {/* Error message */}
             {error && (
@@ -127,9 +131,9 @@ export default function SignIn() {
               </div>
             )}
             
-            {/* Google Sign In */}
+            {/* Google Sign Up */}
             <button
-              onClick={handleGoogleSignIn}
+              onClick={handleGoogleSignUp}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
               className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
@@ -155,13 +159,13 @@ export default function SignIn() {
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
                 <span className='text-[15px] font-medium text-black'>
-                  Continue with Google
+                  Sign up with Google
                 </span>
               )}
             </button>
 
             <button
-              onClick={handleGitHubSignIn}
+              onClick={handleGitHubSignUp}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
               className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
@@ -177,12 +181,11 @@ export default function SignIn() {
                   d='M12 0.296875C5.372 0.296875 0 5.66887 0 12.2969C0 17.6889 3.438 22.2099 8.205 23.7999C8.805 23.9099 9.025 23.5499 9.025 23.2299C9.025 22.9399 9.015 22.1599 9.01 21.1799C5.672 21.8999 4.968 19.5899 4.968 19.5899C4.422 18.1599 3.633 17.7999 3.633 17.7999C2.546 17.0599 3.717 17.0799 3.717 17.0799C4.922 17.1599 5.555 18.3199 5.555 18.3199C6.633 20.1599 8.422 19.6599 9.05 19.3599C9.158 18.5799 9.467 18.0399 9.81 17.7399C7.145 17.4399 4.343 16.3799 4.343 11.6699C4.343 10.3399 4.801 9.25987 5.572 8.41987C5.444 8.11987 5.032 6.85987 5.688 5.20987C5.688 5.20987 6.703 4.88987 9 6.51987C9.982 6.23987 11.038 6.09987 12.094 6.09487C13.15 6.09987 14.206 6.23987 15.189 6.51987C17.484 4.88987 18.498 5.20987 18.498 5.20987C19.155 6.85987 18.744 8.11987 18.616 8.41987C19.39 9.25987 19.844 10.3399 19.844 11.6699C19.844 16.3899 17.037 17.4349 14.361 17.7299C14.805 18.1099 15.202 18.8799 15.202 20.0299C15.202 21.6899 15.188 22.8799 15.188 23.2299C15.188 23.5499 15.406 23.9149 16.016 23.7949C20.785 22.2049 24 17.6839 24 12.2969C24 5.66887 18.627 0.296875 12 0.296875Z'
                 />
               </svg>
-
               {isGitHubLoading ? (
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
                 <span className='text-[15px] font-medium text-black'>
-                  Continue with GitHub
+                  Sign up with GitHub
                 </span>
               )}
             </button>
@@ -200,20 +203,29 @@ export default function SignIn() {
             </div>
 
             {/* Email/Password form */}
-            <form onSubmit={handleEmailSignIn} className='space-y-4'>
+            <form onSubmit={handleEmailSignUp} className='space-y-4'>
+              <input
+                type='text'
+                placeholder='Enter your full name'
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className='w-full px-4 py-[14px] border border-[var(--input-border)] rounded-[10px] text-[15px] placeholder-[var(--text-muted)] bg-[var(--input-background)] focus:outline-none focus:border-[var(--text-primary)] transition-colors'
+              />
+
               <input
                 type='email'
-                placeholder='Enter your personal or work email'
+                placeholder='Enter your email address'
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className='w-full px-4 py-[14px] border border-[var(--input-border)] rounded-[10px] text-[15px] placeholder-[var(--text-muted)] bg-[var(--input-background)] focus:outline-none focus:border-[var(--text-primary)] transition-colors'
               />
-
+              
               <div className='relative'>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder='Enter your password'
+                  placeholder='Create a password'
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -227,7 +239,7 @@ export default function SignIn() {
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
-
+              
               <button
                 type='submit'
                 disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
@@ -236,55 +248,39 @@ export default function SignIn() {
                 {isEmailLoading ? (
                   <>
                     <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
-                    Signing In...
+                    Creating Account...
                   </>
                 ) : (
-                  'Sign In'
+                  'Create Account'
                 )}
               </button>
-
+              
               <div className='text-center'>
                 <span className='text-[14px] text-[var(--text-secondary)]'>
-                  Don't have an account?{' '}
-                  <Link
-                    href='/signup'
+                  Already have an account?{' '}
+                  <Link 
+                    href='/signin' 
                     className='text-[var(--text-primary)] hover:underline font-medium'
                   >
-                    Sign Up
+                    Sign In
                   </Link>
                 </span>
               </div>
             </form>
           </div>
 
-          {/* Learn more link */}
-          <div className='flex justify-center pt-12'>
-            <a
-              href='#'
-              className='text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 transition-colors'
-            >
-              Learn more
-              <svg
-                className='w-4 h-4 transform rotate-90'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={1.5}
-                  d='M9 5l7 7-7 7'
-                />
-              </svg>
-            </a>
-          </div>
-
-          {/* Pagination dots */}
-          <div className='flex justify-center gap-2 pt-6'>
-            <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
-            <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
-            <div className='w-2 h-2 rounded-full bg-[var(--text-primary)]'></div>
+          {/* Terms */}
+          <div className='text-center pt-6'>
+            <p className='text-[12px] text-[var(--text-muted)] leading-[1.4]'>
+              By creating an account, you agree to our{' '}
+              <a href='#' className='text-[var(--text-primary)] hover:underline'>
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href='#' className='text-[var(--text-primary)] hover:underline'>
+                Privacy Policy
+              </a>
+            </p>
           </div>
         </div>
       </div>
@@ -292,15 +288,14 @@ export default function SignIn() {
       {/* Right side - Placeholder for slider */}
       <div className='hidden lg:flex flex-1 bg-[var(--faded-white)] items-center justify-center px-8 py-12'>
         <div className='w-full max-w-lg'>
-          {/* Placeholder for slider content */}
           <div className='bg-white rounded-[16px] border border-[var(--border)] p-8 shadow-sm'>
             <div className='text-center space-y-4'>
               <div className='w-16 h-16 bg-[var(--faded-white)] rounded-full mx-auto'></div>
               <h3 className='text-lg font-medium text-[var(--text-primary)]'>
-                Welcome Back
+                Join Readly Today
               </h3>
               <p className='text-[var(--text-secondary)] text-sm'>
-                Sign in to continue your reading journey with Readly.
+                Start your reading journey with thousands of books at your fingertips.
               </p>
             </div>
           </div>
