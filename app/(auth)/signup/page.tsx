@@ -14,21 +14,36 @@ export default function SignUp() {
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [error, setError] = useState('');
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
 
-  // Redirect to home if already authenticated
+  // Redirect to home if already authenticated (only after loading is complete)
   useEffect(() => {
-    if (session) {
+    if (!isPending && session) {
       router.push('/');
     }
-  }, [session, router]);
+  }, [session, isPending, router]);
 
   // Show loading while checking session
+  if (isPending) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while redirecting authenticated users
   if (session) {
     return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]'></div>
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Redirecting...</p>
+        </div>
       </div>
     );
   }

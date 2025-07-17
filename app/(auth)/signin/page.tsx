@@ -13,21 +13,36 @@ export default function SignIn() {
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [error, setError] = useState('');
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
 
-  // Redirect to home if already authenticated
+  // Redirect to home if already authenticated (only after loading is complete)
   useEffect(() => {
-    if (session) {
+    if (!isPending && session) {
       router.push('/');
     }
-  }, [session, router]);
+  }, [session, isPending, router]);
 
   // Show loading while checking session
+  if (isPending) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while redirecting authenticated users
   if (session) {
     return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]'></div>
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Redirecting...</p>
+        </div>
       </div>
     );
   }
@@ -37,7 +52,7 @@ export default function SignIn() {
     try {
       await signIn.social({
         provider: 'google',
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Sign-in error:', error);
@@ -126,12 +141,12 @@ export default function SignIn() {
                 {error}
               </div>
             )}
-            
+
             {/* Google Sign In */}
             <button
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] hover:text-white transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
                 <path
@@ -163,7 +178,7 @@ export default function SignIn() {
             <button
               onClick={handleGitHubSignIn}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] hover:text-white transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg
                 className='w-5 h-5'

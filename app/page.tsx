@@ -1,45 +1,60 @@
 'use client';
 
-import { useSession } from '@/lib/auth-client';
+import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignOut = async () => {
     setIsLoading(true);
     try {
-      // Sign out using better-auth
-      await fetch('/api/auth/sign-out', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Sign out using better-auth client
+      await signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            router.push('/signin');
+          },
         },
       });
-      
-      // Redirect to signin page
-      router.push('/signin');
     } catch (error) {
       console.error('Sign out error:', error);
+      router.push('/signin'); // Fallback redirect
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Redirect to signin if not authenticated
+  // Redirect to signin if not authenticated (only after loading is complete)
   useEffect(() => {
-    if (!session) {
+    if (!isPending && !session) {
       router.push('/signin');
     }
-  }, [session, router]);
+  }, [session, isPending, router]);
 
+  // Show loading while checking authentication
+  if (isPending) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while redirecting unauthenticated users
   if (!session) {
     return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]'></div>
+      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
+        <div className='text-center space-y-4'>
+          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
+          <p className='text-[var(--text-muted)] text-sm'>Redirecting...</p>
+        </div>
       </div>
     );
   }
@@ -104,7 +119,8 @@ export default function Home() {
               Welcome to Readly
             </h2>
             <p className='text-xl text-[var(--text-secondary)] max-w-2xl mx-auto'>
-              Your personal reading companion. Discover, organize, and enjoy your favorite books all in one place.
+              Your personal reading companion. Discover, organize, and enjoy
+              your favorite books all in one place.
             </p>
           </div>
 
@@ -140,8 +156,8 @@ export default function Home() {
               More Features Coming Soon
             </h3>
             <p className='text-[var(--text-secondary)]'>
-              We're working on bringing you an amazing reading experience with book recommendations, 
-              reading progress tracking, and much more!
+              We're working on bringing you an amazing reading experience with
+              book recommendations, reading progress tracking, and much more!
             </p>
           </div>
         </div>
