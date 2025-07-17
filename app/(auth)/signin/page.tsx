@@ -146,7 +146,7 @@ export default function SignIn() {
             <button
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] hover:text-white transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
                 <path
@@ -169,7 +169,7 @@ export default function SignIn() {
               {isGoogleLoading ? (
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
-                <span className='text-[15px] font-medium text-black'>
+                <span className='text-[15px] font-medium text-black group-hover:text-white'>
                   Continue with Google
                 </span>
               )}
@@ -178,7 +178,7 @@ export default function SignIn() {
             <button
               onClick={handleGitHubSignIn}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] hover:text-white transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg
                 className='w-5 h-5'
@@ -196,7 +196,7 @@ export default function SignIn() {
               {isGitHubLoading ? (
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
-                <span className='text-[15px] font-medium text-black'>
+                <span className='text-[15px] font-medium text-black group-hover:text-white'>
                   Continue with GitHub
                 </span>
               )}

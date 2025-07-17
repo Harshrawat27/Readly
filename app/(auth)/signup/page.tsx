@@ -145,12 +145,12 @@ export default function SignUp() {
                 {error}
               </div>
             )}
-            
+
             {/* Google Sign Up */}
             <button
               onClick={handleGoogleSignUp}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
                 <path
@@ -173,7 +173,7 @@ export default function SignUp() {
               {isGoogleLoading ? (
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
-                <span className='text-[15px] font-medium text-black'>
+                <span className='text-[15px] font-medium text-black group-hover:text-white'>
                   Sign up with Google
                 </span>
               )}
@@ -182,7 +182,7 @@ export default function SignUp() {
             <button
               onClick={handleGitHubSignUp}
               disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
-              className='w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
+              className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg
                 className='w-5 h-5'
@@ -199,7 +199,7 @@ export default function SignUp() {
               {isGitHubLoading ? (
                 <div className='w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin'></div>
               ) : (
-                <span className='text-[15px] font-medium text-black'>
+                <span className='text-[15px] font-medium text-black group-hover:text-white'>
                   Sign up with GitHub
                 </span>
               )}
@@ -236,7 +236,7 @@ export default function SignUp() {
                 required
                 className='w-full px-4 py-[14px] border border-[var(--input-border)] rounded-[10px] text-[15px] placeholder-[var(--text-muted)] bg-[var(--input-background)] focus:outline-none focus:border-[var(--text-primary)] transition-colors'
               />
-              
+
               <div className='relative'>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -254,7 +254,7 @@ export default function SignUp() {
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
-              
+
               <button
                 type='submit'
                 disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
@@ -269,12 +269,12 @@ export default function SignUp() {
                   'Create Account'
                 )}
               </button>
-              
+
               <div className='text-center'>
                 <span className='text-[14px] text-[var(--text-secondary)]'>
                   Already have an account?{' '}
-                  <Link 
-                    href='/signin' 
+                  <Link
+                    href='/signin'
                     className='text-[var(--text-primary)] hover:underline font-medium'
                   >
                     Sign In
@@ -288,11 +288,17 @@ export default function SignUp() {
           <div className='text-center pt-6'>
             <p className='text-[12px] text-[var(--text-muted)] leading-[1.4]'>
               By creating an account, you agree to our{' '}
-              <a href='#' className='text-[var(--text-primary)] hover:underline'>
+              <a
+                href='#'
+                className='text-[var(--text-primary)] hover:underline'
+              >
                 Terms of Service
               </a>{' '}
               and{' '}
-              <a href='#' className='text-[var(--text-primary)] hover:underline'>
+              <a
+                href='#'
+                className='text-[var(--text-primary)] hover:underline'
+              >
                 Privacy Policy
               </a>
             </p>
@@ -310,7 +316,8 @@ export default function SignUp() {
                 Join Readly Today
               </h3>
               <p className='text-[var(--text-secondary)] text-sm'>
-                Start your reading journey with thousands of books at your fingertips.
+                Start your reading journey with thousands of books at your
+                fingertips.
               </p>
             </div>
           </div>
