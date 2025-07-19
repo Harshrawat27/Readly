@@ -79,6 +79,7 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue.trim(); // Store to avoid stale closure
     setInputValue('');
     setIsLoading(true);
 
@@ -119,42 +120,47 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
       let accumulatedContent = '';
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.content) {
-                  accumulatedContent += data.content;
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.content) {
+                    accumulatedContent += data.content;
+                    
+                    // Update the streaming message
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: accumulatedContent }
+                        : msg
+                    ));
+                  }
                   
-                  // Update the streaming message
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, content: accumulatedContent }
-                      : msg
-                  ));
+                  if (data.done) {
+                    // Finalize the message
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, isStreaming: false }
+                        : msg
+                    ));
+                    setStreamingMessageId(null);
+                  }
+                } catch (e) {
+                  console.error('Error parsing SSE data:', e);
                 }
-                
-                if (data.done) {
-                  // Finalize the message
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, isStreaming: false }
-                      : msg
-                  ));
-                  setStreamingMessageId(null);
-                }
-              } catch (e) {
-                console.error('Error parsing SSE data:', e);
               }
             }
           }
+        } finally {
+          // Ensure reader is properly closed
+          reader.releaseLock();
         }
       }
     } catch (error) {

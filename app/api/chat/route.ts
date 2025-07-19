@@ -1,3 +1,4 @@
+import { log } from 'console';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
@@ -39,6 +40,7 @@ Guidelines:
 - Format responses with markdown for better readability
 - If you're unsure about something, be honest about limitations
 - Focus on the specific PDF context when available
+- add space after every para
 
 When users select text from the PDF, help them understand or elaborate on that specific content.`;
 
@@ -64,22 +66,26 @@ When users select text from the PDF, help them understand or elaborate on that s
         try {
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
-            
+
             if (content) {
               const data = JSON.stringify({ content, done: false });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
           }
-          
+
           // Send completion signal
           const finalData = JSON.stringify({ content: '', done: true });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
+          console.log(
+            controller.enqueue(encoder.encode(`data: ${finalData}\n\n`))
+          );
+
           controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
-          const errorData = JSON.stringify({ 
+          const errorData = JSON.stringify({
             error: 'An error occurred while processing your request',
-            done: true 
+            done: true,
           });
           controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
           controller.close();
@@ -91,13 +97,12 @@ When users select text from the PDF, help them understand or elaborate on that s
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       },
     });
-
   } catch (error) {
     console.error('Chat API error:', error);
-    
+
     return NextResponse.json(
       { error: 'Failed to process chat request' },
       { status: 500 }
@@ -106,8 +111,5 @@ When users select text from the PDF, help them understand or elaborate on that s
 }
 
 export async function GET() {
-  return NextResponse.json(
-    { error: 'Method not allowed' },
-    { status: 405 }
-  );
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }

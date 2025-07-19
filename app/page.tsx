@@ -2,10 +2,11 @@
 
 import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import PDFSidebar from '@/components/PDFSidebar';
 import PDFViewer from '@/components/PDFViewer';
 import ChatPanel from '@/components/ChatPanel';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function Home() {
   const { data: session, isPending } = useSession();
@@ -13,6 +14,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string>('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [chatWidth, setChatWidth] = useState(384); // Default 384px (w-96)
+  const [isResizing, setIsResizing] = useState(false);
 
   const handleSignOut = async () => {
     setIsLoading(true);
@@ -32,11 +36,44 @@ export default function Home() {
     }
   };
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 280 && newWidth <= 600) {
+        setChatWidth(newWidth);
+      }
+    },
+    [isResizing]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
   useEffect(() => {
     if (!isPending && !session) {
       router.push('/signin');
     }
   }, [session, isPending, router]);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   if (isPending) {
     return (
@@ -61,79 +98,74 @@ export default function Home() {
   }
 
   return (
-    <div className='min-h-screen bg-[var(--background)] text-[var(--text-primary)]'>
-      {/* Header */}
-      <header className='border-b border-[var(--border)] bg-[var(--card-background)] h-16 flex items-center px-6'>
-        <div className='flex justify-between items-center w-full'>
-          {/* Logo */}
-          <div className='flex items-center gap-3'>
-            <div className='w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center'>
-              <svg
-                className='w-5 h-5 text-white'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-              </svg>
-            </div>
-            <h1 className='text-xl font-semibold text-[var(--text-primary)]'>
-              Readly
-            </h1>
-          </div>
-
-          {/* User Info and Logout */}
-          <div className='flex items-center gap-4'>
-            <div className='text-sm text-[var(--text-secondary)]'>
-              Welcome, {session.user.name}
-            </div>
-            <button
-              onClick={handleSignOut}
-              disabled={isLoading}
-              className='px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
-            >
-              {isLoading ? (
-                <>
-                  <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
-                  Signing out...
-                </>
-              ) : (
-                'Sign Out'
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Three-Panel Layout */}
-      <div className='flex h-[calc(100vh-4rem)]'>
-        {/* PDF History Sidebar - 300px max */}
-        <div className='w-80 max-w-[300px] bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0'>
-          <PDFSidebar 
-            onPdfSelect={setSelectedPdfId} 
+    <div className='max-h-100vh overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
+      {/* Main Three-Panel Layout - Full height */}
+      <div className='flex h-screen'>
+        {/* PDF History Sidebar - Collapsible */}
+        <div
+          className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ${
+            sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80 max-w-[300px]'
+          }`}
+        >
+          <PDFSidebar
+            onPdfSelect={setSelectedPdfId}
             selectedPdfId={selectedPdfId}
             userId={session.user.id}
+            onSignOut={handleSignOut}
+            isSigningOut={isLoading}
+            userName={session.user.name}
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+            isCollapsed={sidebarCollapsed}
           />
         </div>
 
         {/* PDF Viewer - Middle section */}
         <div className='flex-1 bg-[var(--pdf-viewer-bg)] relative'>
-          <PDFViewer 
-            pdfId={selectedPdfId}
-            onTextSelect={setSelectedText}
-            selectedText={selectedText}
-          />
+          {/* Collapse button when sidebar is collapsed */}
+          {sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className='absolute top-4 left-4 z-10 p-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+            >
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M9 18l6-6-6-6' />
+              </svg>
+            </button>
+          )}
+
+          <ErrorBoundary>
+            <PDFViewer
+              pdfId={selectedPdfId}
+              onTextSelect={setSelectedText}
+              selectedText={selectedText}
+            />
+          </ErrorBoundary>
         </div>
 
-        {/* Chat Panel - Right section */}
-        <div className='w-96 bg-[var(--chat-bg)] border-l border-[var(--border)] flex-shrink-0'>
-          <ChatPanel 
-            pdfId={selectedPdfId}
-            selectedText={selectedText}
-            onTextSubmit={() => setSelectedText('')}
-          />
+        {/* Resizer */}
+        <div
+          className='w-1 bg-[var(--border)] hover:bg-[var(--accent)] cursor-col-resize transition-colors'
+          onMouseDown={handleMouseDown}
+        />
+
+        {/* Chat Panel - Right section with resizable width */}
+        <div
+          className='bg-[var(--chat-bg)] border-l border-[var(--border)] flex-shrink-0'
+          style={{ width: `${chatWidth}px` }}
+        >
+          <ErrorBoundary>
+            <ChatPanel
+              pdfId={selectedPdfId}
+              selectedText={selectedText}
+              onTextSubmit={() => setSelectedText('')}
+            />
+          </ErrorBoundary>
         </div>
       </div>
     </div>
