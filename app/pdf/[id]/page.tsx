@@ -1,18 +1,20 @@
 'use client';
 
 import { useSession, signOut } from '@/lib/auth-client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import PDFSidebar from '@/components/PDFSidebar';
 import PDFViewer from '@/components/PDFViewer';
 import ChatPanel from '@/components/ChatPanel';
 
-export default function Home() {
+export default function PDFPage() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const params = useParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string>('');
+
+  const pdfId = params.id as string;
 
   const handleSignOut = async () => {
     setIsLoading(true);
@@ -67,21 +69,26 @@ export default function Home() {
         <div className='flex justify-between items-center w-full'>
           {/* Logo */}
           <div className='flex items-center gap-3'>
-            <div className='w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center'>
-              <svg
-                className='w-5 h-5 text-white'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-              </svg>
-            </div>
-            <h1 className='text-xl font-semibold text-[var(--text-primary)]'>
-              Readly
-            </h1>
+            <button
+              onClick={() => router.push('/')}
+              className='flex items-center gap-3 hover:opacity-80 transition-opacity'
+            >
+              <div className='w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center'>
+                <svg
+                  className='w-5 h-5 text-white'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+                </svg>
+              </div>
+              <h1 className='text-xl font-semibold text-[var(--text-primary)]'>
+                Readly
+              </h1>
+            </button>
           </div>
 
           {/* User Info and Logout */}
@@ -112,8 +119,8 @@ export default function Home() {
         {/* PDF History Sidebar - 300px max */}
         <div className='w-80 max-w-[300px] bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0'>
           <PDFSidebar 
-            onPdfSelect={setSelectedPdfId} 
-            selectedPdfId={selectedPdfId}
+            onPdfSelect={(id) => router.push(`/pdf/${id}`)} 
+            selectedPdfId={pdfId}
             userId={session.user.id}
           />
         </div>
@@ -121,7 +128,7 @@ export default function Home() {
         {/* PDF Viewer - Middle section */}
         <div className='flex-1 bg-[var(--pdf-viewer-bg)] relative'>
           <PDFViewer 
-            pdfId={selectedPdfId}
+            pdfId={pdfId}
             onTextSelect={setSelectedText}
             selectedText={selectedText}
           />
@@ -130,7 +137,7 @@ export default function Home() {
         {/* Chat Panel - Right section */}
         <div className='w-96 bg-[var(--chat-bg)] border-l border-[var(--border)] flex-shrink-0'>
           <ChatPanel 
-            pdfId={selectedPdfId}
+            pdfId={pdfId}
             selectedText={selectedText}
             onTextSubmit={() => setSelectedText('')}
           />

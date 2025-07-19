@@ -1,21 +1,24 @@
 @import 'tailwindcss';
 
 :root {
-  /* Light mode colors */
-  --background: #ffffff;
+  /* Light mode colors with new scheme */
+  --background: #E7E6DC;
   --foreground: #262624;
   --card-background: #ffffff;
-  --border: #f0f0f0;
+  --border: #D8D8D7;
   --input-background: #ffffff;
-  --input-border: #e0e0e0;
+  --input-border: #C7C7C4;
   --button-primary: #C96342;
   --button-primary-text: #ffffff;
   --text-primary: #262624;
   --text-secondary: #1F1E1D;
   --text-muted: #888888;
   --accent: #C96342;
-  --divider: #f0f0f0;
-  --faded-white: #fafafa;
+  --divider: #D8D8D7;
+  --faded-white: #C7C7C4;
+  --sidebar-bg: #C7C7C4;
+  --pdf-viewer-bg: #E7E6DC;
+  --chat-bg: #D8D8D7;
 }
 
 @theme inline {
@@ -53,6 +56,9 @@
     --accent: #C96342;
     --divider: #404040;
     --faded-white: #2a2a2a;
+    --sidebar-bg: #1a1918;
+    --pdf-viewer-bg: #1F1E1D;
+    --chat-bg: #1c1b1a;
   }
 }
 

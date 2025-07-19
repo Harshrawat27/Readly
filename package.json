@@ -11,10 +11,21 @@
   "dependencies": {
     "@prisma/client": "^6.11.1",
     "better-auth": "^1.2.12",
+    "katex": "^0.16.22",
     "next": "15.3.5",
+    "openai": "^5.10.1",
+    "pdfjs-dist": "^5.3.93",
     "prisma": "^6.11.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-pdf": "^10.0.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
