@@ -105,12 +105,16 @@ export default function Home() {
         {/* PDF History Sidebar - Collapsible */}
         <div
           className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ease-in-out ${
-            sidebarCollapsed ? 'w-0' : 'w-80 max-w-[300px]'
+            sidebarCollapsed ? 'w-0' : 'w-80 max-w-[400px]'
           } overflow-hidden`}
         >
-          <div className={`w-80 h-full transition-opacity duration-200 ease-in-out ${
-            sidebarContentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}>
+          <div
+            className={`w-80 h-full transition-opacity duration-200 ease-in-out ${
+              sidebarContentVisible
+                ? 'opacity-100'
+                : 'opacity-0 pointer-events-none'
+            }`}
+          >
             <PDFSidebar
               onPdfSelect={setSelectedPdfId}
               selectedPdfId={selectedPdfId}
