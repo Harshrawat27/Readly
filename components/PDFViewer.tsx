@@ -31,6 +31,8 @@ interface PDFViewerProps {
   pdfId: string | null;
   onTextSelect: (text: string) => void;
   selectedText: string;
+  scale?: number;
+  onScaleChange?: (scale: number) => void;
 }
 
 interface TextSelectionDialog {
@@ -44,10 +46,13 @@ export default function PDFViewer({
   pdfId,
   onTextSelect,
   selectedText,
+  scale: externalScale,
+  onScaleChange,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1.2);
+  const [internalScale, setInternalScale] = useState(1.2);
+  const scale = externalScale || internalScale;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<string | null>(null);
@@ -218,12 +223,22 @@ export default function PDFViewer({
 
   // Debounced zoom functions to prevent crashes
   const handleZoomIn = useCallback(() => {
-    setScale((prev) => Math.min(3, prev + 0.1));
-  }, []);
+    const newScale = Math.min(2.0, scale + 0.1);
+    if (onScaleChange) {
+      onScaleChange(newScale);
+    } else {
+      setInternalScale(newScale);
+    }
+  }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
-    setScale((prev) => Math.max(0.5, prev - 0.1));
-  }, []);
+    const newScale = Math.max(0.5, scale - 0.1);
+    if (onScaleChange) {
+      onScaleChange(newScale);
+    } else {
+      setInternalScale(newScale);
+    }
+  }, [scale, onScaleChange]);
 
   // Memoize options to prevent unnecessary reloads
   const pdfOptions = useMemo(
@@ -379,7 +394,7 @@ export default function PDFViewer({
       </div>
 
       {/* PDF Document */}
-      <div className='flex-1 overflow-auto p-4'>
+      <div className='flex-1 overflow-x-auto overflow-y-auto p-4' style={{ maxWidth: '100%' }}>
         {pdfFile && (
           <div className='flex justify-center'>
             <Document

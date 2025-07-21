@@ -203,9 +203,9 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col max-h-[calc(100vh-4rem)] overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-[var(--border)] bg-[var(--card-background)]">
+      <div className="p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">
             Chat with PDF
@@ -231,7 +231,8 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
       {/* Messages */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 min-h-0"
+        style={{ maxHeight: 'calc(100vh - 12rem)' }}
       >
         {messages.length === 0 ? (
           <div className="text-center py-8">
@@ -263,15 +264,15 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-lg p-3 ${
+                className={`max-w-[80%] min-w-0 rounded-lg p-3 break-words overflow-hidden ${
                   message.role === 'user'
                     ? 'bg-[var(--accent)] text-white'
                     : 'bg-[var(--card-background)] border border-[var(--border)]'
                 }`}
               >
-                <div className={`text-sm ${
+                <div className={`text-sm break-words overflow-wrap-break-word ${
                   message.role === 'user' ? 'text-white' : 'text-[var(--text-primary)]'
-                }`}>
+                }`} style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                   {message.role === 'assistant' ? (
                     <MarkdownRenderer content={message.content} compact={true} />
                   ) : (
@@ -297,20 +298,20 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-[var(--border)] bg-[var(--card-background)]">
+      <div className="p-4 border-t border-[var(--border)] bg-[var(--card-background)] flex-shrink-0">
         {selectedText && (
           <div className="mb-3 p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg">
             <div className="text-xs text-[var(--accent)] font-medium mb-1">
               Selected text:
             </div>
-            <div className="text-sm text-[var(--text-primary)] italic">
+            <div className="text-sm text-[var(--text-primary)] italic break-words overflow-hidden" style={{ wordBreak: 'break-word' }}>
               "{selectedText.length > 100 ? selectedText.substring(0, 100) + '...' : selectedText}"
             </div>
           </div>
         )}
         
         <div className="flex gap-2">
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-0">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -319,14 +320,14 @@ export default function ChatPanel({ pdfId, selectedText, onTextSubmit }: ChatPan
               placeholder={pdfId ? "Ask a question about the PDF..." : "Select a PDF first"}
               disabled={!pdfId || isLoading}
               className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--input-background)] text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent)] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ minHeight: '40px', maxHeight: '120px' }}
+              style={{ minHeight: '40px', maxHeight: '120px', wordBreak: 'break-word' }}
             />
           </div>
           
           <button
             onClick={sendMessage}
             disabled={!inputValue.trim() || !pdfId || isLoading}
-            className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px]"
+            className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] flex-shrink-0"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

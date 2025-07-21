@@ -76,9 +76,9 @@ When users select text from the PDF, help them understand or elaborate on that s
           // Send completion signal
           const finalData = JSON.stringify({ content: '', done: true });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
-          console.log(
-            controller.enqueue(encoder.encode(`data: ${finalData}\n\n`))
-          );
+          // console.log(
+          //   controller.enqueue(encoder.encode(`data: ${finalData}\n\n`))
+          // );
 
           controller.close();
         } catch (error) {
