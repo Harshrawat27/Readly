@@ -15,6 +15,7 @@ export default function PDFPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedText, setSelectedText] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarContentVisible, setSidebarContentVisible] = useState(true);
   const [pdfScale, setPdfScale] = useState(1.0);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
 
@@ -123,11 +124,11 @@ export default function PDFPage() {
         {/* PDF History Sidebar - Collapsible */}
         <div className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ease-in-out ${
           sidebarCollapsed 
-            ? 'w-0 opacity-0 transform -translate-x-full' 
-            : 'w-80 max-w-[300px] opacity-100 transform translate-x-0'
+            ? 'w-0' 
+            : 'w-80 max-w-[300px]'
         } overflow-hidden`}>
-          <div className={`w-80 h-full transition-opacity duration-200 ${
-            sidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          <div className={`w-80 h-full transition-opacity duration-200 ease-in-out ${
+            sidebarContentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}>
             <PDFSidebar 
               onPdfSelect={(id) => router.push(`/pdf/${id}`)} 
@@ -136,7 +137,17 @@ export default function PDFPage() {
               onSignOut={handleSignOut}
               isSigningOut={isLoading}
               userName={session.user.name}
-              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+              onToggleSidebar={() => {
+                if (sidebarCollapsed) {
+                  // Opening sidebar: first expand, then show content
+                  setSidebarCollapsed(false);
+                  setTimeout(() => setSidebarContentVisible(true), 100);
+                } else {
+                  // Closing sidebar: first hide content, then collapse
+                  setSidebarContentVisible(false);
+                  setTimeout(() => setSidebarCollapsed(true), 200);
+                }
+              }}
               isCollapsed={sidebarCollapsed}
             />
           </div>
@@ -146,7 +157,10 @@ export default function PDFPage() {
         {sidebarCollapsed && (
           <div className='absolute left-4 top-1/2 transform -translate-y-1/2 z-10'>
             <button
-              onClick={() => setSidebarCollapsed(false)}
+              onClick={() => {
+                setSidebarCollapsed(false);
+                setTimeout(() => setSidebarContentVisible(true), 100);
+              }}
               className='p-2 bg-[var(--card-background)] hover:bg-[var(--faded-white)] rounded-lg border border-[var(--border)] shadow-md transition-colors'
             >
               <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>

@@ -15,6 +15,7 @@ export default function Home() {
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarContentVisible, setSidebarContentVisible] = useState(true);
   const [chatWidth, setChatWidth] = useState(384); // Default 384px (w-96)
   const [isResizing, setIsResizing] = useState(false);
 
@@ -103,20 +104,34 @@ export default function Home() {
       <div className='flex h-screen'>
         {/* PDF History Sidebar - Collapsible */}
         <div
-          className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ${
-            sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80 max-w-[300px]'
-          }`}
+          className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ease-in-out ${
+            sidebarCollapsed ? 'w-0' : 'w-80 max-w-[300px]'
+          } overflow-hidden`}
         >
-          <PDFSidebar
-            onPdfSelect={setSelectedPdfId}
-            selectedPdfId={selectedPdfId}
-            userId={session.user.id}
-            onSignOut={handleSignOut}
-            isSigningOut={isLoading}
-            userName={session.user.name}
-            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-            isCollapsed={sidebarCollapsed}
-          />
+          <div className={`w-80 h-full transition-opacity duration-200 ease-in-out ${
+            sidebarContentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}>
+            <PDFSidebar
+              onPdfSelect={setSelectedPdfId}
+              selectedPdfId={selectedPdfId}
+              userId={session.user.id}
+              onSignOut={handleSignOut}
+              isSigningOut={isLoading}
+              userName={session.user.name}
+              onToggleSidebar={() => {
+                if (sidebarCollapsed) {
+                  // Opening sidebar: first expand, then show content
+                  setSidebarCollapsed(false);
+                  setTimeout(() => setSidebarContentVisible(true), 100);
+                } else {
+                  // Closing sidebar: first hide content, then collapse
+                  setSidebarContentVisible(false);
+                  setTimeout(() => setSidebarCollapsed(true), 200);
+                }
+              }}
+              isCollapsed={sidebarCollapsed}
+            />
+          </div>
         </div>
 
         {/* PDF Viewer - Middle section */}
@@ -124,7 +139,10 @@ export default function Home() {
           {/* Collapse button when sidebar is collapsed */}
           {sidebarCollapsed && (
             <button
-              onClick={() => setSidebarCollapsed(false)}
+              onClick={() => {
+                setSidebarCollapsed(false);
+                setTimeout(() => setSidebarContentVisible(true), 100);
+              }}
               className='absolute top-4 left-4 z-10 p-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
             >
               <svg
