@@ -89,7 +89,7 @@ export default function SignUp() {
         email,
         password,
         name,
-        callbackURL: '/dashboard',
+        callbackURL: '/',
       });
     } catch (error) {
       console.error('Email sign-up error:', error);

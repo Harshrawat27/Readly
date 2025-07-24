@@ -1,6 +1,8 @@
-import { log } from 'console';
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -8,7 +10,20 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, pdfId } = await request.json();
+    const { messages, pdfId, chatId } = await request.json();
+    
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -22,6 +37,54 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid messages format' },
         { status: 400 }
       );
+    }
+
+    if (!pdfId) {
+      return NextResponse.json(
+        { error: 'PDF ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify PDF exists and belongs to user
+    const pdf = await prisma.pDF.findFirst({
+      where: {
+        id: pdfId,
+        userId: userId,
+      },
+    });
+
+    if (!pdf) {
+      return NextResponse.json(
+        { error: 'PDF not found' },
+        { status: 404 }
+      );
+    }
+
+    // Get or create chat
+    let currentChatId = chatId;
+    if (!currentChatId) {
+      const newChat = await prisma.chat.create({
+        data: {
+          userId: userId,
+          pdfId: pdfId,
+          title: `Chat about ${pdf.title}`,
+        },
+      });
+      currentChatId = newChat.id;
+    }
+
+    // Save user message to database
+    const lastUserMessage = messages[messages.length - 1];
+    if (lastUserMessage && lastUserMessage.role === 'user') {
+      await prisma.message.create({
+        data: {
+          chatId: currentChatId,
+          userId: userId,
+          role: 'user',
+          content: lastUserMessage.content,
+        },
+      });
     }
 
     // System prompt for PDF chat assistant
@@ -61,6 +124,8 @@ When users select text from the PDF, help them understand or elaborate on that s
 
     // Create a readable stream
     const encoder = new TextEncoder();
+    let assistantResponse = '';
+    
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
@@ -68,17 +133,35 @@ When users select text from the PDF, help them understand or elaborate on that s
             const content = chunk.choices[0]?.delta?.content || '';
 
             if (content) {
-              const data = JSON.stringify({ content, done: false });
+              assistantResponse += content;
+              const data = JSON.stringify({ 
+                content, 
+                done: false,
+                chatId: currentChatId 
+              });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
           }
 
+          // Save assistant response to database
+          if (assistantResponse.trim()) {
+            await prisma.message.create({
+              data: {
+                chatId: currentChatId,
+                userId: userId,
+                role: 'assistant',
+                content: assistantResponse.trim(),
+              },
+            });
+          }
+
           // Send completion signal
-          const finalData = JSON.stringify({ content: '', done: true });
+          const finalData = JSON.stringify({ 
+            content: '', 
+            done: true,
+            chatId: currentChatId 
+          });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
-          // console.log(
-          //   controller.enqueue(encoder.encode(`data: ${finalData}\n\n`))
-          // );
 
           controller.close();
         } catch (error) {

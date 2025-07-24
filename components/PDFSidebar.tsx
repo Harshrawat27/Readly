@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface PDFSidebarProps {
   onPdfSelect: (pdfId: string) => void;
@@ -31,109 +32,34 @@ export default function PDFSidebar({
   onToggleSidebar, 
   isCollapsed 
 }: PDFSidebarProps) {
-  const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([
-    // Dummy data for now
-    {
-      id: '1',
-      title: 'Sample Document 1',
-      fileName: 'document1.pdf',
-      uploadedAt: new Date('2024-01-15'),
-      lastAccessedAt: new Date('2024-01-20'),
-    },
-    {
-      id: '2',
-      title: 'Research Paper',
-      fileName: 'research.pdf',
-      uploadedAt: new Date('2024-01-10'),
-      lastAccessedAt: new Date('2024-01-18'),
-    },
-  ]);
-
-  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const router = useRouter();
+  const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([]);
+  const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const processPdfFile = useCallback(async (file: File) => {
-    // Validate file type
-    if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file.');
-      return false;
-    }
-
-    // Validate file size (max 5MB for localStorage)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB.');
-      return false;
-    }
-
+  // Load PDFs from API
+  const loadPdfs = useCallback(async () => {
     try {
-      // Convert file to base64 for storage using FileReader (more efficient for large files)
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-      
-      // Create new PDF entry
-      const newPdf: PDFItem = {
-        id: Date.now().toString(),
-        title: file.name.replace('.pdf', ''),
-        fileName: file.name,
-        uploadedAt: new Date(),
-        lastAccessedAt: new Date(),
-      };
-      
-      // Store file data in localStorage temporarily (in real app, use database)
-      // For large files, we might hit localStorage limits, so add error handling
-      try {
-        localStorage.setItem(`pdf_${newPdf.id}`, base64);
-      } catch (storageError) {
-        if (storageError instanceof DOMException && (
-          storageError.code === 22 || // QUOTA_EXCEEDED_ERR
-          storageError.code === 1014 || // NS_ERROR_DOM_QUOTA_REACHED
-          storageError.name === 'QuotaExceededError'
-        )) {
-          alert('File is too large for browser storage. Please try a smaller PDF (under 5MB).');
-          return false;
-        }
-        throw storageError;
+      setIsLoadingPdfs(true);
+      const response = await fetch('/api/pdf/list');
+      if (response.ok) {
+        const pdfs = await response.json();
+        setPdfHistory(pdfs.map((pdf: any) => ({
+          ...pdf,
+          uploadedAt: new Date(pdf.uploadedAt),
+          lastAccessedAt: new Date(pdf.lastAccessedAt),
+        })));
       }
-      
-      setPdfHistory(prev => [newPdf, ...prev]);
-      onPdfSelect(newPdf.id);
-      
-      return true;
     } catch (error) {
-      console.error('Error processing PDF:', error);
-      alert('Error processing PDF file. Please try again.');
-      return false;
+      console.error('Error loading PDFs:', error);
+    } finally {
+      setIsLoadingPdfs(false);
     }
-  }, [onPdfSelect]);
+  }, []);
 
-  const handleAddPdf = useCallback(async () => {
-    setIsUploadingPdf(true);
-    // Create file input element
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
-    input.multiple = false;
-    
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) {
-        setIsUploadingPdf(false);
-        return;
-      }
-
-      const success = await processPdfFile(file);
-      setIsUploadingPdf(false);
-    };
-    
-    input.click();
-  }, [processPdfFile]);
+  useEffect(() => {
+    loadPdfs();
+  }, [loadPdfs]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -148,19 +74,17 @@ export default function PDFSidebar({
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    setIsUploadingPdf(true);
 
     const files = Array.from(e.dataTransfer.files);
     const pdfFile = files.find(file => file.type === 'application/pdf');
 
     if (pdfFile) {
-      await processPdfFile(pdfFile);
+      // Navigate to upload page with the file
+      router.push('/upload');
     } else {
       alert('Please drop a valid PDF file.');
     }
-
-    setIsUploadingPdf(false);
-  }, [processPdfFile]);
+  }, [router]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -214,36 +138,33 @@ export default function PDFSidebar({
         
         {/* Add PDF Button */}
         <button
-          onClick={handleAddPdf}
-          disabled={isUploadingPdf}
-          className="w-full bg-[var(--accent)] text-white rounded-lg py-3 px-4 font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          onClick={() => router.push('/upload')}
+          className="w-full bg-[var(--accent)] text-white rounded-lg py-3 px-4 font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
-          {isUploadingPdf ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Uploading...
-            </>
-          ) : (
-            <>
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              Add PDF
-            </>
-          )}
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          Add PDF
         </button>
       </div>
 
       {/* PDF List */}
       <div className="flex-1 overflow-y-auto">
-        {pdfHistory.length === 0 ? (
+        {isLoadingPdfs ? (
+          <div className="p-4 text-center">
+            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-sm text-[var(--text-muted)]">
+              Loading PDFs...
+            </p>
+          </div>
+        ) : pdfHistory.length === 0 ? (
           <div className="p-4 text-center">
             <div className="w-12 h-12 bg-[var(--faded-white)] rounded-full mx-auto mb-3 flex items-center justify-center">
               <svg

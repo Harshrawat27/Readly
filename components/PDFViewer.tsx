@@ -22,9 +22,7 @@ if (typeof window !== 'undefined') {
       'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
   });
 
-  // Import CSS files
-  import('react-pdf/dist/Page/AnnotationLayer.css');
-  import('react-pdf/dist/Page/TextLayer.css');
+  // CSS files are imported in globals.css
 }
 
 interface PDFViewerProps {
@@ -69,23 +67,30 @@ export default function PDFViewer({
   // Load PDF file based on pdfId
   useEffect(() => {
     if (pdfId) {
-      try {
-        // Try to load from localStorage first
-        const storedPdf = localStorage.getItem(`pdf_${pdfId}`);
-        if (storedPdf) {
-          setPdfFile(storedPdf);
-          setCurrentPage(1);
+      const loadPdf = async () => {
+        try {
+          setIsLoading(true);
           setError(null);
-        } else {
+          
+          const response = await fetch(`/api/pdf/${pdfId}`);
+          if (!response.ok) {
+            throw new Error('Failed to load PDF');
+          }
+          
+          const pdfData = await response.json();
+          setPdfFile(pdfData.url);
+          setCurrentPage(1);
+        } catch (error) {
+          console.error('Error loading PDF:', error);
+          setError('Failed to load PDF file');
           // Fallback to sample PDF for demo
           setPdfFile('/sample.pdf');
-          setCurrentPage(1);
-          setError(null);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error loading PDF:', error);
-        setError('Failed to load PDF file');
-      }
+      };
+      
+      loadPdf();
     } else {
       setPdfFile(null);
       setNumPages(null);
