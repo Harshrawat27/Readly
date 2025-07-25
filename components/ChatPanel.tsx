@@ -29,6 +29,7 @@ export default function ChatPanel({
     null
   );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -45,11 +46,22 @@ export default function ChatPanel({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // Debug useEffect to track message changes
+  useEffect(() => {
+    console.log('Messages state changed:', {
+      length: messages.length,
+      messages: messages,
+      pdfId: pdfId,
+      isLoadingHistory: isLoadingHistory
+    });
+  }, [messages, pdfId, isLoadingHistory]);
+
   // Load existing chat history when pdfId changes
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!pdfId) {
         setMessages([]);
+        setCurrentChatId(null);
         return;
       }
 
@@ -60,8 +72,8 @@ export default function ChatPanel({
         // Fetch existing chats for this PDF
         const chatsResponse = await fetch(`/api/chat/list?pdfId=${pdfId}`);
         if (!chatsResponse.ok) {
-          console.log('Chat list response not ok:', chatsResponse.status);
-          return;
+          console.log('Chat list response not ok:', chatsResponse.status, chatsResponse.statusText);
+          throw new Error(`Chat list API failed: ${chatsResponse.status}`);
         }
 
         const chats = await chatsResponse.json();
@@ -70,6 +82,7 @@ export default function ChatPanel({
         if (!chats || chats.length === 0) {
           console.log('No chats found for this PDF');
           setMessages([]);
+          setCurrentChatId(null);
           return;
         }
 
@@ -79,11 +92,11 @@ export default function ChatPanel({
         
         const messagesResponse = await fetch(`/api/chat/${mostRecentChat.id}`);
         if (!messagesResponse.ok) {
-          console.log('Messages response not ok:', messagesResponse.status);
-          return;
+          console.log('Messages response not ok:', messagesResponse.status, messagesResponse.statusText);
+          throw new Error(`Messages API failed: ${messagesResponse.status}`);
         }
 
-        const { chat } = await messagesResponse.json();
+        const chat = await messagesResponse.json();
         console.log('Fetched chat with messages:', chat);
         
         if (chat && chat.messages) {
@@ -94,12 +107,18 @@ export default function ChatPanel({
             timestamp: new Date(msg.createdAt),
           }));
           console.log('Formatted messages:', formattedMessages);
+          console.log('About to set messages - current length:', messages.length);
           setMessages(formattedMessages);
+          console.log('Messages set, new length should be:', formattedMessages.length);
+          setCurrentChatId(mostRecentChat.id);
+          console.log('Set current chat ID:', mostRecentChat.id);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
+        console.log('ERROR - Setting messages to empty array due to error');
         setMessages([]);
       } finally {
+        console.log('FINALLY - Setting isLoadingHistory to false');
         setIsLoadingHistory(false);
       }
     };
@@ -169,6 +188,7 @@ export default function ChatPanel({
     setStreamingMessageId(assistantMessageId);
 
     try {
+      console.log('Sending message with chatId:', currentChatId);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -180,6 +200,7 @@ export default function ChatPanel({
             content: msg.content,
           })),
           pdfId,
+          chatId: currentChatId,
         }),
       });
 
@@ -204,6 +225,12 @@ export default function ChatPanel({
               if (line.startsWith('data: ')) {
                 try {
                   const data = JSON.parse(line.slice(6));
+                  // Update chatId if it's provided (for new chats)
+                  if (data.chatId && !currentChatId) {
+                    console.log('Received new chat ID:', data.chatId);
+                    setCurrentChatId(data.chatId);
+                  }
+
                   if (data.content) {
                     accumulatedContent += data.content;
 
