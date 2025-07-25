@@ -248,9 +248,9 @@ export default function PDFViewer({
   // Memoize options to prevent unnecessary reloads
   const pdfOptions = useMemo(
     () => ({
-      cMapUrl: 'https://unpkg.com/pdfjs-dist@4.0.379/cmaps/',
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@5.3.31/cmaps/',
       standardFontDataUrl:
-        'https://unpkg.com/pdfjs-dist@4.0.379/standard_fonts/',
+        'https://unpkg.com/pdfjs-dist@5.3.31/standard_fonts/',
       disableWorker: false,
       httpHeaders: {},
     }),
@@ -403,6 +403,7 @@ export default function PDFViewer({
         {pdfFile && (
           <div className='flex justify-center'>
             <Document
+              key={`${pdfFile}-${pdfId}`}
               file={pdfFile}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}

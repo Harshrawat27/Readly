@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth.api.getSession({
@@ -14,24 +14,19 @@ export async function GET(
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const pdf = await prisma.pDF.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
 
     if (!pdf) {
-      return NextResponse.json(
-        { error: 'PDF not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
     // Update last accessed time
@@ -49,12 +44,8 @@ export async function GET(
       fileName: pdf.fileName,
       url: signedUrl,
     });
-
   } catch (error) {
     console.error('PDF fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch PDF' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
   }
 }

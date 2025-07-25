@@ -28,6 +28,7 @@ export default function ChatPanel({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,68 @@ export default function ChatPanel({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Load existing chat history when pdfId changes
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!pdfId) {
+        setMessages([]);
+        return;
+      }
+
+      setIsLoadingHistory(true);
+      try {
+        console.log('Loading chat history for PDF:', pdfId);
+        
+        // Fetch existing chats for this PDF
+        const chatsResponse = await fetch(`/api/chat/list?pdfId=${pdfId}`);
+        if (!chatsResponse.ok) {
+          console.log('Chat list response not ok:', chatsResponse.status);
+          return;
+        }
+
+        const chats = await chatsResponse.json();
+        console.log('Fetched chats:', chats);
+        
+        if (!chats || chats.length === 0) {
+          console.log('No chats found for this PDF');
+          setMessages([]);
+          return;
+        }
+
+        // Load messages from the most recent chat
+        const mostRecentChat = chats[0];
+        console.log('Loading messages from chat:', mostRecentChat.id);
+        
+        const messagesResponse = await fetch(`/api/chat/${mostRecentChat.id}`);
+        if (!messagesResponse.ok) {
+          console.log('Messages response not ok:', messagesResponse.status);
+          return;
+        }
+
+        const { chat } = await messagesResponse.json();
+        console.log('Fetched chat with messages:', chat);
+        
+        if (chat && chat.messages) {
+          const formattedMessages = chat.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+          }));
+          console.log('Formatted messages:', formattedMessages);
+          setMessages(formattedMessages);
+        }
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+        setMessages([]);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    loadChatHistory();
+  }, [pdfId]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -253,7 +316,14 @@ export default function ChatPanel({
         className='flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 min-h-0'
         style={{ maxHeight: 'calc(100vh - 12rem)' }}
       >
-        {messages.length === 0 ? (
+        {isLoadingHistory ? (
+          <div className='text-center py-8'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-3'></div>
+            <p className='text-sm text-[var(--text-muted)]'>
+              Loading chat history...
+            </p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className='text-center py-8'>
             <div className='w-12 h-12 bg-[var(--faded-white)] rounded-full mx-auto mb-3 flex items-center justify-center'>
               <svg

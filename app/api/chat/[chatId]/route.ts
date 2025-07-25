@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { chatId: string } }
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
     const session = await auth.api.getSession({
@@ -19,9 +19,10 @@ export async function GET(
       );
     }
 
+    const { chatId } = await params;
     const chat = await prisma.chat.findFirst({
       where: {
-        id: params.chatId,
+        id: chatId,
         userId: session.user.id,
       },
       include: {
@@ -60,7 +61,7 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { chatId: string } }
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
     const session = await auth.api.getSession({
@@ -74,9 +75,10 @@ export async function DELETE(
       );
     }
 
+    const { chatId } = await params;
     const chat = await prisma.chat.findFirst({
       where: {
-        id: params.chatId,
+        id: chatId,
         userId: session.user.id,
       },
     });
@@ -90,7 +92,7 @@ export async function DELETE(
 
     await prisma.chat.delete({
       where: {
-        id: params.chatId,
+        id: chatId,
       },
     });
 
