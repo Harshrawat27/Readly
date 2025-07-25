@@ -52,7 +52,7 @@ export default function ChatPanel({
       length: messages.length,
       messages: messages,
       pdfId: pdfId,
-      isLoadingHistory: isLoadingHistory
+      isLoadingHistory: isLoadingHistory,
     });
   }, [messages, pdfId, isLoadingHistory]);
 
@@ -68,17 +68,21 @@ export default function ChatPanel({
       setIsLoadingHistory(true);
       try {
         console.log('Loading chat history for PDF:', pdfId);
-        
+
         // Fetch existing chats for this PDF
         const chatsResponse = await fetch(`/api/chat/list?pdfId=${pdfId}`);
         if (!chatsResponse.ok) {
-          console.log('Chat list response not ok:', chatsResponse.status, chatsResponse.statusText);
+          console.log(
+            'Chat list response not ok:',
+            chatsResponse.status,
+            chatsResponse.statusText
+          );
           throw new Error(`Chat list API failed: ${chatsResponse.status}`);
         }
 
         const chats = await chatsResponse.json();
         console.log('Fetched chats:', chats);
-        
+
         if (!chats || chats.length === 0) {
           console.log('No chats found for this PDF');
           setMessages([]);
@@ -89,16 +93,20 @@ export default function ChatPanel({
         // Load messages from the most recent chat
         const mostRecentChat = chats[0];
         console.log('Loading messages from chat:', mostRecentChat.id);
-        
+
         const messagesResponse = await fetch(`/api/chat/${mostRecentChat.id}`);
         if (!messagesResponse.ok) {
-          console.log('Messages response not ok:', messagesResponse.status, messagesResponse.statusText);
+          console.log(
+            'Messages response not ok:',
+            messagesResponse.status,
+            messagesResponse.statusText
+          );
           throw new Error(`Messages API failed: ${messagesResponse.status}`);
         }
 
         const chat = await messagesResponse.json();
         console.log('Fetched chat with messages:', chat);
-        
+
         if (chat && chat.messages) {
           const formattedMessages = chat.messages.map((msg: any) => ({
             id: msg.id,
@@ -107,9 +115,15 @@ export default function ChatPanel({
             timestamp: new Date(msg.createdAt),
           }));
           console.log('Formatted messages:', formattedMessages);
-          console.log('About to set messages - current length:', messages.length);
+          console.log(
+            'About to set messages - current length:',
+            messages.length
+          );
           setMessages(formattedMessages);
-          console.log('Messages set, new length should be:', formattedMessages.length);
+          console.log(
+            'Messages set, new length should be:',
+            formattedMessages.length
+          );
           setCurrentChatId(mostRecentChat.id);
           console.log('Set current chat ID:', mostRecentChat.id);
         }
@@ -400,8 +414,11 @@ export default function ChatPanel({
                 >
                   {message.role === 'assistant' ? (
                     <MarkdownRenderer
-                      content={message.content}
+                      markdownText={message.content}
                       compact={true}
+                      isHighlightEnabled={true}
+                      className='chat-message'
+                      fontSize={15}
                     />
                   ) : (
                     <div className='whitespace-pre-wrap'>{message.content}</div>

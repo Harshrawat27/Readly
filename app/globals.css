@@ -4,23 +4,23 @@
 
 :root {
   /* Light mode colors with new scheme */
-  --background: #E7E6DC;
+  --background: #e7e6dc;
   --foreground: #262624;
   --card-background: #ffffff;
-  --border: #D8D8D7;
+  --border: #d8d8d7;
   --input-background: #ffffff;
-  --input-border: #C7C7C4;
-  --button-primary: #C96342;
+  --input-border: #c7c7c4;
+  --button-primary: #c96342;
   --button-primary-text: #ffffff;
   --text-primary: #262624;
-  --text-secondary: #1F1E1D;
+  --text-secondary: #1f1e1d;
   --text-muted: #888888;
-  --accent: #C96342;
-  --divider: #D8D8D7;
-  --faded-white: #C7C7C4;
-  --sidebar-bg: #C7C7C4;
-  --pdf-viewer-bg: #E7E6DC;
-  --chat-bg: #D8D8D7;
+  --accent: #c96342;
+  --divider: #d8d8d7;
+  --faded-white: #c7c7c4;
+  --sidebar-bg: #c7c7c4;
+  --pdf-viewer-bg: #e7e6dc;
+  --chat-bg: #d8d8d7;
 }
 
 @theme inline {
@@ -44,22 +44,22 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1F1E1D;
+    --background: #1f1e1d;
     --foreground: #ffffff;
     --card-background: #262624;
     --border: #404040;
     --input-background: #262624;
     --input-border: #505050;
-    --button-primary: #C96342;
+    --button-primary: #c96342;
     --button-primary-text: #ffffff;
     --text-primary: #ffffff;
     --text-secondary: #e0e0e0;
     --text-muted: #888888;
-    --accent: #C96342;
+    --accent: #c96342;
     --divider: #404040;
     --faded-white: #2a2a2a;
     --sidebar-bg: #1a1918;
-    --pdf-viewer-bg: #1F1E1D;
+    --pdf-viewer-bg: #1f1e1d;
     --chat-bg: #1c1b1a;
   }
 }
@@ -138,4 +138,33 @@ a {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+/* Ensure lists maintain proper spacing and bullets */
+ul, ol {
+  list-style: revert;
+  margin: revert;
+  padding: revert;
+}
+
+li {
+  display: list-item;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }

@@ -11,16 +11,13 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
   try {
     const { messages, pdfId, chatId } = await request.json();
-    
+
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = session.user.id;
@@ -55,10 +52,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!pdf) {
-      return NextResponse.json(
-        { error: 'PDF not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
     // Get or create chat
@@ -125,23 +119,29 @@ When users select text from the PDF, help them understand or elaborate on that s
     // Create a readable stream
     const encoder = new TextEncoder();
     let assistantResponse = '';
-    
+
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
           for await (const chunk of stream) {
+            // Log the raw chunk from OpenAI
+            // console.log('OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
+
             const content = chunk.choices[0]?.delta?.content || '';
 
             if (content) {
               assistantResponse += content;
-              const data = JSON.stringify({ 
-                content, 
+              const data = JSON.stringify({
+                content,
                 done: false,
-                chatId: currentChatId 
+                chatId: currentChatId,
               });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
           }
+
+          // Log complete response before saving
+          // console.log('Complete OpenAI response:', assistantResponse);
 
           // Save assistant response to database
           if (assistantResponse.trim()) {
@@ -156,10 +156,10 @@ When users select text from the PDF, help them understand or elaborate on that s
           }
 
           // Send completion signal
-          const finalData = JSON.stringify({ 
-            content: '', 
+          const finalData = JSON.stringify({
+            content: '',
             done: true,
-            chatId: currentChatId 
+            chatId: currentChatId,
           });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
 
