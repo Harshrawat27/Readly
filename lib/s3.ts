@@ -1,19 +1,30 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'AKIAEXAMPLE123456789',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+    secretAccessKey:
+      process.env.AWS_SECRET_ACCESS_KEY ||
+      'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
   },
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'readly-pdfs-bucket';
 
-export async function uploadPdfToS3(file: Buffer, fileName: string, userId: string): Promise<string> {
+export async function uploadPdfToS3(
+  file: Buffer,
+  fileName: string,
+  userId: string
+): Promise<string> {
   const key = `pdfs/${userId}/${Date.now()}-${fileName}`;
-  
+
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -41,7 +52,9 @@ export async function getPdfFromS3(key: string): Promise<string> {
   });
 
   try {
-    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600,
+    });
     return signedUrl;
   } catch (error) {
     console.error('Error getting PDF from S3:', error);

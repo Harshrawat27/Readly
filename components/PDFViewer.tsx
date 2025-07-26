@@ -228,7 +228,7 @@ export default function PDFViewer({
 
   // Debounced zoom functions to prevent crashes
   const handleZoomIn = useCallback(() => {
-    const newScale = Math.min(2.0, scale + 0.1);
+    const newScale = Math.min(3.0, scale + 0.1); // Increased max to 300%
     if (onScaleChange) {
       onScaleChange(newScale);
     } else {
@@ -237,7 +237,7 @@ export default function PDFViewer({
   }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
-    const newScale = Math.max(0.5, scale - 0.1);
+    const newScale = Math.max(0.3, scale - 0.1); // Decreased min to 30%
     if (onScaleChange) {
       onScaleChange(newScale);
     } else {
@@ -312,8 +312,8 @@ export default function PDFViewer({
 
   return (
     <div ref={containerRef} className='h-full flex flex-col relative'>
-      {/* PDF Controls */}
-      <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)]'>
+      {/* PDF Controls - Fixed toolbar */}
+      <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0 z-10'>
         <div className='flex items-center gap-4'>
           {/* Page Navigation */}
           <div className='flex items-center gap-2'>
@@ -398,11 +398,12 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* PDF Document */}
-      <div className='flex-1 overflow-x-auto overflow-y-auto p-4' style={{ maxWidth: '100%' }}>
-        {pdfFile && (
-          <div className='flex justify-center'>
-            <Document
+      {/* PDF Document - Fixed container with scroll */}
+      <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)]'>
+        <div className='min-h-full p-4'>
+          {pdfFile && (
+            <div className='flex justify-center'>
+              <Document
               key={`${pdfFile}-${pdfId}`}
               file={pdfFile}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -462,8 +463,9 @@ export default function PDFViewer({
                 />
               )}
             </Document>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Text Selection Dialog */}
