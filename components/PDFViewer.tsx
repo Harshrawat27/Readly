@@ -228,7 +228,7 @@ export default function PDFViewer({
 
   // Debounced zoom functions to prevent crashes
   const handleZoomIn = useCallback(() => {
-    const newScale = Math.min(3.0, scale + 0.1); // Increased max to 300%
+    const newScale = Math.min(2.0, scale + 0.1); // Max 200% as requested
     if (onScaleChange) {
       onScaleChange(newScale);
     } else {
@@ -237,7 +237,7 @@ export default function PDFViewer({
   }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
-    const newScale = Math.max(0.3, scale - 0.1); // Decreased min to 30%
+    const newScale = Math.max(0.5, scale - 0.1); // Min 50%
     if (onScaleChange) {
       onScaleChange(newScale);
     } else {
@@ -398,11 +398,11 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* PDF Document - Fixed container with scroll */}
+      {/* PDF Document - Scrollable container, toolbar stays fixed */}
       <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)]'>
-        <div className='min-h-full p-4'>
+        <div className='p-4'>
           {pdfFile && (
-            <div className='flex justify-center'>
+            <div className='flex justify-center min-h-full'>
               <Document
               key={`${pdfFile}-${pdfId}`}
               file={pdfFile}

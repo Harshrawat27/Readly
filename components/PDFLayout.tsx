@@ -33,7 +33,7 @@ export default function PDFLayout({
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
       {/* Main Three-Panel Layout - Full height */}
-      <div className='flex h-full'>
+      <div className='main-layout flex h-full'>
         {/* PDF History Sidebar - Collapsible */}
         <div
           className={`bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex-shrink-0 transition-all duration-300 ease-in-out ${
@@ -54,8 +54,11 @@ export default function PDFLayout({
           />
         </div>
 
-        {/* PDF Viewer - Fixed middle section */}
-        <div className='flex-1 min-w-0 bg-[var(--pdf-viewer-bg)] relative'>
+        {/* PDF Viewer - Flexible middle section */}
+        <div 
+          className='flex-1 bg-[var(--pdf-viewer-bg)] relative overflow-hidden'
+          style={{ minWidth: '400px' }}
+        >
           <PDFViewer
             pdfId={pdfId}
             onTextSelect={onTextSelect}
@@ -73,8 +76,12 @@ export default function PDFLayout({
 
         {/* Chat Panel - Fixed width section */}
         <div
-          className='bg-[var(--chat-bg)] border-l border-[var(--border)] flex-shrink-0'
-          style={{ width: `${chatPanelWidth}px`, minWidth: `${chatPanelWidth}px`, maxWidth: `${chatPanelWidth}px` }}
+          className='bg-[var(--chat-bg)] flex-shrink-0'
+          style={{ 
+            width: `${chatPanelWidth}px`, 
+            minWidth: `${chatPanelWidth}px`,
+            maxWidth: `${chatPanelWidth}px`
+          }}
         >
           <ChatPanel
             pdfId={pdfId}
