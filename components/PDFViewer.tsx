@@ -48,6 +48,7 @@ export default function PDFViewer({
   onScaleChange,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [internalScale, setInternalScale] = useState(1.2);
   const scale = externalScale || internalScale;
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +63,7 @@ export default function PDFViewer({
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Load PDF file based on pdfId
   useEffect(() => {
@@ -78,6 +80,7 @@ export default function PDFViewer({
           
           const pdfData = await response.json();
           setPdfFile(pdfData.url);
+          setCurrentPage(1);
         } catch (error) {
           console.error('Error loading PDF:', error);
           setError('Failed to load PDF file');
@@ -92,6 +95,7 @@ export default function PDFViewer({
     } else {
       setPdfFile(null);
       setNumPages(null);
+      setCurrentPage(1);
     }
   }, [pdfId]);
 
@@ -179,11 +183,64 @@ export default function PDFViewer({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectionDialog.visible]);
 
+  // Intersection Observer for tracking current page
+  useEffect(() => {
+    if (!numPages) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the page with highest intersection ratio that's at least 50% visible
+        let bestMatch = { pageNumber: 1, ratio: 0 };
+        
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const pageNumber = parseInt(entry.target.getAttribute('data-page-number') || '1');
+            if (entry.intersectionRatio > bestMatch.ratio) {
+              bestMatch = { pageNumber, ratio: entry.intersectionRatio };
+            }
+          }
+        });
+        
+        // If we found a visible page, update current page
+        if (bestMatch.ratio > 0) {
+          setCurrentPage(bestMatch.pageNumber);
+        }
+      },
+      {
+        threshold: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0], // Multiple thresholds for better detection
+        root: containerRef.current?.querySelector('.pdf-scroll-container'),
+      }
+    );
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      pageRefs.current.forEach((pageRef) => {
+        if (pageRef) {
+          observer.observe(pageRef);
+        }
+      });
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [numPages, pdfFile]);
+
+  // Force reset currentPage when PDF changes
+  useEffect(() => {
+    if (pdfFile) {
+      setCurrentPage(1);
+    }
+  }, [pdfFile]);
+
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
+      setCurrentPage(1);
       setIsLoading(false);
       setError(null);
+      pageRefs.current = new Array(numPages).fill(null);
     },
     []
   );
@@ -207,14 +264,13 @@ export default function PDFViewer({
   }, [selectionDialog.text, onTextSelect]);
 
   const calculateScale = useCallback(() => {
-    const maxWidth = containerWidth - 64; // Account for padding
-    const baseScale = Math.min(scale, maxWidth / 600); // Assume 600px base width
-    return Math.max(baseScale, 0.5); // Minimum scale
-  }, [scale, containerWidth]);
+    // Allow full scale control, no width constraints
+    return Math.max(scale, 0.5); // Minimum scale only
+  }, [scale]);
 
-  // Debounced zoom functions to prevent crashes
+  // Zoom functions with increased maximum
   const handleZoomIn = useCallback(() => {
-    const newScale = Math.min(2.0, scale + 0.1); // Max 200% as requested
+    const newScale = Math.min(3.0, scale + 0.1); // Increased max to 300%
     if (onScaleChange) {
       onScaleChange(newScale);
     } else {
@@ -230,6 +286,15 @@ export default function PDFViewer({
       setInternalScale(newScale);
     }
   }, [scale, onScaleChange]);
+
+  const handleZoomReset = useCallback(() => {
+    const resetScale = 1.0; // Reset to 100%
+    if (onScaleChange) {
+      onScaleChange(resetScale);
+    } else {
+      setInternalScale(resetScale);
+    }
+  }, [onScaleChange]);
 
   // Memoize options to prevent unnecessary reloads
   const pdfOptions = useMemo(
@@ -301,9 +366,9 @@ export default function PDFViewer({
       {/* PDF Controls - Fixed toolbar */}
       <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0 z-10'>
         <div className='flex items-center gap-4'>
-          {/* Page Count Display */}
+          {/* Current Page / Total Pages */}
           <span className='text-sm text-[var(--text-primary)]'>
-            {numPages ? `${numPages} pages` : 'Loading...'}
+            {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
           </span>
         </div>
 
@@ -326,9 +391,24 @@ export default function PDFViewer({
             </svg>
           </button>
 
-          <span className='text-sm text-[var(--text-primary)] min-w-[50px] text-center'>
-            {Math.round(calculateScale() * 100)}%
-          </span>
+          <button
+            onClick={handleZoomReset}
+            className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
+            title='Reset to 100%'
+          >
+            <svg
+              className='w-4 h-4'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
+              <path d='M21 3v5h-5' />
+              <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
+              <path d='M3 21v-5h5' />
+            </svg>
+          </button>
 
           <button
             onClick={handleZoomIn}
@@ -350,9 +430,9 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* PDF Document - Scrollable container with all pages */}
-      <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)]'>
-        <div className='p-4'>
+      {/* PDF Document - Scrollable container with all pages and horizontal overflow */}
+      <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)] pdf-scroll-container'>
+        <div className='p-4 min-w-fit'>
           {pdfFile && (
             <div className='flex flex-col items-center space-y-4'>
               <Document
@@ -393,26 +473,33 @@ export default function PDFViewer({
                 options={pdfOptions}
               >
                 {numPages && Array.from(new Array(numPages), (el, index) => (
-                  <Page
-                    key={`page_${index + 1}_${calculateScale()}`}
-                    pageNumber={index + 1}
-                    scale={calculateScale()}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    className='pdf-page shadow-lg border mb-4'
-                    loading={
-                      <div className='text-center py-4'>
-                        <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
-                      </div>
-                    }
-                    error={
-                      <div className='text-center py-4'>
-                        <p className='text-[var(--text-muted)] text-sm'>
-                          Failed to load page {index + 1}
-                        </p>
-                      </div>
-                    }
-                  />
+                  <div
+                    key={`page-wrapper-${index + 1}`}
+                    ref={(el) => (pageRefs.current[index] = el)}
+                    data-page-number={index + 1}
+                    className='mb-4'
+                  >
+                    <Page
+                      key={`page_${index + 1}_${calculateScale()}`}
+                      pageNumber={index + 1}
+                      scale={calculateScale()}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                      className='pdf-page shadow-lg border'
+                      loading={
+                        <div className='text-center py-4'>
+                          <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                        </div>
+                      }
+                      error={
+                        <div className='text-center py-4'>
+                          <p className='text-[var(--text-muted)] text-sm'>
+                            Failed to load page {index + 1}
+                          </p>
+                        </div>
+                      }
+                    />
+                  </div>
                 ))}
               </Document>
             </div>
