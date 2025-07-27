@@ -13,10 +13,7 @@ export async function GET(
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { chatId } = await params;
@@ -42,14 +39,10 @@ export async function GET(
     });
 
     if (!chat) {
-      return NextResponse.json(
-        { error: 'Chat not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     }
 
     return NextResponse.json(chat);
-
   } catch (error) {
     console.error('Chat fetch error:', error);
     return NextResponse.json(
@@ -69,10 +62,7 @@ export async function DELETE(
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { chatId } = await params;
@@ -84,10 +74,7 @@ export async function DELETE(
     });
 
     if (!chat) {
-      return NextResponse.json(
-        { error: 'Chat not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     }
 
     await prisma.chat.delete({
@@ -97,7 +84,6 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: 'Chat deleted successfully' });
-
   } catch (error) {
     console.error('Chat delete error:', error);
     return NextResponse.json(

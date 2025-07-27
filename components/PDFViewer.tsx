@@ -48,7 +48,6 @@ export default function PDFViewer({
   onScaleChange,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [internalScale, setInternalScale] = useState(1.2);
   const scale = externalScale || internalScale;
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +78,6 @@ export default function PDFViewer({
           
           const pdfData = await response.json();
           setPdfFile(pdfData.url);
-          setCurrentPage(1);
         } catch (error) {
           console.error('Error loading PDF:', error);
           setError('Failed to load PDF file');
@@ -94,7 +92,6 @@ export default function PDFViewer({
     } else {
       setPdfFile(null);
       setNumPages(null);
-      setCurrentPage(1);
     }
   }, [pdfId]);
 
@@ -185,7 +182,6 @@ export default function PDFViewer({
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
-      setCurrentPage(1);
       setIsLoading(false);
       setError(null);
     },
@@ -215,16 +211,6 @@ export default function PDFViewer({
     const baseScale = Math.min(scale, maxWidth / 600); // Assume 600px base width
     return Math.max(baseScale, 0.5); // Minimum scale
   }, [scale, containerWidth]);
-
-  const changePage = useCallback(
-    (offset: number) => {
-      setCurrentPage((prevPage) => {
-        const newPage = prevPage + offset;
-        return Math.max(1, Math.min(newPage, numPages || 1));
-      });
-    },
-    [numPages]
-  );
 
   // Debounced zoom functions to prevent crashes
   const handleZoomIn = useCallback(() => {
@@ -315,44 +301,10 @@ export default function PDFViewer({
       {/* PDF Controls - Fixed toolbar */}
       <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0 z-10'>
         <div className='flex items-center gap-4'>
-          {/* Page Navigation */}
-          <div className='flex items-center gap-2'>
-            <button
-              onClick={() => changePage(-1)}
-              disabled={currentPage <= 1}
-              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            >
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M15 18l-6-6 6-6' />
-              </svg>
-            </button>
-
-            <span className='text-sm text-[var(--text-primary)] min-w-[80px] text-center'>
-              {numPages ? `${currentPage} / ${numPages}` : 'Loading...'}
-            </span>
-
-            <button
-              onClick={() => changePage(1)}
-              disabled={currentPage >= (numPages || 1)}
-              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-            >
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M9 18l6-6-6-6' />
-              </svg>
-            </button>
-          </div>
+          {/* Page Count Display */}
+          <span className='text-sm text-[var(--text-primary)]'>
+            {numPages ? `${numPages} pages` : 'Loading...'}
+          </span>
         </div>
 
         {/* Zoom Controls */}
@@ -398,71 +350,71 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* PDF Document - Scrollable container, toolbar stays fixed */}
+      {/* PDF Document - Scrollable container with all pages */}
       <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)]'>
         <div className='p-4'>
           {pdfFile && (
-            <div className='flex justify-center min-h-full'>
+            <div className='flex flex-col items-center space-y-4'>
               <Document
-              key={`${pdfFile}-${pdfId}`}
-              file={pdfFile}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={onDocumentLoadError}
-              loading={
-                <div className='text-center py-8'>
-                  <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
-                  <p className='text-[var(--text-muted)]'>Loading PDF...</p>
-                </div>
-              }
-              error={
-                <div className='text-center py-8'>
-                  <div className='w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center'>
-                    <svg
-                      className='w-8 h-8 text-red-500'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                    >
-                      <circle cx='12' cy='12' r='10' />
-                      <path d='M12 8v4' />
-                      <path d='M12 16h.01' />
-                    </svg>
+                key={`${pdfFile}-${pdfId}`}
+                file={pdfFile}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={onDocumentLoadError}
+                loading={
+                  <div className='text-center py-8'>
+                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
+                    <p className='text-[var(--text-muted)]'>Loading PDF...</p>
                   </div>
-                  <p className='text-[var(--text-muted)]'>Failed to load PDF</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className='mt-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm'
-                  >
-                    Retry
-                  </button>
-                </div>
-              }
-              options={pdfOptions}
-            >
-              {numPages && (
-                <Page
-                  key={`page_${currentPage}_${calculateScale()}`}
-                  pageNumber={currentPage}
-                  scale={calculateScale()}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  className='pdf-page shadow-lg border mx-auto'
-                  loading={
-                    <div className='text-center py-4'>
-                      <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                }
+                error={
+                  <div className='text-center py-8'>
+                    <div className='w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center'>
+                      <svg
+                        className='w-8 h-8 text-red-500'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                      >
+                        <circle cx='12' cy='12' r='10' />
+                        <path d='M12 8v4' />
+                        <path d='M12 16h.01' />
+                      </svg>
                     </div>
-                  }
-                  error={
-                    <div className='text-center py-4'>
-                      <p className='text-[var(--text-muted)] text-sm'>
-                        Failed to load page
-                      </p>
-                    </div>
-                  }
-                />
-              )}
-            </Document>
+                    <p className='text-[var(--text-muted)]'>Failed to load PDF</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className='mt-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm'
+                    >
+                      Retry
+                    </button>
+                  </div>
+                }
+                options={pdfOptions}
+              >
+                {numPages && Array.from(new Array(numPages), (el, index) => (
+                  <Page
+                    key={`page_${index + 1}_${calculateScale()}`}
+                    pageNumber={index + 1}
+                    scale={calculateScale()}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    className='pdf-page shadow-lg border mb-4'
+                    loading={
+                      <div className='text-center py-4'>
+                        <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                      </div>
+                    }
+                    error={
+                      <div className='text-center py-4'>
+                        <p className='text-[var(--text-muted)] text-sm'>
+                          Failed to load page {index + 1}
+                        </p>
+                      </div>
+                    }
+                  />
+                ))}
+              </Document>
             </div>
           )}
         </div>
