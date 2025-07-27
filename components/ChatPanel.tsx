@@ -30,6 +30,8 @@ export default function ChatPanel({
   );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -144,8 +146,9 @@ export default function ChatPanel({
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textareaRef.current.scrollHeight, 120); // Max 120px
-      textareaRef.current.style.height = `${newHeight}px`;
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200); // Max 200px to match maxHeight
+      const minHeight = 48; // Match minHeight
+      textareaRef.current.style.height = `${Math.max(newHeight, minHeight)}px`;
     }
   }, []);
 
@@ -466,46 +469,181 @@ export default function ChatPanel({
           </div>
         )}
 
-        <div className='flex gap-2'>
-          <div className='flex-1 relative min-w-0'>
+        <div className='relative'>
+          {/* Unified input container */}
+          <div className='border border-[var(--border)] rounded-xl bg-[var(--input-background)] focus-within:border-[var(--accent)] transition-colors'>
+            {/* Text input area */}
             <textarea
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={
-                pdfId ? 'Ask a question about the PDF...' : 'Select a PDF first'
-              }
+              placeholder={pdfId ? 'Reply to Readly...' : 'Select a PDF first'}
               disabled={!pdfId || isLoading}
-              className='w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--input-background)] text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--accent)] disabled:opacity-50 disabled:cursor-not-allowed'
+              className='w-full p-4 pb-2 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
               style={{
-                minHeight: '40px',
-                maxHeight: '120px',
+                minHeight: '48px',
+                maxHeight: '200px',
                 wordBreak: 'break-word',
               }}
             />
+
+            {/* Bottom row with controls */}
+            <div className='flex items-center justify-between px-4 pb-3'>
+              {/* Left buttons */}
+              <div className='flex items-center gap-2'>
+                <button
+                  className='flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+                  title='Add attachment'
+                >
+                  <svg
+                    className='w-5 h-5 text-[var(--text-muted)]'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M12 5v14' />
+                    <path d='M5 12h14' />
+                  </svg>
+                </button>
+
+                <button
+                  className='flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+                  title='Format text'
+                >
+                  <svg
+                    className='w-5 h-5 text-[var(--text-muted)]'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M4 7V4h16v3' />
+                    <path d='M9 20h6' />
+                    <path d='M12 4v16' />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Right side - Model dropdown and send button */}
+              <div className='flex items-center gap-2'>
+                {/* Model dropdown */}
+                <div className='relative'>
+                  <button
+                    onClick={() => setShowModelDropdown(!showModelDropdown)}
+                    className='flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+                  >
+                    <span>{selectedModel}</span>
+                    <svg
+                      className='w-4 h-4 text-[var(--text-muted)]'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
+                      <path d='M6 9l6 6 6-6' />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {showModelDropdown && (
+                    <div className='absolute right-0 bottom-full mb-2 w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg z-50'>
+                      <div className='p-3'>
+                        <div
+                          className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
+                          onClick={() => {
+                            setSelectedModel('Claude Opus 4');
+                            setShowModelDropdown(false);
+                          }}
+                        >
+                          <div className='flex-1'>
+                            <div className='font-medium text-[var(--text-primary)]'>
+                              Claude Opus 4
+                            </div>
+                            <div className='text-sm text-[var(--text-muted)]'>
+                              Powerful, large model for complex challenges
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
+                          onClick={() => {
+                            setSelectedModel('Claude Sonnet 4');
+                            setShowModelDropdown(false);
+                          }}
+                        >
+                          <div className='flex-1'>
+                            <div className='font-medium text-[var(--text-primary)] flex items-center gap-2'>
+                              Claude Sonnet 4
+                              {selectedModel === 'Claude Sonnet 4' && (
+                                <svg
+                                  className='w-4 h-4 text-blue-500'
+                                  viewBox='0 0 24 24'
+                                  fill='none'
+                                  stroke='currentColor'
+                                  strokeWidth='2'
+                                >
+                                  <path d='M20 6L9 17l-5-5' />
+                                </svg>
+                              )}
+                            </div>
+                            <div className='text-sm text-[var(--text-muted)]'>
+                              Smart, efficient model for everyday use
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className='flex items-center gap-2 p-3 text-[var(--text-muted)] hover:bg-[var(--faded-white)] cursor-pointer transition-colors rounded-lg'>
+                          <span className='text-sm'>More models</span>
+                          <svg
+                            className='w-4 h-4'
+                            viewBox='0 0 24 24'
+                            fill='none'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                          >
+                            <path d='M9 18l6-6-6-6' />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Send button */}
+                <button
+                  onClick={sendMessage}
+                  disabled={!inputValue.trim() || !pdfId || isLoading}
+                  className='flex items-center justify-center w-8 h-8 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isLoading ? (
+                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                  ) : (
+                    <svg
+                      className='w-4 h-4'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
+                      <path d='M22 2L11 13' />
+                      <path d='M22 2l-7 20-4-9-9-4z' />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={sendMessage}
-            disabled={!inputValue.trim() || !pdfId || isLoading}
-            className='px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] flex-shrink-0'
-          >
-            {isLoading ? (
-              <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
-            ) : (
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M22 2L11 13' />
-                <path d='M22 2l-7 20-4-9-9-4z' />
-              </svg>
-            )}
-          </button>
+          {/* Click outside to close dropdown */}
+          {showModelDropdown && (
+            <div
+              className='fixed inset-0 z-40'
+              onClick={() => setShowModelDropdown(false)}
+            />
+          )}
         </div>
       </div>
     </div>
