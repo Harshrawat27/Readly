@@ -39,13 +39,37 @@ export default function PDFSidebar({
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load PDFs from API
-  const loadPdfs = useCallback(async () => {
+  // Load PDFs from API with caching
+  const loadPdfs = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoadingPdfs(true);
+      
+      // Check cache first (cache for 5 minutes)
+      const cacheKey = `pdf-list-${userId}`;
+      const cacheTimeKey = `pdf-list-time-${userId}`;
+      const cached = localStorage.getItem(cacheKey);
+      const cacheTime = localStorage.getItem(cacheTimeKey);
+      const now = Date.now();
+      const cacheMaxAge = 5 * 60 * 1000; // 5 minutes
+      
+      if (!forceRefresh && cached && cacheTime && (now - parseInt(cacheTime)) < cacheMaxAge) {
+        const cachedPdfs = JSON.parse(cached);
+        setPdfHistory(cachedPdfs.map((pdf: any) => ({
+          ...pdf,
+          uploadedAt: new Date(pdf.uploadedAt),
+          lastAccessedAt: new Date(pdf.lastAccessedAt),
+        })));
+        setIsLoadingPdfs(false);
+        return;
+      }
+      
       const response = await fetch('/api/pdf/list');
       if (response.ok) {
         const pdfs = await response.json();
+        // Cache the response
+        localStorage.setItem(cacheKey, JSON.stringify(pdfs));
+        localStorage.setItem(cacheTimeKey, now.toString());
+        
         setPdfHistory(pdfs.map((pdf: any) => ({
           ...pdf,
           uploadedAt: new Date(pdf.uploadedAt),
@@ -57,7 +81,7 @@ export default function PDFSidebar({
     } finally {
       setIsLoadingPdfs(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     loadPdfs();
@@ -77,6 +101,36 @@ export default function PDFSidebar({
     };
   }, []);
 
+  // Listen for page focus to refresh PDF list when returning from upload
+  useEffect(() => {
+    const handleFocus = () => {
+      // Only refresh if we might have uploaded a new PDF
+      const lastUploadNavigation = localStorage.getItem('last-upload-navigation');
+      if (lastUploadNavigation) {
+        const timeSinceUpload = Date.now() - parseInt(lastUploadNavigation);
+        // If less than 30 minutes since upload navigation, refresh the list
+        if (timeSinceUpload < 30 * 60 * 1000) {
+          loadPdfs(true); // Force refresh
+          localStorage.removeItem('last-upload-navigation');
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleFocus();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadPdfs]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -95,12 +149,19 @@ export default function PDFSidebar({
     const pdfFile = files.find(file => file.type === 'application/pdf');
 
     if (pdfFile) {
+      // Clear cache before navigating to upload page
+      const cacheKey = `pdf-list-${userId}`;
+      const cacheTimeKey = `pdf-list-time-${userId}`;
+      localStorage.removeItem(cacheKey);
+      localStorage.removeItem(cacheTimeKey);
+      localStorage.setItem('last-upload-navigation', Date.now().toString());
+      
       // Navigate to upload page with the file
       router.push('/upload');
     } else {
       alert('Please drop a valid PDF file.');
     }
-  }, [router]);
+  }, [router, userId]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -137,7 +198,16 @@ export default function PDFSidebar({
         <div className="flex-1 flex flex-col py-4">
           {/* New Chat */}
           <button
-            onClick={() => router.push('/upload')}
+            onClick={() => {
+              // Clear cache before navigating to upload page
+              const cacheKey = `pdf-list-${userId}`;
+              const cacheTimeKey = `pdf-list-time-${userId}`;
+              localStorage.removeItem(cacheKey);
+              localStorage.removeItem(cacheTimeKey);
+              localStorage.setItem('last-upload-navigation', Date.now().toString());
+              
+              router.push('/upload');
+            }}
             className="w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity"
             title="New PDF"
           >
@@ -298,7 +368,16 @@ export default function PDFSidebar({
 
         {/* New Chat Button */}
         <button
-          onClick={() => router.push('/upload')}
+          onClick={() => {
+            // Clear cache before navigating to upload page
+            const cacheKey = `pdf-list-${userId}`;
+            const cacheTimeKey = `pdf-list-time-${userId}`;
+            localStorage.removeItem(cacheKey);
+            localStorage.removeItem(cacheTimeKey);
+            localStorage.setItem('last-upload-navigation', Date.now().toString());
+            
+            router.push('/upload');
+          }}
           className="w-full bg-[var(--accent)] text-white rounded-lg py-2.5 px-4 font-medium hover:opacity-90 transition-opacity flex items-center gap-3 mb-4"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
