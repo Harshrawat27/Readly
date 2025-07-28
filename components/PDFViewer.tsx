@@ -55,6 +55,7 @@ export default function PDFViewer({
   const [error, setError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(800);
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
   const [selectionDialog, setSelectionDialog] = useState<TextSelectionDialog>({
     x: 0,
     y: 0,
@@ -72,12 +73,12 @@ export default function PDFViewer({
         try {
           setIsLoading(true);
           setError(null);
-          
+
           const response = await fetch(`/api/pdf/${pdfId}`);
           if (!response.ok) {
             throw new Error('Failed to load PDF');
           }
-          
+
           const pdfData = await response.json();
           setPdfFile(pdfData.url);
           setCurrentPage(1);
@@ -90,7 +91,7 @@ export default function PDFViewer({
           setIsLoading(false);
         }
       };
-      
+
       loadPdf();
     } else {
       setPdfFile(null);
@@ -183,7 +184,7 @@ export default function PDFViewer({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectionDialog.visible]);
 
-  // Intersection Observer for tracking current page
+  // Intersection Observer for tracking current page and progressive loading
   useEffect(() => {
     if (!numPages) return;
 
@@ -191,23 +192,38 @@ export default function PDFViewer({
       (entries) => {
         // Find the page with highest intersection ratio that's at least 50% visible
         let bestMatch = { pageNumber: 1, ratio: 0 };
-        
+
         entries.forEach((entry) => {
+          const pageNumber = parseInt(
+            entry.target.getAttribute('data-page-number') || '1'
+          );
+
           if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-            const pageNumber = parseInt(entry.target.getAttribute('data-page-number') || '1');
             if (entry.intersectionRatio > bestMatch.ratio) {
               bestMatch = { pageNumber, ratio: entry.intersectionRatio };
             }
           }
+
+          // Progressive loading: load pages that are becoming visible
+          if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+            setLoadedPages((prev) => {
+              const newSet = new Set(prev);
+              // Load current page and nearby pages
+              newSet.add(pageNumber);
+              if (pageNumber > 1) newSet.add(pageNumber - 1);
+              if (pageNumber < numPages) newSet.add(pageNumber + 1);
+              return newSet;
+            });
+          }
         });
-        
+
         // If we found a visible page, update current page
         if (bestMatch.ratio > 0) {
           setCurrentPage(bestMatch.pageNumber);
         }
       },
       {
-        threshold: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0], // Multiple thresholds for better detection
+        threshold: [0.1, 0.3, 0.5, 0.7, 0.9], // Lower threshold for progressive loading
         root: containerRef.current?.querySelector('.pdf-scroll-container'),
       }
     );
@@ -241,6 +257,8 @@ export default function PDFViewer({
       setIsLoading(false);
       setError(null);
       pageRefs.current = new Array(numPages).fill(null);
+      // Start with first page loaded
+      setLoadedPages(new Set([1]));
     },
     []
   );
@@ -461,7 +479,9 @@ export default function PDFViewer({
                         <path d='M12 16h.01' />
                       </svg>
                     </div>
-                    <p className='text-[var(--text-muted)]'>Failed to load PDF</p>
+                    <p className='text-[var(--text-muted)]'>
+                      Failed to load PDF
+                    </p>
                     <button
                       onClick={() => window.location.reload()}
                       className='mt-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm'
@@ -472,35 +492,65 @@ export default function PDFViewer({
                 }
                 options={pdfOptions}
               >
-                {numPages && Array.from(new Array(numPages), (el, index) => (
-                  <div
-                    key={`page-wrapper-${index + 1}`}
-                    ref={(el) => (pageRefs.current[index] = el)}
-                    data-page-number={index + 1}
-                    className='mb-4'
-                  >
-                    <Page
-                      key={`page_${index + 1}_${calculateScale()}`}
-                      pageNumber={index + 1}
-                      scale={calculateScale()}
-                      renderTextLayer={true}
-                      renderAnnotationLayer={true}
-                      className='pdf-page shadow-lg border'
-                      loading={
-                        <div className='text-center py-4'>
-                          <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
-                        </div>
-                      }
-                      error={
-                        <div className='text-center py-4'>
-                          <p className='text-[var(--text-muted)] text-sm'>
-                            Failed to load page {index + 1}
-                          </p>
-                        </div>
-                      }
-                    />
-                  </div>
-                ))}
+                {numPages &&
+                  Array.from(new Array(numPages), (el, index) => {
+                    const pageNumber = index + 1;
+                    const shouldLoad = loadedPages.has(pageNumber);
+
+                    return (
+                      <div
+                        key={`page-wrapper-${pageNumber}`}
+                        ref={(el) => {
+                          pageRefs.current[index] = el;
+                        }}
+                        data-page-number={pageNumber}
+                        className='mb-4'
+                      >
+                        {shouldLoad ? (
+                          <Page
+                            key={`page_${pageNumber}_${calculateScale()}`}
+                            pageNumber={pageNumber}
+                            scale={calculateScale()}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className='pdf-page shadow-lg border'
+                            loading={
+                              <div className='text-center py-4'>
+                                <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                              </div>
+                            }
+                            error={
+                              <div className='text-center py-4'>
+                                <p className='text-[var(--text-muted)] text-sm'>
+                                  Failed to load page {pageNumber}
+                                </p>
+                              </div>
+                            }
+                          />
+                        ) : (
+                          <div
+                            className='pdf-page-placeholder shadow-lg border bg-gray-100 flex items-center justify-center'
+                            style={{ height: '600px', minHeight: '600px' }}
+                          >
+                            <div className='text-center text-gray-500'>
+                              <div className='w-8 h-8 mx-auto mb-2 opacity-50'>
+                                <svg
+                                  viewBox='0 0 24 24'
+                                  fill='none'
+                                  stroke='currentColor'
+                                  strokeWidth='2'
+                                >
+                                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+                                </svg>
+                              </div>
+                              <p className='text-sm'>Page {pageNumber}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </Document>
             </div>
           )}

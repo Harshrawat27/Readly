@@ -89,6 +89,7 @@ export default function ChatPanel({
           console.log('No chats found for this PDF');
           setMessages([]);
           setCurrentChatId(null);
+          setIsLoadingHistory(false);
           return;
         }
 
@@ -110,31 +111,41 @@ export default function ChatPanel({
         console.log('Fetched chat with messages:', chat);
 
         if (chat && chat.messages) {
-          const formattedMessages = chat.messages.map((msg: any) => ({
+          // Progressive loading: show latest messages first
+          const allMessages = chat.messages.map((msg: any) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
             timestamp: new Date(msg.createdAt),
           }));
-          console.log('Formatted messages:', formattedMessages);
-          console.log(
-            'About to set messages - current length:',
-            messages.length
-          );
-          setMessages(formattedMessages);
-          console.log(
-            'Messages set, new length should be:',
-            formattedMessages.length
-          );
+          
+          // Start by showing the last 10 messages instantly
+          const recentMessages = allMessages.slice(-10);
+          setMessages(recentMessages);
           setCurrentChatId(mostRecentChat.id);
-          console.log('Set current chat ID:', mostRecentChat.id);
+          setIsLoadingHistory(false);
+          
+          // Load remaining messages progressively if there are more than 10
+          if (allMessages.length > 10) {
+            const olderMessages = allMessages.slice(0, -10);
+            
+            // Load older messages in chunks with small delays
+            const chunkSize = 5;
+            for (let i = olderMessages.length - chunkSize; i >= 0; i -= chunkSize) {
+              setTimeout(() => {
+                const chunk = olderMessages.slice(Math.max(0, i), i + chunkSize);
+                setMessages(prev => [...chunk, ...prev]);
+              }, (olderMessages.length - i) / chunkSize * 100); // 100ms delay per chunk
+            }
+          }
+          
+          console.log('Formatted messages:', allMessages);
+          console.log('Initially showing recent messages:', recentMessages.length);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
         console.log('ERROR - Setting messages to empty array due to error');
         setMessages([]);
-      } finally {
-        console.log('FINALLY - Setting isLoadingHistory to false');
         setIsLoadingHistory(false);
       }
     };
