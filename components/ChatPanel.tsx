@@ -111,7 +111,6 @@ export default function ChatPanel({
         console.log('Fetched chat with messages:', chat);
 
         if (chat && chat.messages) {
-          // Progressive loading: show latest messages first
           const allMessages = chat.messages.map((msg: any) => ({
             id: msg.id,
             role: msg.role,
@@ -119,33 +118,29 @@ export default function ChatPanel({
             timestamp: new Date(msg.createdAt),
           }));
           
-          // Start by showing the last 10 messages instantly
-          const recentMessages = allMessages.slice(-10);
-          setMessages(recentMessages);
+          // Show only the latest 4 messages instantly to avoid scroll animation
+          const latestMessages = allMessages.slice(-4);
+          setMessages(latestMessages);
           setCurrentChatId(mostRecentChat.id);
-          setIsLoadingHistory(false);
           
-          // Load remaining messages progressively if there are more than 10
-          if (allMessages.length > 10) {
-            const olderMessages = allMessages.slice(0, -10);
+          // Load older messages silently in the background if there are more than 4
+          if (allMessages.length > 4) {
+            const olderMessages = allMessages.slice(0, -4);
             
-            // Load older messages in chunks with small delays
-            const chunkSize = 5;
-            for (let i = olderMessages.length - chunkSize; i >= 0; i -= chunkSize) {
-              setTimeout(() => {
-                const chunk = olderMessages.slice(Math.max(0, i), i + chunkSize);
-                setMessages(prev => [...chunk, ...prev]);
-              }, (olderMessages.length - i) / chunkSize * 100); // 100ms delay per chunk
-            }
+            // Load older messages silently without affecting scroll position
+            setTimeout(() => {
+              setMessages(allMessages); // Load all messages after initial render
+            }, 100); // Small delay to ensure UI is stable
           }
           
-          console.log('Formatted messages:', allMessages);
-          console.log('Initially showing recent messages:', recentMessages.length);
+          console.log('Formatted messages:', allMessages.length);
+          console.log('Initially showing latest messages:', latestMessages.length);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
         console.log('ERROR - Setting messages to empty array due to error');
         setMessages([]);
+      } finally {
         setIsLoadingHistory(false);
       }
     };
