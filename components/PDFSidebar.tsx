@@ -423,16 +423,11 @@ export default function PDFSidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {isLoadingPdfs ? (
-            <div className="p-4 text-center">
-              <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-              <p className="text-xs text-[var(--text-muted)]">Loading...</p>
-            </div>
-          ) : pdfHistory.length === 0 ? (
+          {pdfHistory.length === 0 && !isLoadingPdfs ? (
             <div className="p-4 text-center">
               <p className="text-xs text-[var(--text-muted)]">No PDFs yet</p>
             </div>
-          ) : (
+          ) : pdfHistory.length > 0 ? (
             <div className="px-2 py-2">
               {pdfHistory.map((pdf) => (
                 <button
@@ -462,7 +457,7 @@ export default function PDFSidebar({
                 </button>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
