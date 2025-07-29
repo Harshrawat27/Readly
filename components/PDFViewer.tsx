@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import FigmaToolbar, { ToolType } from './FigmaToolbar';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -62,6 +63,9 @@ export default function PDFViewer({
     text: '',
     visible: false,
   });
+
+  // Figma toolbar state
+  const [activeTool, setActiveTool] = useState<ToolType>('move');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -556,6 +560,12 @@ export default function PDFViewer({
           )}
         </div>
       </div>
+
+      {/* Figma Toolbar */}
+      <FigmaToolbar
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
+      />
 
       {/* Text Selection Dialog */}
       {selectionDialog.visible && (
