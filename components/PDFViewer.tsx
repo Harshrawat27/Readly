@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import PDFAnnotationToolbar, { AnnotationTool, HighlightColor } from './PDFAnnotationToolbar';
+import PDFAnnotationLayer from './PDFAnnotationLayer';
+import PDFHighlightSelection from './PDFHighlightSelection';
+import PDFCommentTooltip from './PDFCommentTooltip';
+import PDFCommentModal from './PDFCommentModal';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -40,6 +45,22 @@ interface TextSelectionDialog {
   visible: boolean;
 }
 
+interface Comment {
+  id: string;
+  x: number;
+  y: number;
+  content: string;
+  pageNumber: number;
+}
+
+interface Highlight {
+  id: string;
+  text: string;
+  color: HighlightColor;
+  pageNumber: number;
+  rect: DOMRect;
+}
+
 export default function PDFViewer({
   pdfId,
   onTextSelect,
@@ -62,6 +83,19 @@ export default function PDFViewer({
     text: '',
     visible: false,
   });
+  
+  // Annotation states
+  const [activeTool, setActiveTool] = useState<AnnotationTool>('select');
+  const [selectedHighlightColor, setSelectedHighlightColor] = useState<HighlightColor>('#ffeb3b');
+  const [showHighlightColors, setShowHighlightColors] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [hoveredComment, setHoveredComment] = useState<Comment | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
+  const [pageDimensions, setPageDimensions] = useState<{[key: number]: {width: number, height: number}}>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -134,12 +168,14 @@ export default function PDFViewer({
           const selection = window.getSelection();
           if (!selection || selection.isCollapsed) {
             setSelectionDialog((prev) => ({ ...prev, visible: false }));
+            setSelectionRect(null);
             return;
           }
 
           const selectedText = selection.toString().trim();
           if (!selectedText || selectedText.length < 3) {
             setSelectionDialog((prev) => ({ ...prev, visible: false }));
+            setSelectionRect(null);
             return;
           }
 
@@ -157,10 +193,12 @@ export default function PDFViewer({
               text: selectedText,
               visible: true,
             });
+            setSelectionRect(rect);
           }
         } catch (error) {
           console.error('Selection error:', error);
           setSelectionDialog((prev) => ({ ...prev, visible: false }));
+          setSelectionRect(null);
         }
       }, 100); // 100ms debounce
     };
@@ -259,9 +297,12 @@ export default function PDFViewer({
       pageRefs.current = new Array(numPages).fill(null);
       // Start with first page loaded
       setLoadedPages(new Set([1]));
+      // Reset page dimensions
+      setPageDimensions({});
     },
     []
   );
+
 
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF load error:', error);
@@ -274,6 +315,7 @@ export default function PDFViewer({
   const handleAskReadly = useCallback(() => {
     onTextSelect(selectionDialog.text);
     setSelectionDialog((prev) => ({ ...prev, visible: false }));
+    setSelectionRect(null);
 
     // Clear the current selection
     if (window.getSelection) {
@@ -281,10 +323,100 @@ export default function PDFViewer({
     }
   }, [selectionDialog.text, onTextSelect]);
 
+  // Handle highlighting
+  const handleHighlight = useCallback((color: HighlightColor) => {
+    if (!selectionRect || !selectionDialog.text) return;
+
+    const highlight: Highlight = {
+      id: Date.now().toString(),
+      text: selectionDialog.text,
+      color,
+      pageNumber: currentPage,
+      rect: selectionRect,
+    };
+
+    setHighlights((prev) => [...prev, highlight]);
+    setSelectionDialog((prev) => ({ ...prev, visible: false }));
+    setSelectionRect(null);
+
+    // Clear the current selection
+    if (window.getSelection) {
+      window.getSelection()?.removeAllRanges();
+    }
+  }, [selectionRect, selectionDialog.text, currentPage]);
+
+  // Handle comment addition
+  const handleCommentAdd = useCallback((comment: Omit<Comment, 'id'>) => {
+    const newComment: Comment = {
+      ...comment,
+      id: Date.now().toString(),
+    };
+    setComments((prev) => [...prev, newComment]);
+  }, []);
+
+  // Handle comment editing
+  const handleCommentEdit = useCallback((commentId: string, newContent: string) => {
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === commentId ? { ...comment, content: newContent } : comment
+      )
+    );
+  }, []);
+
+  // Handle comment deletion
+  const handleCommentDelete = useCallback((commentId: string) => {
+    setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+  }, []);
+
+  // Handle comment hover
+  const handleCommentHover = useCallback((comment: Comment, position: { x: number; y: number }) => {
+    setHoveredComment(comment);
+    setHoverPosition(position);
+  }, []);
+
+  // Handle comment click
+  const handleCommentClick = useCallback((comment: Comment) => {
+    setSelectedComment(comment);
+    setShowCommentModal(true);
+    setHoveredComment(null);
+  }, []);
+
+  // Close tooltips and modals
+  const closeTooltip = useCallback(() => {
+    setHoveredComment(null);
+    setHoverPosition(null);
+  }, []);
+
+  const closeCommentModal = useCallback(() => {
+    setShowCommentModal(false);
+    setSelectedComment(null);
+  }, []);
+
+  // Close selection dialog
+  const closeSelectionDialog = useCallback(() => {
+    setSelectionDialog((prev) => ({ ...prev, visible: false }));
+    setSelectionRect(null);
+    if (window.getSelection) {
+      window.getSelection()?.removeAllRanges();
+    }
+  }, []);
+
   const calculateScale = useCallback(() => {
     // Allow full scale control, no width constraints
     return Math.max(scale, 0.5); // Minimum scale only
   }, [scale]);
+
+  // Handle page load success to capture dimensions
+  const onPageLoadSuccess = useCallback((page: any, pageNumber: number) => {
+    const viewport = page.getViewport({ scale: calculateScale() });
+    setPageDimensions(prev => ({
+      ...prev,
+      [pageNumber]: {
+        width: viewport.width,
+        height: viewport.height
+      }
+    }));
+  }, [calculateScale]);
 
   // Zoom functions with increased maximum
   const handleZoomIn = useCallback(() => {
@@ -504,7 +636,7 @@ export default function PDFViewer({
                           pageRefs.current[index] = el;
                         }}
                         data-page-number={pageNumber}
-                        className='mb-4'
+                        className='mb-4 relative'
                       >
                         {shouldLoad ? (
                           <Page
@@ -514,6 +646,7 @@ export default function PDFViewer({
                             renderTextLayer={true}
                             renderAnnotationLayer={true}
                             className='pdf-page shadow-lg border'
+                            onLoadSuccess={(page) => onPageLoadSuccess(page, pageNumber)}
                             loading={
                               <div className='text-center py-4'>
                                 <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
@@ -548,6 +681,20 @@ export default function PDFViewer({
                             </div>
                           </div>
                         )}
+                        
+                        {/* Annotation Layer */}
+                        {shouldLoad && pageDimensions[pageNumber] && (
+                          <PDFAnnotationLayer
+                            activeTool={activeTool}
+                            highlightColor={selectedHighlightColor}
+                            pageNumber={pageNumber}
+                            pageWidth={pageDimensions[pageNumber].width / calculateScale()}
+                            pageHeight={pageDimensions[pageNumber].height / calculateScale()}
+                            scale={calculateScale()}
+                            onCommentAdd={handleCommentAdd}
+                            comments={comments}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -557,35 +704,42 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* Text Selection Dialog */}
-      {selectionDialog.visible && (
-        <div
-          className='fixed z-50 transform -translate-x-1/2 -translate-y-full'
-          style={{
-            left: selectionDialog.x,
-            top: selectionDialog.y,
-          }}
-        >
-          <div className='bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg p-2'>
-            <button
-              onClick={handleAskReadly}
-              className='bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2'
-            >
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M8 12h8' />
-                <path d='M12 8v8' />
-              </svg>
-              Ask Readly
-            </button>
-          </div>
-        </div>
-      )}
+      {/* PDF Annotation Toolbar */}
+      <PDFAnnotationToolbar
+        activeTool={activeTool}
+        onToolChange={setActiveTool}
+        selectedHighlightColor={selectedHighlightColor}
+        onHighlightColorChange={setSelectedHighlightColor}
+        showHighlightColors={showHighlightColors}
+        onShowHighlightColors={setShowHighlightColors}
+      />
+
+      {/* Text Selection with Highlight Options */}
+      <PDFHighlightSelection
+        selectedText={selectionDialog.text}
+        selectionRect={selectionRect}
+        onHighlight={handleHighlight}
+        onAskReadly={handleAskReadly}
+        visible={selectionDialog.visible}
+        onClose={closeSelectionDialog}
+      />
+
+      {/* Comment Tooltip */}
+      <PDFCommentTooltip
+        comment={hoveredComment}
+        position={hoverPosition}
+        onClose={closeTooltip}
+        onViewFull={handleCommentClick}
+      />
+
+      {/* Comment Modal */}
+      <PDFCommentModal
+        comment={selectedComment}
+        isOpen={showCommentModal}
+        onClose={closeCommentModal}
+        onEdit={handleCommentEdit}
+        onDelete={handleCommentDelete}
+      />
     </div>
   );
 }
