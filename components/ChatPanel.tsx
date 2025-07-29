@@ -37,10 +37,10 @@ export default function ChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive - instant, no animation
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
     }
   }, []);
 
@@ -118,23 +118,11 @@ export default function ChatPanel({
             timestamp: new Date(msg.createdAt),
           }));
           
-          // Show only the latest 4 messages instantly to avoid scroll animation
-          const latestMessages = allMessages.slice(-4);
-          setMessages(latestMessages);
+          // Load all messages at once - no progressive loading to avoid scroll animation
+          setMessages(allMessages);
           setCurrentChatId(mostRecentChat.id);
           
-          // Load older messages silently in the background if there are more than 4
-          if (allMessages.length > 4) {
-            const olderMessages = allMessages.slice(0, -4);
-            
-            // Load older messages silently without affecting scroll position
-            setTimeout(() => {
-              setMessages(allMessages); // Load all messages after initial render
-            }, 100); // Small delay to ensure UI is stable
-          }
-          
-          console.log('Formatted messages:', allMessages.length);
-          console.log('Initially showing latest messages:', latestMessages.length);
+          console.log('Loaded all messages at once:', allMessages.length);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
