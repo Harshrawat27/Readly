@@ -67,6 +67,34 @@ export default function PDFViewer({
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
 
+  // Handle external link detection and opening
+  const handleLinkClick = useCallback((event: Event) => {
+    const target = event.target as HTMLElement;
+    const link = target.closest('a[href]') as HTMLAnchorElement;
+    
+    if (!link) return;
+    
+    const href = link.getAttribute('href');
+    if (!href) return;
+    
+    // Check if it's an external link
+    try {
+      const currentDomain = window.location.hostname;
+      const url = new URL(href, window.location.origin);
+      
+      // If the link domain is different from current domain, open in new tab
+      if (url.hostname !== currentDomain) {
+        event.preventDefault();
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
+      // Internal links will work normally (default behavior)
+    } catch (error) {
+      // If URL parsing fails, it might be a relative link or malformed
+      // Let it work normally
+      console.log('Link parsing error:', error);
+    }
+  }, []);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -125,6 +153,19 @@ export default function PDFViewer({
     window.addEventListener('resize', updateContainerWidth);
     return () => window.removeEventListener('resize', updateContainerWidth);
   }, []);
+
+  // Handle PDF link clicks
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Add event listener for link clicks within the PDF container
+    container.addEventListener('click', handleLinkClick, true);
+
+    return () => {
+      container.removeEventListener('click', handleLinkClick, true);
+    };
+  }, [handleLinkClick]);
 
   // Handle text selection with debouncing to prevent crashes
   useEffect(() => {

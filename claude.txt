@@ -1,0 +1,9 @@
+- pdf lazy loading sometimes not working properly, showing page2, page3 text not actual pdf. 
+- if user have not loaded the full pdf but scrolling the links are showing error. 
+- chat still are not very good
+- payment gateway integration
+- canvas
+- full pdf in chatgpt, using extracting text
+- optimise app for loading
+
+and i'll be ready to launch. 
