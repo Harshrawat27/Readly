@@ -49,12 +49,14 @@ export default function CommentPin({
   isDraggable = true,
 }: CommentPinProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [replyText, setReplyText] = useState('');
   const [showReplyInput, setShowReplyInput] = useState(false);
   const pinRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -132,8 +134,27 @@ export default function CommentPin({
     event.stopPropagation();
     if (!isDragging) {
       setIsOpen(!isOpen);
+      setIsHovered(false);
       onSelect?.(comment.id);
     }
+  };
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (!isOpen) {
+        setIsHovered(true);
+      }
+    }, 500);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    setIsHovered(false);
   };
 
   const handleReply = () => {
@@ -188,18 +209,20 @@ export default function CommentPin({
           className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
             comment.resolved
               ? 'bg-green-500 border-2 border-green-600'
-              : 'bg-[var(--accent)] border-2 border-[var(--accent-hover)]'
+              : 'bg-orange-500 border-2 border-gray-800 shadow-md'
           } ${
-            isOpen ? 'scale-110 shadow-lg' : 'shadow-md hover:scale-105'
+            isOpen ? 'scale-110 shadow-lg' : 'hover:scale-105'
           }`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
           {comment.resolved ? (
             <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20 6L9 17l-5-5"/>
             </svg>
           ) : (
-            <span className="text-white text-xs font-medium">
-              {comment.replies?.length ? comment.replies.length : '•'}
+            <span className="text-white text-xs font-semibold">
+              {getInitials(comment.user.name)}
             </span>
           )}
         </div>
@@ -210,11 +233,45 @@ export default function CommentPin({
         )}
       </div>
 
+      {/* Hover Tooltip */}
+      {isHovered && !isOpen && (
+        <div
+          className="absolute z-40 w-72 bg-gray-800 text-white rounded-xl shadow-xl p-3"
+          style={{
+            left: `${comment.x}%`,
+            top: `${comment.y}%`,
+            transform: 'translate(-50%, calc(-100% - 1rem))',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+              <span className="text-white text-xs font-semibold">
+                {getInitials(comment.user.name)}
+              </span>
+            </div>
+            <span className="text-sm font-medium text-white">
+              {comment.user.name}
+            </span>
+            <span className="text-xs text-gray-400">
+              {formatDate(comment.createdAt)}
+            </span>
+          </div>
+          <p className="text-sm text-gray-200 leading-relaxed mb-1">
+            {comment.content.length > 60 ? `${comment.content.substring(0, 60)}...` : comment.content}
+          </p>
+          {comment.replies && comment.replies.length > 0 && (
+            <div className="text-xs text-gray-400">
+              {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Comment Dialog */}
       {isOpen && (
         <div
           ref={dialogRef}
-          className="absolute z-30 w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-xl"
+          className="absolute z-30 w-96 bg-gray-800 text-white rounded-xl shadow-2xl"
           style={{
             left: `${comment.x}%`,
             top: `${comment.y}%`,
@@ -223,32 +280,23 @@ export default function CommentPin({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
             <div className="flex items-center gap-2">
-              {comment.user.image ? (
-                <img
-                  src={comment.user.image}
-                  alt={comment.user.name}
-                  className="w-6 h-6 rounded-full"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-[var(--accent)] text-white text-xs flex items-center justify-center">
-                  {getInitials(comment.user.name)}
-                </div>
-              )}
-              <span className="text-sm font-medium text-[var(--text-primary)]">
-                {comment.user.name}
-              </span>
-              <span className="text-xs text-[var(--text-muted)]">
-                {formatDate(comment.createdAt)}
-              </span>
+              <span className="text-white font-semibold text-sm">Comment</span>
             </div>
             
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              <button className="text-gray-400 hover:text-white">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="1"/>
+                  <circle cx="19" cy="12" r="1"/>
+                  <circle cx="5" cy="12" r="1"/>
+                </svg>
+              </button>
               {!comment.resolved && onResolve && (
                 <button
                   onClick={() => onResolve(comment.id)}
-                  className="p-1 rounded hover:bg-[var(--faded-white)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  className="p-1 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 text-white"
                   title="Mark as resolved"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -256,55 +304,79 @@ export default function CommentPin({
                   </svg>
                 </button>
               )}
-              
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(comment.id)}
-                  className="p-1 rounded hover:bg-[var(--faded-white)] text-[var(--text-muted)] hover:text-red-500"
-                  title="Delete comment"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                  </svg>
-                </button>
-              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
           </div>
 
-          {/* Comment Content */}
-          <div className="p-3">
-            <p className="text-sm text-[var(--text-primary)] leading-relaxed">
-              {comment.content}
-            </p>
+          {/* Main Comment */}
+          <div className="p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-semibold">
+                  {getInitials(comment.user.name)}
+                </span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-white font-medium text-sm">
+                    {comment.user.name}
+                  </span>
+                  <span className="text-gray-400 text-xs">
+                    {formatDate(comment.createdAt)}
+                  </span>
+                  {onDelete && (
+                    <button
+                      onClick={() => onDelete(comment.id)}
+                      className="ml-auto text-gray-400 hover:text-white opacity-0 group-hover:opacity-100"
+                      title="Delete comment"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="19" cy="12" r="1"/>
+                        <circle cx="5" cy="12" r="1"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <p className="text-gray-200 text-sm leading-relaxed">
+                  {comment.content}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Replies */}
           {comment.replies && comment.replies.length > 0 && (
-            <div className="border-t border-[var(--border)]">
+            <div className="border-t border-gray-700">
               {comment.replies.map((reply) => (
-                <div key={reply.id} className="p-3 border-b border-[var(--faded-white)] last:border-b-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    {reply.user.image ? (
-                      <img
-                        src={reply.user.image}
-                        alt={reply.user.name}
-                        className="w-5 h-5 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-[var(--faded-white)] text-[var(--text-muted)] text-xs flex items-center justify-center">
+                <div key={reply.id} className="px-4 py-3 border-b border-gray-700 last:border-b-0">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-sm font-semibold">
                         {getInitials(reply.user.name)}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-medium text-sm">
+                          {reply.user.name}
+                        </span>
+                        <span className="text-gray-400 text-xs">
+                          {formatDate(reply.createdAt)}
+                        </span>
                       </div>
-                    )}
-                    <span className="text-xs font-medium text-[var(--text-primary)]">
-                      {reply.user.name}
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {formatDate(reply.createdAt)}
-                    </span>
+                      <p className="text-gray-200 text-sm leading-relaxed">
+                        {reply.content}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-[var(--text-primary)] leading-relaxed">
-                    {reply.content}
-                  </p>
                 </div>
               ))}
             </div>
@@ -312,40 +384,50 @@ export default function CommentPin({
 
           {/* Reply Input */}
           {showReplyInput ? (
-            <div className="p-3 border-t border-[var(--border)]">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Write a reply..."
-                className="w-full px-3 py-2 text-sm bg-[var(--faded-white)] border border-[var(--border)] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
-                rows={3}
-                autoFocus
-              />
-              <div className="flex items-center justify-end gap-2 mt-2">
-                <button
-                  onClick={() => setShowReplyInput(false)}
-                  className="px-3 py-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                >
-                  Cancel
-                </button>
+            <div className="px-4 py-3 border-t border-gray-700">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-sm font-semibold">
+                    {getInitials('Current User')}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Reply"
+                    className="w-full px-0 py-0 text-sm bg-transparent border-none text-gray-200 placeholder-gray-500 resize-none focus:outline-none"
+                    rows={1}
+                    autoFocus
+                  />
+                </div>
                 <button
                   onClick={handleReply}
                   disabled={!replyText.trim()}
-                  className="px-3 py-1 text-sm bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+                  className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Reply
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M7 11l5-5 5 5M7 11l5 5 5-5"/>
+                  </svg>
                 </button>
               </div>
             </div>
           ) : (
             onReply && !comment.resolved && (
-              <div className="p-3 border-t border-[var(--border)]">
-                <button
-                  onClick={() => setShowReplyInput(true)}
-                  className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium"
-                >
-                  Reply
-                </button>
+              <div className="px-4 py-3 border-t border-gray-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-semibold">
+                      {getInitials('Current User')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowReplyInput(true)}
+                    className="flex-1 text-left text-sm text-gray-500 hover:text-gray-300"
+                  >
+                    Reply
+                  </button>
+                </div>
               </div>
             )
           )}

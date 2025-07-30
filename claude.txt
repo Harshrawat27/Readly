@@ -5,5 +5,7 @@
 - canvas
 - full pdf in chatgpt, using extracting text
 - optimise app for loading
+- comment feature done just need to optimise it
+- pdf after loading sometimes shound page 1 only and then text like page 2, page 3 etc
 
 and i'll be ready to launch. 
