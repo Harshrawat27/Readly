@@ -168,8 +168,8 @@ export default function FigmaToolbar({
               onClick={() => handleToolClick(item.id, group)}
               className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
                 activeTool === item.id
-                  ? 'bg-color-[var(bg-[var(--accent)])] text-white'
-                  : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
               }`}
             >
               <div className='flex items-center gap-3'>
@@ -179,7 +179,7 @@ export default function FigmaToolbar({
                 <span>{item.name}</span>
               </div>
               {item.shortcut && (
-                <span className='text-xs text-gray-500'>{item.shortcut}</span>
+                <span className='text-xs text-[var(--text-muted)]'>{item.shortcut}</span>
               )}
             </button>
           ))}
@@ -204,7 +204,7 @@ export default function FigmaToolbar({
             className={`px-2 py-2 rounded-lg transition-all duration-200 ${
               isToolInGroup('move')
                 ? 'bg-[var(--accent)] text-white'
-                : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+                : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
             }`}
           >
             <div className='w-5 h-5 flex items-center justify-center'>
@@ -217,7 +217,7 @@ export default function FigmaToolbar({
             onClick={() => handleDropdownToggle('move')}
             onMouseEnter={() => setHoveredTool('move-arrow')}
             onMouseLeave={() => setHoveredTool(null)}
-            className='px-1 py-2 rounded-lg transition-all duration-200 text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+            className='px-1 py-2 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
           >
             <ChevronIcon />
           </button>
@@ -226,7 +226,7 @@ export default function FigmaToolbar({
 
           {/* Tooltips */}
           {hoveredTool === 'move-icon' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               {
                 moveTools.find((tool) => tool.id === getCurrentTool('move'))
                   ?.name
@@ -234,7 +234,7 @@ export default function FigmaToolbar({
             </div>
           )}
           {hoveredTool === 'move-arrow' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               Move tools
             </div>
           )}
@@ -250,7 +250,7 @@ export default function FigmaToolbar({
             className={`px-2 py-2 rounded-lg transition-all duration-200 ${
               isToolInGroup('shapes')
                 ? 'bg-[var(--accent)] text-white'
-                : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+                : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
             }`}
           >
             <div className='w-5 h-5 flex items-center justify-center'>
@@ -263,7 +263,7 @@ export default function FigmaToolbar({
             onClick={() => handleDropdownToggle('shapes')}
             onMouseEnter={() => setHoveredTool('shapes-arrow')}
             onMouseLeave={() => setHoveredTool(null)}
-            className='px-1 py-2 rounded-lg transition-all duration-200 text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+            className='px-1 py-2 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
           >
             <ChevronIcon />
           </button>
@@ -272,7 +272,7 @@ export default function FigmaToolbar({
 
           {/* Tooltips */}
           {hoveredTool === 'shapes-icon' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               {
                 shapeTools.find((tool) => tool.id === getCurrentTool('shapes'))
                   ?.name
@@ -280,7 +280,7 @@ export default function FigmaToolbar({
             </div>
           )}
           {hoveredTool === 'shapes-arrow' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               Shape tools
             </div>
           )}
@@ -296,7 +296,7 @@ export default function FigmaToolbar({
             className={`px-2 py-2 rounded-lg transition-all duration-200 ${
               isToolInGroup('creation')
                 ? 'bg-[var(--accent)] text-white'
-                : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+                : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
             }`}
           >
             <div className='w-5 h-5 flex items-center justify-center'>
@@ -309,7 +309,7 @@ export default function FigmaToolbar({
             onClick={() => handleDropdownToggle('creation')}
             onMouseEnter={() => setHoveredTool('creation-arrow')}
             onMouseLeave={() => setHoveredTool(null)}
-            className='px-1 py-2 rounded-lg transition-all duration-200 text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+            className='px-1 py-2 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
           >
             <ChevronIcon />
           </button>
@@ -318,7 +318,7 @@ export default function FigmaToolbar({
 
           {/* Tooltips */}
           {hoveredTool === 'creation-icon' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               {
                 creationTools.find(
                   (tool) => tool.id === getCurrentTool('creation')
@@ -327,7 +327,7 @@ export default function FigmaToolbar({
             </div>
           )}
           {hoveredTool === 'creation-arrow' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               Drawing tools
             </div>
           )}
@@ -341,14 +341,14 @@ export default function FigmaToolbar({
           className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${
             activeTool === 'text'
               ? 'bg-[var(--accent)] text-white'
-              : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+              : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
           }`}
         >
           <div className='w-5 h-5 flex items-center justify-center'>
             <TextIcon />
           </div>
           {hoveredTool === 'text' && (
-            <div className='absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               Text
             </div>
           )}
@@ -364,7 +364,7 @@ export default function FigmaToolbar({
             className={`px-2 py-2 rounded-lg transition-all duration-200 ${
               isToolInGroup('comment')
                 ? 'bg-[var(--accent)] text-white'
-                : 'text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+                : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
             }`}
           >
             <div className='w-5 h-5 flex items-center justify-center'>
@@ -377,7 +377,7 @@ export default function FigmaToolbar({
             onClick={() => handleDropdownToggle('comment')}
             onMouseEnter={() => setHoveredTool('comment-arrow')}
             onMouseLeave={() => setHoveredTool(null)}
-            className='px-1 py-2 rounded-lg transition-all duration-200 text-gray-300 hover:bg-[var(--sidebar-bg)] hover:text-white'
+            className='px-1 py-2 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
           >
             <ChevronIcon />
           </button>
@@ -386,7 +386,7 @@ export default function FigmaToolbar({
 
           {/* Tooltips */}
           {hoveredTool === 'comment-icon' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               {
                 commentTools.find(
                   (tool) => tool.id === getCurrentTool('comment')
@@ -395,7 +395,7 @@ export default function FigmaToolbar({
             </div>
           )}
           {hoveredTool === 'comment-arrow' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--sidebar-bg)] text-white text-xs rounded whitespace-nowrap'>
+            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
               Comment tools
             </div>
           )}

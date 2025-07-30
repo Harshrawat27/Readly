@@ -63,6 +63,11 @@ export default function PDFLayout({
             pdfId={pdfId}
             onTextSelect={onTextSelect}
             selectedText={selectedText}
+            currentUser={{
+              id: session.user.id,
+              name: session.user.name,
+              image: session.user.image,
+            }}
           />
         </div>
 

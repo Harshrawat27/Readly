@@ -27,6 +27,8 @@ model User {
   pdfs          PDF[]
   chats         Chat[]
   messages      Message[]
+  comments      Comment[]
+  commentReplies CommentReply[]
 
   @@unique([email])
   @@map("user")
@@ -89,6 +91,7 @@ model PDF {
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chats          Chat[]
+  comments       Comment[]
 
   @@map("pdf")
 }
@@ -118,4 +121,38 @@ model Message {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("message")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  x         Float    // X coordinate relative to PDF page
+  y         Float    // Y coordinate relative to PDF page
+  pageNumber Int     // PDF page number
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  pdfId     String
+  pdf       PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies   CommentReply[]
+
+  @@map("comment")
+}
+
+model CommentReply {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  
+  // Relations
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comment_reply")
 }

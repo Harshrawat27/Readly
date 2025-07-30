@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
+import CommentSystem from './CommentSystem';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -32,6 +33,11 @@ interface PDFViewerProps {
   selectedText: string;
   scale?: number;
   onScaleChange?: (scale: number) => void;
+  currentUser?: {
+    id: string;
+    name: string;
+    image?: string;
+  };
 }
 
 interface TextSelectionDialog {
@@ -47,6 +53,7 @@ export default function PDFViewer({
   selectedText,
   scale: externalScale,
   onScaleChange,
+  currentUser,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -549,29 +556,40 @@ export default function PDFViewer({
                           pageRefs.current[index] = el;
                         }}
                         data-page-number={pageNumber}
-                        className='mb-4'
+                        className='mb-4 relative'
                       >
                         {shouldLoad ? (
-                          <Page
-                            key={`page_${pageNumber}_${calculateScale()}`}
-                            pageNumber={pageNumber}
-                            scale={calculateScale()}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                            className='pdf-page shadow-lg border'
-                            loading={
-                              <div className='text-center py-4'>
-                                <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
-                              </div>
-                            }
-                            error={
-                              <div className='text-center py-4'>
-                                <p className='text-[var(--text-muted)] text-sm'>
-                                  Failed to load page {pageNumber}
-                                </p>
-                              </div>
-                            }
-                          />
+                          <>
+                            <Page
+                              key={`page_${pageNumber}_${calculateScale()}`}
+                              pageNumber={pageNumber}
+                              scale={calculateScale()}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                              className='pdf-page shadow-lg border'
+                              loading={
+                                <div className='text-center py-4'>
+                                  <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                                </div>
+                              }
+                              error={
+                                <div className='text-center py-4'>
+                                  <p className='text-[var(--text-muted)] text-sm'>
+                                    Failed to load page {pageNumber}
+                                  </p>
+                                </div>
+                              }
+                            />
+                            {/* Comment System Overlay */}
+                            {pdfId && currentUser && (
+                              <CommentSystem
+                                pdfId={pdfId}
+                                pageNumber={pageNumber}
+                                isCommentMode={activeTool === 'comment'}
+                                currentUser={currentUser}
+                              />
+                            )}
+                          </>
                         ) : (
                           <div
                             className='pdf-page-placeholder shadow-lg border bg-gray-100 flex items-center justify-center'
