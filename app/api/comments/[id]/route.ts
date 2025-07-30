@@ -15,7 +15,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const commentId = params.id;
+    const { id } = await params;
+    const commentId = id;
     const updates = await request.json();
 
     // Find the comment and verify ownership
@@ -96,7 +97,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const commentId = params.id;
+    const { id } = await params;
+    const commentId = id;
 
     // Find the comment and verify ownership
     const existingComment = await prisma.comment.findFirst({
