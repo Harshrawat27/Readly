@@ -377,13 +377,26 @@ export default function PDFViewer({
     setSelectedTextElement(textElement || null);
   }, []);
 
-  // Handle text formatting changes
+  // Store reference to TextSystem's handleTextUpdate function
+  const textSystemUpdateRef = useRef<((id: string, updates: any) => void) | null>(null);
+
+  // Handle text formatting changes from top bar
   const handleTextFormat = useCallback(async (updates: any) => {
     if (!selectedTextId || !selectedTextElement) return;
+
+    console.log('Formatting update:', { selectedTextId, updates });
 
     // Update local state immediately for instant visual feedback
     const updatedElement = { ...selectedTextElement, ...updates };
     setSelectedTextElement(updatedElement);
+
+    // Also call TextSystem's update function directly for immediate visual change
+    if (textSystemUpdateRef.current) {
+      console.log('Calling textSystemUpdateRef.current');
+      textSystemUpdateRef.current(selectedTextId, updates);
+    } else {
+      console.log('textSystemUpdateRef.current is null');
+    }
 
     // Background API call without debouncing for formatting changes
     try {
@@ -742,6 +755,9 @@ export default function PDFViewer({
                                 selectedTextId={selectedTextId}
                                 onToolChange={(tool) => setActiveTool(tool as ToolType)}
                                 onTextSelect={handleTextSelect}
+                                onFormatUpdate={(updateFn) => {
+                                  textSystemUpdateRef.current = updateFn;
+                                }}
                               />
                             )}
                           </>

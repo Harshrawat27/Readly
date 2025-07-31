@@ -25,6 +25,7 @@ interface TextSystemProps {
   onTextDelete?: (id: string) => void;
   onToolChange?: (tool: 'move' | 'text') => void;
   onTextSelect?: (textId: string | null, textElement?: TextElement) => void;
+  onFormatUpdate?: (updateFn: (id: string, updates: Partial<TextElement>) => void) => void;
 }
 
 interface CursorState {
@@ -44,6 +45,7 @@ export default function TextSystem({
   onTextDelete,
   onToolChange,
   onTextSelect,
+  onFormatUpdate,
 }: TextSystemProps) {
   const [texts, setTexts] = useState<TextElement[]>([]);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(
@@ -80,6 +82,24 @@ export default function TextSystem({
       loadTexts();
     }
   }, [pdfId]);
+
+  // Create a format update function for external use
+  const handleExternalFormatUpdate = useCallback((id: string, updates: Partial<TextElement>) => {
+    console.log('TextSystem: handleExternalFormatUpdate called', { id, updates });
+    setTexts((prev) => {
+      const newTexts = prev.map((text) => (text.id === id ? { ...text, ...updates } : text));
+      console.log('TextSystem: Updated texts', newTexts);
+      return newTexts;
+    });
+  }, []);
+
+  // Pass the update function to parent via callback
+  useEffect(() => {
+    if (onFormatUpdate) {
+      console.log('TextSystem: Registering handleExternalFormatUpdate with parent');
+      onFormatUpdate(handleExternalFormatUpdate);
+    }
+  }, [onFormatUpdate, handleExternalFormatUpdate]);
 
   const loadTexts = async () => {
     try {
@@ -389,6 +409,11 @@ function TextElement({
   useEffect(() => {
     setLocalWidth(text.width);
   }, [text.width]);
+
+  // Also sync when any text property changes (for formatting updates)
+  useEffect(() => {
+    setLocalWidth(text.width);
+  }, [text]);
 
   useEffect(() => {
     if (!isResizing) return;
