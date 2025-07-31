@@ -52,6 +52,12 @@ interface CommentSystemProps {
   onReplyCreate?: (commentId: string, content: string) => void;
 }
 
+interface Toast {
+  id: string;
+  message: string;
+  type: 'error' | 'success';
+}
+
 export default function CommentSystem({
   pdfId,
   pageNumber,
@@ -66,6 +72,8 @@ export default function CommentSystem({
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null
   );
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debug logging
   console.log('CommentSystem render:', { pdfId, pageNumber, isCommentMode });
@@ -79,12 +87,37 @@ export default function CommentSystem({
   const [isLoading, setIsLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Toast management
+  const addToast = (message: string, type: 'error' | 'success' = 'error') => {
+    const id = Date.now().toString();
+    const toast = { id, message, type };
+    setToasts(prev => [...prev, toast]);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   // Load comments for current PDF
   useEffect(() => {
     if (pdfId) {
       loadComments();
     }
   }, [pdfId]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadComments = async () => {
     try {
@@ -154,6 +187,22 @@ export default function CommentSystem({
       resolved: false,
     };
 
+    // Create optimistic comment with temporary ID
+    const optimisticComment: Comment = {
+      id: `temp-${Date.now()}`,
+      ...commentData,
+      createdAt: new Date().toISOString(),
+      user: currentUser,
+      replies: [],
+    };
+
+    // Immediately add to UI
+    setComments((prev) => [...prev, optimisticComment]);
+    setNewCommentDialog({ x: 0, y: 0, pageNumber: 0, visible: false });
+    setNewCommentText('');
+    onCommentCreate?.(commentData);
+
+    // Background API call
     try {
       const response = await fetch('/api/comments', {
         method: 'POST',
@@ -167,16 +216,24 @@ export default function CommentSystem({
       });
 
       if (response.ok) {
-        const newComment = await response.json();
-        setComments((prev) => [...prev, newComment]);
-        onCommentCreate?.(commentData);
+        const realComment = await response.json();
+        // Replace optimistic comment with real one
+        setComments((prev) =>
+          prev.map((comment) =>
+            comment.id === optimisticComment.id ? realComment : comment
+          )
+        );
+      } else {
+        throw new Error('Failed to create comment');
       }
     } catch (error) {
       console.error('Error creating comment:', error);
+      // Remove optimistic comment and show error
+      setComments((prev) =>
+        prev.filter((comment) => comment.id !== optimisticComment.id)
+      );
+      addToast('Failed to create comment. Please try again.');
     }
-
-    setNewCommentDialog({ x: 0, y: 0, pageNumber: 0, visible: false });
-    setNewCommentText('');
   };
 
   const handleCommentMove = async (id: string, x: number, y: number) => {
@@ -187,27 +244,44 @@ export default function CommentSystem({
       )
     );
 
-    // Debounced API call with timeout to prevent spam
-    const timeoutId = setTimeout(async () => {
+    // Clear existing timeout
+    if (moveTimeoutRef.current) {
+      clearTimeout(moveTimeoutRef.current);
+    }
+
+    // Set new 3-second debounced API call
+    moveTimeoutRef.current = setTimeout(async () => {
       try {
-        await fetch(`/api/comments/${id}`, {
+        const response = await fetch(`/api/comments/${id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ x, y }),
         });
+
+        if (!response.ok) {
+          throw new Error('Failed to update comment position');
+        }
       } catch (error) {
         console.error('Error updating comment position:', error);
-        // Revert on error
-        loadComments();
+        // Show error toast but don't revert position (user already moved it)
+        addToast('Failed to save comment position. Changes may be lost.');
       }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
+    }, 3000); // 3 seconds debounce
   };
 
   const handleCommentResolve = async (id: string) => {
+    // Optimistically update UI
+    const previousState = comments.find(c => c.id === id);
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === id ? { ...comment, resolved: true } : comment
+      )
+    );
+    onCommentUpdate?.(id, { resolved: true });
+
+    // Background API call
     try {
       const response = await fetch(`/api/comments/${id}`, {
         method: 'PATCH',
@@ -217,36 +291,74 @@ export default function CommentSystem({
         body: JSON.stringify({ resolved: true }),
       });
 
-      if (response.ok) {
-        setComments((prev) =>
-          prev.map((comment) =>
-            comment.id === id ? { ...comment, resolved: true } : comment
-          )
-        );
-        onCommentUpdate?.(id, { resolved: true });
+      if (!response.ok) {
+        throw new Error('Failed to resolve comment');
       }
     } catch (error) {
       console.error('Error resolving comment:', error);
+      // Rollback on error
+      if (previousState) {
+        setComments((prev) =>
+          prev.map((comment) =>
+            comment.id === id ? previousState : comment
+          )
+        );
+      }
+      addToast('Failed to resolve comment. Please try again.');
     }
   };
 
   const handleCommentDelete = async (id: string) => {
+    // Store comment for potential rollback
+    const deletedComment = comments.find(c => c.id === id);
+    
+    // Optimistically remove from UI
+    setComments((prev) => prev.filter((comment) => comment.id !== id));
+    onCommentDelete?.(id);
+    setSelectedCommentId(null);
+
+    // Background API call
     try {
       const response = await fetch(`/api/comments/${id}`, {
         method: 'DELETE',
       });
 
-      if (response.ok) {
-        setComments((prev) => prev.filter((comment) => comment.id !== id));
-        onCommentDelete?.(id);
-        setSelectedCommentId(null);
+      if (!response.ok) {
+        throw new Error('Failed to delete comment');
       }
     } catch (error) {
       console.error('Error deleting comment:', error);
+      // Rollback - restore the deleted comment
+      if (deletedComment) {
+        setComments((prev) => [...prev, deletedComment]);
+      }
+      addToast('Failed to delete comment. Please try again.');
     }
   };
 
   const handleReplyCreate = async (commentId: string, content: string) => {
+    // Create optimistic reply
+    const optimisticReply: CommentReply = {
+      id: `temp-reply-${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      user: currentUser,
+    };
+
+    // Optimistically add reply to UI
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === commentId
+          ? {
+              ...comment,
+              replies: [...(comment.replies || []), optimisticReply],
+            }
+          : comment
+      )
+    );
+    onReplyCreate?.(commentId, content);
+
+    // Background API call
     try {
       const response = await fetch(`/api/comments/${commentId}/replies`, {
         method: 'POST',
@@ -257,21 +369,39 @@ export default function CommentSystem({
       });
 
       if (response.ok) {
-        const newReply = await response.json();
+        const realReply = await response.json();
+        // Replace optimistic reply with real one
         setComments((prev) =>
           prev.map((comment) =>
             comment.id === commentId
               ? {
                   ...comment,
-                  replies: [...(comment.replies || []), newReply],
+                  replies: (comment.replies || []).map((reply) =>
+                    reply.id === optimisticReply.id ? realReply : reply
+                  ),
                 }
               : comment
           )
         );
-        onReplyCreate?.(commentId, content);
+      } else {
+        throw new Error('Failed to create reply');
       }
     } catch (error) {
       console.error('Error creating reply:', error);
+      // Remove optimistic reply and show error
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                replies: (comment.replies || []).filter(
+                  (reply) => reply.id !== optimisticReply.id
+                ),
+              }
+            : comment
+        )
+      );
+      addToast('Failed to add reply. Please try again.');
     }
   };
 
@@ -403,6 +533,46 @@ export default function CommentSystem({
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <div className='fixed bottom-4 right-4 z-50 pointer-events-none'>
+        <div className='space-y-2'>
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all duration-300 ${
+                toast.type === 'error' 
+                  ? 'bg-red-600' 
+                  : 'bg-green-600'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {toast.type === 'error' ? (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M15 9l-6 6"/>
+                    <path d="M9 9l6 6"/>
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                )}
+                <span>{toast.message}</span>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="ml-2 text-white/70 hover:text-white"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18"/>
+                  <path d="M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
