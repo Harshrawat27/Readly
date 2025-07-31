@@ -78,6 +78,7 @@ export default function PDFViewer({
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
+  const [textFormatTrigger, setTextFormatTrigger] = useState(0);
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -397,6 +398,9 @@ export default function PDFViewer({
     } else {
       console.log('textSystemUpdateRef.current is null');
     }
+
+    // Trigger re-render of TextSystem
+    setTextFormatTrigger(prev => prev + 1);
 
     // Background API call without debouncing for formatting changes
     try {
@@ -758,6 +762,7 @@ export default function PDFViewer({
                                 onFormatUpdate={(updateFn) => {
                                   textSystemUpdateRef.current = updateFn;
                                 }}
+                                key={textFormatTrigger}
                               />
                             )}
                           </>

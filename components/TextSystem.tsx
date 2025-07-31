@@ -300,6 +300,11 @@ export default function TextSystem({
 
   // Filter texts for current page
   const pageTexts = texts.filter((text) => text.pageNumber === pageNumber);
+  
+  // Debug: Log when pageTexts changes
+  useEffect(() => {
+    console.log('PageTexts updated for page', pageNumber, ':', pageTexts);
+  }, [pageTexts, pageNumber]);
 
   return (
     <div
@@ -340,7 +345,7 @@ export default function TextSystem({
       {/* Text Elements */}
       {pageTexts.map((text) => (
         <TextElement
-          key={text.id}
+          key={`${text.id}-${text.fontSize}-${text.color}-${text.textAlign}`}
           text={text}
           isEditing={editingTextId === text.id}
           isSelected={selectedTextId === text.id}
@@ -394,6 +399,15 @@ function TextElement({
   const [localWidth, setLocalWidth] = useState(text.width);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debug: Log when text properties change
+  useEffect(() => {
+    console.log(`TextElement ${text.id} props updated:`, {
+      fontSize: text.fontSize,
+      color: text.color,
+      textAlign: text.textAlign
+    });
+  }, [text.fontSize, text.color, text.textAlign, text.id]);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
