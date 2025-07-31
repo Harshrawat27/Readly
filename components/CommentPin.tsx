@@ -316,7 +316,7 @@ export default function CommentPin({
           style={{
             left: `${comment.x}%`,
             top: `${comment.y}%`,
-            transform: 'translate(-50%, calc(-100% - 1rem))',
+            transform: 'translate(0%, calc(-100% - 1rem))',
           }}
         >
           <div className='flex items-center gap-2 mb-1'>
@@ -350,7 +350,7 @@ export default function CommentPin({
           style={{
             left: `${comment.x}%`,
             top: `${comment.y}%`,
-            transform: 'translate(-50%, calc(-100% - 2rem))',
+            transform: 'translate(0%, calc(-100% - 2rem))',
           }}
           onClick={(e) => e.stopPropagation()}
         >

@@ -91,16 +91,16 @@ export default function CommentSystem({
   const addToast = (message: string, type: 'error' | 'success' = 'error') => {
     const id = Date.now().toString();
     const toast = { id, message, type };
-    setToasts(prev => [...prev, toast]);
-    
+    setToasts((prev) => [...prev, toast]);
+
     // Auto remove after 4 seconds
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   // Load comments for current PDF
@@ -273,7 +273,7 @@ export default function CommentSystem({
 
   const handleCommentResolve = async (id: string) => {
     // Optimistically update UI
-    const previousState = comments.find(c => c.id === id);
+    const previousState = comments.find((c) => c.id === id);
     setComments((prev) =>
       prev.map((comment) =>
         comment.id === id ? { ...comment, resolved: true } : comment
@@ -299,9 +299,7 @@ export default function CommentSystem({
       // Rollback on error
       if (previousState) {
         setComments((prev) =>
-          prev.map((comment) =>
-            comment.id === id ? previousState : comment
-          )
+          prev.map((comment) => (comment.id === id ? previousState : comment))
         );
       }
       addToast('Failed to resolve comment. Please try again.');
@@ -310,8 +308,8 @@ export default function CommentSystem({
 
   const handleCommentDelete = async (id: string) => {
     // Store comment for potential rollback
-    const deletedComment = comments.find(c => c.id === id);
-    
+    const deletedComment = comments.find((c) => c.id === id);
+
     // Optimistically remove from UI
     setComments((prev) => prev.filter((comment) => comment.id !== id));
     onCommentDelete?.(id);
@@ -528,7 +526,7 @@ export default function CommentSystem({
       {/* Comment Mode Indicator */}
       {isCommentMode && (
         <div className='fixed top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none'>
-          <div className='bg-[var(--accent)] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg'>
+          <div className='bg-[var(--accent)] text-white px-4 py-2 rounded-full text-sm font-medium'>
             Click anywhere to add a comment
           </div>
         </div>
@@ -541,32 +539,48 @@ export default function CommentSystem({
             <div
               key={toast.id}
               className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all duration-300 ${
-                toast.type === 'error' 
-                  ? 'bg-red-600' 
-                  : 'bg-green-600'
+                toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'
               }`}
             >
-              <div className="flex items-center gap-2">
+              <div className='flex items-center gap-2'>
                 {toast.type === 'error' ? (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M15 9l-6 6"/>
-                    <path d="M9 9l6 6"/>
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <circle cx='12' cy='12' r='10' />
+                    <path d='M15 9l-6 6' />
+                    <path d='M9 9l6 6' />
                   </svg>
                 ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 6L9 17l-5-5"/>
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M20 6L9 17l-5-5' />
                   </svg>
                 )}
                 <span>{toast.message}</span>
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="ml-2 text-white/70 hover:text-white"
+                className='ml-2 text-white/70 hover:text-white'
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18"/>
-                  <path d="M6 6l12 12"/>
+                <svg
+                  className='w-4 h-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M18 6L6 18' />
+                  <path d='M6 6l12 12' />
                 </svg>
               </button>
             </div>
