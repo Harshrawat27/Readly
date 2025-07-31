@@ -90,6 +90,7 @@ export default function CommentPin({
     if (!isDraggable) return;
 
     event.preventDefault();
+    event.stopPropagation();
     setIsDragging(true);
 
     const rect = pinRef.current?.getBoundingClientRect();
@@ -104,28 +105,32 @@ export default function CommentPin({
   };
 
   useEffect(() => {
-    if (!isDragging) return;
+    if (!isDragging || !onMove) return;
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (!pinRef.current || !onMove) return;
+      if (!pinRef.current) return;
 
-      const pdfContainer = pinRef.current.closest('.pdf-page');
-      if (!pdfContainer) return;
+      // Find the PDF page container more reliably
+      const pdfPage = pinRef.current.closest('.pdf-page') || 
+                     pinRef.current.closest('[data-page-number]') ||
+                     pinRef.current.closest('.mb-4');
+      
+      if (!pdfPage) {
+        console.warn('PDF page container not found');
+        return;
+      }
 
-      const containerRect = pdfContainer.getBoundingClientRect();
-      const newX =
-        ((event.clientX - dragOffset.x - containerRect.left) /
-          containerRect.width) *
-        100;
-      const newY =
-        ((event.clientY - dragOffset.y - containerRect.top) /
-          containerRect.height) *
-        100;
+      const containerRect = pdfPage.getBoundingClientRect();
+      
+      // Calculate new position relative to the page
+      const newX = ((event.clientX - dragOffset.x - containerRect.left) / containerRect.width) * 100;
+      const newY = ((event.clientY - dragOffset.y - containerRect.top) / containerRect.height) * 100;
 
-      // Constrain to container bounds
-      const clampedX = Math.max(0, Math.min(100, newX));
-      const clampedY = Math.max(0, Math.min(100, newY));
+      // Constrain to container bounds with some padding
+      const clampedX = Math.max(1, Math.min(99, newX));
+      const clampedY = Math.max(1, Math.min(99, newY));
 
+      // Call the move handler with debounced DB update
       onMove(comment.id, clampedX, clampedY);
     };
 
@@ -133,10 +138,16 @@ export default function CommentPin({
       setIsDragging(false);
     };
 
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -234,9 +245,13 @@ export default function CommentPin({
       {/* Comment Pin */}
       <div
         ref={pinRef}
-        className={`absolute cursor-pointer z-20 ${
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
-        }`}
+        className={`absolute z-20 ${
+          isDraggable 
+            ? isDragging 
+              ? 'cursor-grabbing' 
+              : 'cursor-grab' 
+            : 'cursor-pointer'
+        } ${isDragging ? 'opacity-80 scale-110' : ''} transition-all duration-150`}
         style={{
           left: `${comment.x}%`,
           top: `${comment.y}%`,
@@ -246,7 +261,7 @@ export default function CommentPin({
         onClick={handlePinClick}
       >
         <div
-          className={`relative transition-all duration-200 ${
+          className={`relative transition-all duration-200 rounded-full ${
             isOpen ? 'scale-110 shadow-lg' : 'hover:scale-105'
           }`}
           onMouseEnter={handleMouseEnter}
@@ -394,8 +409,8 @@ export default function CommentPin({
           </div>
 
           {/* Main Comment */}
-          <div className='p-4'>
-            <div className='flex items-start gap-3 mb-3'>
+          <div className='p-3'>
+            <div className='flex items-start gap-3'>
               {renderAvatar(comment.user)}
               <div className='flex-1'>
                 <div className='flex items-center gap-2 mb-1'>
@@ -415,27 +430,22 @@ export default function CommentPin({
 
           {/* Replies */}
           {comment.replies && comment.replies.length > 0 && (
-            <div className='border-t border-[var(--border)]'>
+            <div className='px-4 py-3 flex flex-col gap-6'>
               {comment.replies.map((reply) => (
-                <div
-                  key={reply.id}
-                  className='px-4 py-3 border-b border-[var(--border)] last:border-b-0'
-                >
-                  <div className='flex items-start gap-3'>
-                    {renderAvatar(reply.user)}
-                    <div className='flex-1'>
-                      <div className='flex items-center gap-2 mb-1'>
-                        <span className='text-white font-medium text-sm'>
-                          {reply.user.name}
-                        </span>
-                        <span className='text-gray-400 text-xs'>
-                          {formatDate(reply.createdAt)}
-                        </span>
-                      </div>
-                      <p className='text-gray-200 text-sm leading-relaxed'>
-                        {reply.content}
-                      </p>
+                <div key={reply.id} className='flex items-start gap-3'>
+                  {renderAvatar(reply.user)}
+                  <div className='flex-1'>
+                    <div className='flex items-center gap-2 mb-1'>
+                      <span className='text-white font-medium text-sm'>
+                        {reply.user.name}
+                      </span>
+                      <span className='text-gray-400 text-xs'>
+                        {formatDate(reply.createdAt)}
+                      </span>
                     </div>
+                    <p className='text-gray-200 text-sm leading-relaxed'>
+                      {reply.content}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -444,7 +454,7 @@ export default function CommentPin({
 
           {/* Reply Input - Always show if not resolved */}
           {showReplyInput ? (
-            <div className='px-4 py-3 border-t border-[var(--border)]'>
+            <div className='px-4 py-3'>
               <div className='flex items-start gap-3'>
                 {currentUser ? (
                   renderAvatar(currentUser)
@@ -486,7 +496,7 @@ export default function CommentPin({
           ) : (
             onReply &&
             !comment.resolved && (
-              <div className='px-4 py-3 border-t border-[var(--border)]'>
+              <div className='px-4 py-3'>
                 <button
                   onClick={() => setShowReplyInput(true)}
                   className='flex items-center gap-3 w-full text-left hover:bg-[var(--border)] rounded-lg p-2 transition-colors'
