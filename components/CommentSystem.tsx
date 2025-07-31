@@ -44,7 +44,9 @@ interface CommentSystemProps {
     name: string;
     image?: string;
   };
-  onCommentCreate?: (comment: Omit<Comment, 'id' | 'createdAt' | 'user' | 'replies'>) => void;
+  onCommentCreate?: (
+    comment: Omit<Comment, 'id' | 'createdAt' | 'user' | 'replies'>
+  ) => void;
   onCommentUpdate?: (id: string, updates: Partial<Comment>) => void;
   onCommentDelete?: (id: string) => void;
   onReplyCreate?: (commentId: string, content: string) => void;
@@ -61,8 +63,10 @@ export default function CommentSystem({
   onReplyCreate,
 }: CommentSystemProps) {
   const [comments, setComments] = useState<Comment[]>([]);
-  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
-  
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
+    null
+  );
+
   // Debug logging
   console.log('CommentSystem render:', { pdfId, pageNumber, isCommentMode });
   const [newCommentDialog, setNewCommentDialog] = useState<NewCommentDialog>({
@@ -97,40 +101,47 @@ export default function CommentSystem({
     }
   };
 
-  const handlePageClick = useCallback((event: React.MouseEvent) => {
-    if (!isCommentMode) {
-      console.log('Not in comment mode');
-      return;
-    }
+  const handlePageClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isCommentMode) {
+        console.log('Not in comment mode');
+        return;
+      }
 
-    console.log('Click detected in comment mode');
-    const target = event.target as HTMLElement;
-    const pdfPage = target.closest('.pdf-page') || containerRef.current?.closest('.mb-4');
-    
-    if (!pdfPage) {
-      console.log('No PDF page found');
-      return;
-    }
+      console.log('Click detected in comment mode');
+      const target = event.target as HTMLElement;
+      const pdfPage =
+        target.closest('.pdf-page') || containerRef.current?.closest('.mb-4');
 
-    // Don't create comment if clicking on existing comment or dialog
-    if (target.closest('[data-comment-pin]') || target.closest('[data-comment-dialog]')) {
-      console.log('Clicked on existing comment, ignoring');
-      return;
-    }
+      if (!pdfPage) {
+        console.log('No PDF page found');
+        return;
+      }
 
-    const rect = pdfPage.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
+      // Don't create comment if clicking on existing comment or dialog
+      if (
+        target.closest('[data-comment-pin]') ||
+        target.closest('[data-comment-dialog]')
+      ) {
+        console.log('Clicked on existing comment, ignoring');
+        return;
+      }
 
-    console.log('Creating comment dialog at:', x, y);
-    setNewCommentDialog({
-      x,
-      y,
-      pageNumber,
-      visible: true,
-    });
-    setSelectedCommentId(null);
-  }, [isCommentMode, pageNumber]);
+      const rect = pdfPage.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+      console.log('Creating comment dialog at:', x, y);
+      setNewCommentDialog({
+        x,
+        y,
+        pageNumber,
+        visible: true,
+      });
+      setSelectedCommentId(null);
+    },
+    [isCommentMode, pageNumber]
+  );
 
   const handleCreateComment = async () => {
     if (!newCommentText.trim()) return;
@@ -157,7 +168,7 @@ export default function CommentSystem({
 
       if (response.ok) {
         const newComment = await response.json();
-        setComments(prev => [...prev, newComment]);
+        setComments((prev) => [...prev, newComment]);
         onCommentCreate?.(commentData);
       }
     } catch (error) {
@@ -170,8 +181,8 @@ export default function CommentSystem({
 
   const handleCommentMove = async (id: string, x: number, y: number) => {
     // Update local state immediately for smooth dragging
-    setComments(prev =>
-      prev.map(comment =>
+    setComments((prev) =>
+      prev.map((comment) =>
         comment.id === id ? { ...comment, x, y } : comment
       )
     );
@@ -207,8 +218,8 @@ export default function CommentSystem({
       });
 
       if (response.ok) {
-        setComments(prev =>
-          prev.map(comment =>
+        setComments((prev) =>
+          prev.map((comment) =>
             comment.id === id ? { ...comment, resolved: true } : comment
           )
         );
@@ -226,7 +237,7 @@ export default function CommentSystem({
       });
 
       if (response.ok) {
-        setComments(prev => prev.filter(comment => comment.id !== id));
+        setComments((prev) => prev.filter((comment) => comment.id !== id));
         onCommentDelete?.(id);
         setSelectedCommentId(null);
       }
@@ -247,8 +258,8 @@ export default function CommentSystem({
 
       if (response.ok) {
         const newReply = await response.json();
-        setComments(prev =>
-          prev.map(comment =>
+        setComments((prev) =>
+          prev.map((comment) =>
             comment.id === commentId
               ? {
                   ...comment,
@@ -265,33 +276,40 @@ export default function CommentSystem({
   };
 
   // Filter comments for current page
-  const pageComments = comments.filter(comment => comment.pageNumber === pageNumber);
+  const pageComments = comments.filter(
+    (comment) => comment.pageNumber === pageNumber
+  );
 
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 pointer-events-none"
+      className='absolute inset-0 pointer-events-none'
       style={{ zIndex: isCommentMode ? 10 : 5 }}
     >
       {/* Page Click Handler */}
       {isCommentMode && (
         <div
-          className="absolute inset-0 pointer-events-auto cursor-crosshair bg-transparent"
+          className='absolute inset-0 pointer-events-auto cursor-crosshair bg-transparent'
           onClick={handlePageClick}
-          style={{ 
+          style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            zIndex: 1
+            zIndex: 1,
           }}
         />
       )}
 
       {/* Existing Comments */}
       {pageComments.map((comment) => (
-        <div key={comment.id} className="pointer-events-auto" data-comment-pin style={{ zIndex: 10 }}>
+        <div
+          key={comment.id}
+          className='pointer-events-auto'
+          data-comment-pin
+          style={{ zIndex: 10 }}
+        >
           <CommentPin
             comment={comment}
             onMove={handleCommentMove}
@@ -301,6 +319,7 @@ export default function CommentSystem({
             isSelected={selectedCommentId === comment.id}
             onSelect={setSelectedCommentId}
             isDraggable={isCommentMode}
+            currentUser={currentUser}
           />
         </div>
       ))}
@@ -308,56 +327,66 @@ export default function CommentSystem({
       {/* New Comment Dialog */}
       {newCommentDialog.visible && (
         <div
-          className="absolute w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-xl pointer-events-auto"
+          className='absolute w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-xl pointer-events-auto'
           style={{
             left: `${newCommentDialog.x}%`,
             top: `${newCommentDialog.y}%`,
-            transform: 'translate(-50%, -100%)',
-            zIndex: 50
+            transform: 'translate(0%, -100%)',
+            zIndex: 50,
           }}
           data-comment-dialog
         >
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
+          <div className='p-4'>
+            <div className='flex items-center gap-2 mb-3'>
               {currentUser.image ? (
                 <img
                   src={currentUser.image}
                   alt={currentUser.name}
-                  className="w-6 h-6 rounded-full"
+                  className='w-6 h-6 rounded-full'
                 />
               ) : (
-                <div className="w-6 h-6 rounded-full bg-[var(--accent)] text-white text-xs flex items-center justify-center">
-                  {currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                <div className='w-6 h-6 rounded-full bg-[var(--accent)] text-white text-xs flex items-center justify-center'>
+                  {currentUser.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .substring(0, 2)}
                 </div>
               )}
-              <span className="text-sm font-medium text-[var(--text-primary)]">
+              <span className='text-sm font-medium text-[var(--text-primary)]'>
                 {currentUser.name}
               </span>
             </div>
-            
+
             <textarea
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
-              placeholder="Add a comment..."
-              className="w-full px-3 py-2 text-sm bg-[var(--faded-white)] border border-[var(--border)] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+              placeholder='Add a comment...'
+              className='w-full px-3 py-2 text-sm bg-[var(--faded-white)] border border-[var(--border)] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent'
               rows={3}
               autoFocus
             />
-            
-            <div className="flex items-center justify-end gap-2 mt-3">
+
+            <div className='flex items-center justify-end gap-2 mt-3'>
               <button
                 onClick={() => {
-                  setNewCommentDialog({ x: 0, y: 0, pageNumber: 0, visible: false });
+                  setNewCommentDialog({
+                    x: 0,
+                    y: 0,
+                    pageNumber: 0,
+                    visible: false,
+                  });
                   setNewCommentText('');
                 }}
-                className="px-3 py-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className='px-3 py-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateComment}
                 disabled={!newCommentText.trim()}
-                className="px-3 py-1 text-sm bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+                className='px-3 py-1 text-sm bg-[var(--accent)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90'
               >
                 Comment
               </button>
@@ -368,8 +397,8 @@ export default function CommentSystem({
 
       {/* Comment Mode Indicator */}
       {isCommentMode && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-          <div className="bg-[var(--accent)] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+        <div className='fixed top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none'>
+          <div className='bg-[var(--accent)] text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg'>
             Click anywhere to add a comment
           </div>
         </div>
