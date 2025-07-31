@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
+import TextSystem from './TextSystem';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -73,6 +74,10 @@ export default function PDFViewer({
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
+  
+  // Text formatting state
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -366,6 +371,69 @@ export default function PDFViewer({
     }
   }, [onScaleChange]);
 
+  // Handle text selection
+  const handleTextSelect = useCallback((textId: string | null, textElement?: any) => {
+    setSelectedTextId(textId);
+    setSelectedTextElement(textElement || null);
+  }, []);
+
+  // Handle text formatting changes
+  const handleTextFormat = useCallback(async (updates: any) => {
+    if (!selectedTextId || !selectedTextElement) return;
+
+    // Update local state immediately for instant visual feedback
+    const updatedElement = { ...selectedTextElement, ...updates };
+    setSelectedTextElement(updatedElement);
+
+    // Background API call without debouncing for formatting changes
+    try {
+      const response = await fetch(`/api/texts/${selectedTextId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        // Rollback on error
+        setSelectedTextElement(selectedTextElement);
+        console.error('Failed to update text format');
+      }
+    } catch (error) {
+      // Rollback on error
+      setSelectedTextElement(selectedTextElement);
+      console.error('Error updating text format:', error);
+    }
+  }, [selectedTextId, selectedTextElement]);
+
+  // Handle click outside to deselect text
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Don't deselect if clicking on text elements, formatting controls, or toolbars
+      if (
+        target.closest('[data-text-element]') ||
+        target.closest('.figma-toolbar') ||
+        target.closest('select') ||
+        target.closest('input[type="color"]') ||
+        target.closest('button')
+      ) {
+        return;
+      }
+
+      // Deselect text
+      if (selectedTextId) {
+        setSelectedTextId(null);
+        setSelectedTextElement(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectedTextId]);
+
   // Memoize options to prevent unnecessary reloads
   const pdfOptions = useMemo(
     () => ({
@@ -442,61 +510,137 @@ export default function PDFViewer({
           </span>
         </div>
 
-        {/* Zoom Controls */}
-        <div className='flex items-center gap-2'>
-          <button
-            onClick={handleZoomOut}
-            className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <circle cx='11' cy='11' r='8' />
-              <path d='M21 21l-4.35-4.35' />
-              <path d='M8 11h6' />
-            </svg>
-          </button>
+        <div className='flex items-center gap-4'>
+          {/* Text Formatting Controls - Only show when text is selected */}
+          {selectedTextElement && (
+            <div className='flex items-center gap-2 border-r border-[var(--border)] pr-4'>
+              {/* Font Size */}
+              <select
+                value={selectedTextElement.fontSize}
+                onChange={(e) => handleTextFormat({ fontSize: parseInt(e.target.value) })}
+                className='text-sm border border-[var(--border)] rounded px-2 py-1 bg-[var(--card-background)]'
+              >
+                <option value={12}>12px</option>
+                <option value={14}>14px</option>
+                <option value={16}>16px</option>
+                <option value={18}>18px</option>
+                <option value={20}>20px</option>
+                <option value={24}>24px</option>
+                <option value={28}>28px</option>
+                <option value={32}>32px</option>
+              </select>
 
-          <button
-            onClick={handleZoomReset}
-            className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
-            title='Reset to 100%'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
-              <path d='M21 3v5h-5' />
-              <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
-              <path d='M3 21v-5h5' />
-            </svg>
-          </button>
+              {/* Text Color */}
+              <input
+                type='color'
+                value={selectedTextElement.color}
+                onChange={(e) => handleTextFormat({ color: e.target.value })}
+                className='w-8 h-8 border border-[var(--border)] rounded cursor-pointer'
+                title='Text Color'
+              />
 
-          <button
-            onClick={handleZoomIn}
-            className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
+              {/* Text Alignment */}
+              <div className='flex border border-[var(--border)] rounded overflow-hidden'>
+                {[
+                  { align: 'left', icon: '⬅' },
+                  { align: 'center', icon: '↔' },
+                  { align: 'right', icon: '➡' }
+                ].map(({ align, icon }) => (
+                  <button
+                    key={align}
+                    onClick={() => handleTextFormat({ textAlign: align })}
+                    className={`px-3 py-1 text-sm transition-colors ${
+                      selectedTextElement.textAlign === align
+                        ? 'bg-[var(--accent)] text-white'
+                        : 'bg-[var(--card-background)] hover:bg-[var(--faded-white)]'
+                    }`}
+                    title={`Align ${align}`}
+                  >
+                    <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                      {align === 'left' && (
+                        <>
+                          <line x1='3' y1='6' x2='21' y2='6' />
+                          <line x1='3' y1='12' x2='15' y2='12' />
+                          <line x1='3' y1='18' x2='18' y2='18' />
+                        </>
+                      )}
+                      {align === 'center' && (
+                        <>
+                          <line x1='3' y1='6' x2='21' y2='6' />
+                          <line x1='6' y1='12' x2='18' y2='12' />
+                          <line x1='3' y1='18' x2='21' y2='18' />
+                        </>
+                      )}
+                      {align === 'right' && (
+                        <>
+                          <line x1='3' y1='6' x2='21' y2='6' />
+                          <line x1='9' y1='12' x2='21' y2='12' />
+                          <line x1='6' y1='18' x2='21' y2='18' />
+                        </>
+                      )}
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Zoom Controls */}
+          <div className='flex items-center gap-2'>
+            <button
+              onClick={handleZoomOut}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
             >
-              <circle cx='11' cy='11' r='8' />
-              <path d='M21 21l-4.35-4.35' />
-              <path d='M11 8v6' />
-              <path d='M8 11h6' />
-            </svg>
-          </button>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='11' cy='11' r='8' />
+                <path d='M21 21l-4.35-4.35' />
+                <path d='M8 11h6' />
+              </svg>
+            </button>
+
+            <button
+              onClick={handleZoomReset}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
+              title='Reset to 100%'
+            >
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
+                <path d='M21 3v5h-5' />
+                <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
+                <path d='M3 21v-5h5' />
+              </svg>
+            </button>
+
+            <button
+              onClick={handleZoomIn}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
+            >
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='11' cy='11' r='8' />
+                <path d='M21 21l-4.35-4.35' />
+                <path d='M11 8v6' />
+                <path d='M8 11h6' />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -587,6 +731,17 @@ export default function PDFViewer({
                                 pageNumber={pageNumber}
                                 isCommentMode={activeTool === 'comment'}
                                 currentUser={currentUser}
+                              />
+                            )}
+                            {/* Text System Overlay */}
+                            {pdfId && (
+                              <TextSystem
+                                pdfId={pdfId}
+                                pageNumber={pageNumber}
+                                isTextMode={activeTool === 'text'}
+                                selectedTextId={selectedTextId}
+                                onToolChange={(tool) => setActiveTool(tool as ToolType)}
+                                onTextSelect={handleTextSelect}
                               />
                             )}
                           </>

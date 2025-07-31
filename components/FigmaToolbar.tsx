@@ -190,7 +190,7 @@ export default function FigmaToolbar({
 
   return (
     <div
-      className='fixed bottom-[10px] left-1/2 transform -translate-x-1/2 z-40'
+      className='fixed bottom-[10px] left-1/2 transform -translate-x-1/2 z-40 figma-toolbar'
       ref={dropdownRef}
     >
       <div className='bg-[var(--card-background)] rounded-xl shadow-2xl border border-[var(--border)] p-1 flex items-center gap-1'>

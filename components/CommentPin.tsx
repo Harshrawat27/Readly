@@ -292,7 +292,7 @@ export default function CommentPin({
             <img
               src={comment.user.image}
               alt={comment.user.name}
-              className='max-w-8 max-w-8 min-w-8 min-h-8 rounded-full border-2 border-[var(--border)] shadow-md'
+              className='max-w-8 max-h-8 min-w-8 min-h-8 rounded-full border-2 border-[var(--border)] shadow-md'
             />
           ) : (
             <div className='w-8 h-8 rounded-full bg-orange-500 border-2 border-[var(--border)] shadow-md flex items-center justify-center'>

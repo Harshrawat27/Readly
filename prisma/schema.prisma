@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
@@ -15,55 +9,54 @@ datasource db {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean
-  image         String?
-  createdAt     DateTime
-  updatedAt     DateTime
-  sessions      Session[]
-  accounts      Account[]
-  pdfs          PDF[]
-  chats         Chat[]
-  messages      Message[]
-  comments      Comment[]
+  id             String         @id
+  name           String
+  email          String         @unique
+  image          String?
+  createdAt      DateTime
+  updatedAt      DateTime
+  emailVerified  Boolean
+  accounts       Account[]
+  chats          Chat[]
+  comments       Comment[]
   commentReplies CommentReply[]
+  messages       Message[]
+  pdfs           PDF[]
+  sessions       Session[]
+  textElements   TextElement[]
 
-  @@unique([email])
   @@map("user")
 }
 
 model Session {
   id        String   @id
+  userId    String
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime
   updatedAt DateTime
   ipAddress String?
   userAgent String?
-  userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@map("session")
 }
 
 model Account {
   id                    String    @id
+  userId                String
+  scope                 String?
   accountId             String
   providerId            String
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
   idToken               String?
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope                 String?
   password              String?
   createdAt             DateTime
   updatedAt             DateTime
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("account")
 }
@@ -80,18 +73,19 @@ model Verification {
 }
 
 model PDF {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   title          String
   fileName       String
   fileUrl        String
   fileSize       Int
   pageCount      Int?
-  uploadedAt     DateTime @default(now())
-  lastAccessedAt DateTime @default(now())
+  uploadedAt     DateTime      @default(now())
+  lastAccessedAt DateTime      @default(now())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chats          Chat[]
   comments       Comment[]
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  textElements   TextElement[]
 
   @@map("pdf")
 }
@@ -102,9 +96,9 @@ model Chat {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   pdfId     String
   pdf       PDF       @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
 
   @@map("chat")
@@ -113,32 +107,30 @@ model Chat {
 model Message {
   id        String   @id @default(cuid())
   content   String
-  role      String   // 'user' or 'assistant'
+  role      String
   createdAt DateTime @default(now())
   chatId    String
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   userId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("message")
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  x         Float    // X coordinate relative to PDF page
-  y         Float    // Y coordinate relative to PDF page
-  pageNumber Int     // PDF page number
-  resolved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  pdfId     String
-  pdf       PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  replies   CommentReply[]
+  id         String         @id @default(cuid())
+  content    String
+  x          Float
+  y          Float
+  pageNumber Int
+  resolved   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  pdfId      String
+  userId     String
+  pdf        PDF            @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies    CommentReply[]
 
   @@map("comment")
 }
@@ -147,12 +139,30 @@ model CommentReply {
   id        String   @id @default(cuid())
   content   String
   createdAt DateTime @default(now())
-  
-  // Relations
   commentId String
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   userId    String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("comment_reply")
+}
+
+model TextElement {
+  id         String   @id @default(cuid())
+  content    String
+  x          Float
+  y          Float
+  pageNumber Int
+  width      Int
+  fontSize   Int
+  color      String
+  textAlign  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  pdfId      String
+  userId     String
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("text_element")
 }
