@@ -25,7 +25,6 @@ interface TextSystemProps {
   onTextDelete?: (id: string) => void;
   onToolChange?: (tool: 'move' | 'text') => void;
   onTextSelect?: (textId: string | null, textElement?: TextElement) => void;
-  onFormatUpdate?: (updateFn: (id: string, updates: Partial<TextElement>) => void) => void;
 }
 
 interface CursorState {
@@ -45,7 +44,6 @@ export default function TextSystem({
   onTextDelete,
   onToolChange,
   onTextSelect,
-  onFormatUpdate,
 }: TextSystemProps) {
   const [texts, setTexts] = useState<TextElement[]>([]);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(
@@ -83,23 +81,23 @@ export default function TextSystem({
     }
   }, [pdfId]);
 
-  // Create a format update function for external use
-  const handleExternalFormatUpdate = useCallback((id: string, updates: Partial<TextElement>) => {
-    console.log('TextSystem: handleExternalFormatUpdate called', { id, updates });
-    setTexts((prev) => {
-      const newTexts = prev.map((text) => (text.id === id ? { ...text, ...updates } : text));
-      console.log('TextSystem: Updated texts', newTexts);
-      return newTexts;
-    });
-  }, []);
-
-  // Pass the update function to parent via callback
+  // Listen for formatting updates from top bar (like comments do)
   useEffect(() => {
-    if (onFormatUpdate) {
-      console.log('TextSystem: Registering handleExternalFormatUpdate with parent');
-      onFormatUpdate(handleExternalFormatUpdate);
-    }
-  }, [onFormatUpdate, handleExternalFormatUpdate]);
+    const handleFormatUpdate = (event: CustomEvent) => {
+      const { textId, updates } = event.detail;
+      
+      // Update text immediately (optimistic update)
+      setTexts((prev) =>
+        prev.map((text) => (text.id === textId ? { ...text, ...updates } : text))
+      );
+    };
+
+    window.addEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
+    };
+  }, []);
 
   const loadTexts = async () => {
     try {
@@ -300,11 +298,6 @@ export default function TextSystem({
 
   // Filter texts for current page
   const pageTexts = texts.filter((text) => text.pageNumber === pageNumber);
-  
-  // Debug: Log when pageTexts changes
-  useEffect(() => {
-    console.log('PageTexts updated for page', pageNumber, ':', pageTexts);
-  }, [pageTexts, pageNumber]);
 
   return (
     <div
@@ -345,7 +338,7 @@ export default function TextSystem({
       {/* Text Elements */}
       {pageTexts.map((text) => (
         <TextElement
-          key={`${text.id}-${text.fontSize}-${text.color}-${text.textAlign}`}
+          key={text.id}
           text={text}
           isEditing={editingTextId === text.id}
           isSelected={selectedTextId === text.id}
@@ -400,15 +393,6 @@ function TextElement({
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug: Log when text properties change
-  useEffect(() => {
-    console.log(`TextElement ${text.id} props updated:`, {
-      fontSize: text.fontSize,
-      color: text.color,
-      textAlign: text.textAlign
-    });
-  }, [text.fontSize, text.color, text.textAlign, text.id]);
-
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -423,11 +407,6 @@ function TextElement({
   useEffect(() => {
     setLocalWidth(text.width);
   }, [text.width]);
-
-  // Also sync when any text property changes (for formatting updates)
-  useEffect(() => {
-    setLocalWidth(text.width);
-  }, [text]);
 
   useEffect(() => {
     if (!isResizing) return;

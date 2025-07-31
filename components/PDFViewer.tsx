@@ -78,7 +78,6 @@ export default function PDFViewer({
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
-  const [textFormatTrigger, setTextFormatTrigger] = useState(0);
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -378,31 +377,21 @@ export default function PDFViewer({
     setSelectedTextElement(textElement || null);
   }, []);
 
-  // Store reference to TextSystem's handleTextUpdate function
-  const textSystemUpdateRef = useRef<((id: string, updates: any) => void) | null>(null);
-
   // Handle text formatting changes from top bar
   const handleTextFormat = useCallback(async (updates: any) => {
     if (!selectedTextId || !selectedTextElement) return;
-
-    console.log('Formatting update:', { selectedTextId, updates });
 
     // Update local state immediately for instant visual feedback
     const updatedElement = { ...selectedTextElement, ...updates };
     setSelectedTextElement(updatedElement);
 
-    // Also call TextSystem's update function directly for immediate visual change
-    if (textSystemUpdateRef.current) {
-      console.log('Calling textSystemUpdateRef.current');
-      textSystemUpdateRef.current(selectedTextId, updates);
-    } else {
-      console.log('textSystemUpdateRef.current is null');
-    }
+    // Create a custom event that TextSystem will listen to for immediate updates
+    const event = new CustomEvent('textFormatUpdate', {
+      detail: { textId: selectedTextId, updates }
+    });
+    window.dispatchEvent(event);
 
-    // Trigger re-render of TextSystem
-    setTextFormatTrigger(prev => prev + 1);
-
-    // Background API call without debouncing for formatting changes
+    // Background API call
     try {
       const response = await fetch(`/api/texts/${selectedTextId}`, {
         method: 'PATCH',
@@ -413,14 +402,20 @@ export default function PDFViewer({
       });
 
       if (!response.ok) {
-        // Rollback on error
+        // Rollback on error - create revert event
+        const revertEvent = new CustomEvent('textFormatUpdate', {
+          detail: { textId: selectedTextId, updates: selectedTextElement }
+        });
+        window.dispatchEvent(revertEvent);
         setSelectedTextElement(selectedTextElement);
-        console.error('Failed to update text format');
       }
     } catch (error) {
-      // Rollback on error
+      // Rollback on error - create revert event
+      const revertEvent = new CustomEvent('textFormatUpdate', {
+        detail: { textId: selectedTextId, updates: selectedTextElement }
+      });
+      window.dispatchEvent(revertEvent);
       setSelectedTextElement(selectedTextElement);
-      console.error('Error updating text format:', error);
     }
   }, [selectedTextId, selectedTextElement]);
 
@@ -759,10 +754,6 @@ export default function PDFViewer({
                                 selectedTextId={selectedTextId}
                                 onToolChange={(tool) => setActiveTool(tool as ToolType)}
                                 onTextSelect={handleTextSelect}
-                                onFormatUpdate={(updateFn) => {
-                                  textSystemUpdateRef.current = updateFn;
-                                }}
-                                key={textFormatTrigger}
                               />
                             )}
                           </>
