@@ -117,11 +117,11 @@ export default function ChatPanel({
             content: msg.content,
             timestamp: new Date(msg.createdAt),
           }));
-          
+
           // Load all messages at once - no progressive loading to avoid scroll animation
           setMessages(allMessages);
           setCurrentChatId(mostRecentChat.id);
-          
+
           console.log('Loaded all messages at once:', allMessages.length);
         }
       } catch (error) {
@@ -394,7 +394,7 @@ export default function ChatPanel({
               <div
                 className={`max-w-[80%] min-w-0 rounded-lg p-3 break-words overflow-hidden ${
                   message.role === 'user'
-                    ? 'bg-[var(--accent)] text-white'
+                    ? 'bg-[#0F0F0E] text-white'
                     : 'bg-[var(--card-background)] border border-[var(--border)]'
                 }`}
               >

@@ -37,6 +37,10 @@ export default function PDFSidebar({
   const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load PDFs from API with caching
@@ -107,6 +111,15 @@ export default function PDFSidebar({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsUserDropdownOpen(false);
+      }
+
+      // Close PDF action dropdown when clicking outside
+      const target = event.target as HTMLElement;
+      if (
+        !target.closest('.pdf-action-dropdown') &&
+        !target.closest('.three-dots')
+      ) {
+        setActiveDropdownId(null);
       }
     }
 
@@ -189,6 +202,33 @@ export default function PDFSidebar({
       day: 'numeric',
       year: 'numeric',
     });
+  };
+
+  const handleRename = async () => {
+    if (!renameId || !renameValue.trim()) return;
+
+    try {
+      const response = await fetch(`/api/pdf/${renameId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: renameValue.trim() }),
+      });
+
+      if (response.ok) {
+        setPdfHistory((prev) =>
+          prev.map((pdf) =>
+            pdf.id === renameId ? { ...pdf, title: renameValue.trim() } : pdf
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error renaming PDF:', error);
+    }
+
+    setRenameId(null);
+    setRenameValue('');
   };
 
   if (isCollapsed) {
@@ -542,11 +582,32 @@ export default function PDFSidebar({
                 <button
                   key={pdf.id}
                   onClick={() => onPdfSelect(pdf.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative overflow-hidden ${
+                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative ${
                     selectedPdfId === pdf.id
                       ? 'bg-[#0F0F0E] text-white'
                       : 'hover:bg-[#0F0F0E] text-[var(--text-primary)]'
                   }`}
+                  onMouseEnter={(e) => {
+                    if (selectedPdfId !== pdf.id) {
+                      const gradientDiv = e.currentTarget.querySelector(
+                        '.gradient-overlay'
+                      ) as HTMLElement;
+                      if (gradientDiv) {
+                        gradientDiv.style.background =
+                          'linear-gradient(to left, #0F0F0E 80%, transparent 100%)';
+                      }
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedPdfId !== pdf.id) {
+                      const gradientDiv = e.currentTarget.querySelector(
+                        '.gradient-overlay'
+                      ) as HTMLElement;
+                      if (gradientDiv) {
+                        gradientDiv.style.background = '';
+                      }
+                    }
+                  }}
                 >
                   <div className='flex items-center gap-2'>
                     <svg
@@ -568,7 +629,7 @@ export default function PDFSidebar({
 
                   {/* Gradient overlay with 3 dots */}
                   <div
-                    className={`absolute right-1 top-0 h-full w-10 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
+                    className={`gradient-overlay absolute right-1 top-0 h-full w-16 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
                       selectedPdfId === pdf.id
                         ? ''
                         : 'opacity-0 group-hover:opacity-100'
@@ -576,26 +637,93 @@ export default function PDFSidebar({
                     style={{
                       background:
                         selectedPdfId === pdf.id
-                          ? 'linear-gradient(to left, #0F0F0E 70%, transparent 100%)'
+                          ? 'linear-gradient(to left, #0F0F0E 80%, transparent 100%)'
                           : undefined,
                     }}
-                    onMouseEnter={(e) => {
-                      if (selectedPdfId !== pdf.id) {
-                        e.currentTarget.style.background =
-                          'linear-gradient(to left, #0F0F0E 80%, transparent 100%)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedPdfId !== pdf.id) {
-                        e.currentTarget.style.background = '';
-                      }
-                    }}
                   >
-                    <div className='flex flex-row gap-0.5'>
-                      <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                      <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                      <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                    </div>
+                    <button
+                      className='three-dots p-1 hover:bg-white/10 rounded transition-colors relative'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdownId(
+                          activeDropdownId === pdf.id ? null : pdf.id
+                        );
+                      }}
+                    >
+                      <div className='flex flex-row gap-0.5'>
+                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                      </div>
+
+                      {/* Dropdown Menu */}
+                      {activeDropdownId === pdf.id && (
+                        <div className='pdf-action-dropdown absolute right-0 top-full mt-1 w-48 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdownId(null);
+                              // TODO: Implement star functionality
+                            }}
+                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
+                          >
+                            <svg
+                              className='w-4 h-4'
+                              viewBox='0 0 24 24'
+                              fill='none'
+                              stroke='currentColor'
+                              strokeWidth='2'
+                            >
+                              <polygon points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26' />
+                            </svg>
+                            Star
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdownId(null);
+                              setRenameId(pdf.id);
+                              setRenameValue(pdf.title);
+                            }}
+                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
+                          >
+                            <svg
+                              className='w-4 h-4'
+                              viewBox='0 0 24 24'
+                              fill='none'
+                              stroke='currentColor'
+                              strokeWidth='2'
+                            >
+                              <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' />
+                              <path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' />
+                            </svg>
+                            Rename
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdownId(null);
+                              setDeleteConfirmId(pdf.id);
+                            }}
+                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[#E86B6B] hover:bg-[#311E1F] transition-colors flex items-center gap-3'
+                          >
+                            <svg
+                              className='w-4 h-4'
+                              viewBox='0 0 24 24'
+                              fill='none'
+                              stroke='currentColor'
+                              strokeWidth='2'
+                            >
+                              <polyline points='3,6 5,6 21,6' />
+                              <path d='M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2' />
+                            </svg>
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </button>
                   </div>
                 </button>
               ))}
@@ -721,6 +849,98 @@ export default function PDFSidebar({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Popup */}
+      {deleteConfirmId && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
+          <div className='bg-[var(--card-background)] border border-[var(--border)] rounded-lg p-6 max-w-md w-full mx-4'>
+            <h3 className='text-lg font-semibold text-[var(--text-primary)] mb-2'>
+              Delete chat?
+            </h3>
+            <p className='text-sm text-[var(--text-muted)] mb-6'>
+              Are you sure you want to delete this chat?
+            </p>
+            <div className='flex gap-3 justify-end'>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(
+                      `/api/pdf/${deleteConfirmId}`,
+                      {
+                        method: 'DELETE',
+                      }
+                    );
+                    if (response.ok) {
+                      setPdfHistory((prev) =>
+                        prev.filter((pdf) => pdf.id !== deleteConfirmId)
+                      );
+                      if (selectedPdfId === deleteConfirmId) {
+                        onPdfSelect('');
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error deleting PDF:', error);
+                  }
+                  setDeleteConfirmId(null);
+                }}
+                className='px-4 py-2 text-sm bg-[#8A2423] text-white rounded-lg hover:opacity-80 transition-colors'
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className='px-4 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Dialog */}
+      {renameId && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
+          <div className='bg-[var(--card-background)] border border-[var(--border)] rounded-lg p-6 max-w-md w-full mx-4'>
+            <h3 className='text-lg font-semibold text-[var(--text-primary)] mb-4'>
+              Rename chat
+            </h3>
+            <input
+              type='text'
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              className='w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--sidebar-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] mb-6'
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  // Save logic here
+                  handleRename();
+                } else if (e.key === 'Escape') {
+                  setRenameId(null);
+                  setRenameValue('');
+                }
+              }}
+            />
+            <div className='flex gap-3 justify-end'>
+              <button
+                onClick={handleRename}
+                className='px-4 py-2 text-sm bg-white text-gray-800 rounded-lg hover:opacity-90 transition-opacity'
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setRenameId(null);
+                  setRenameValue('');
+                }}
+                className='px-4 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

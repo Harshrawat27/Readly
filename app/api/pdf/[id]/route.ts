@@ -49,3 +49,94 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const pdf = await prisma.pDF.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+    });
+
+    if (!pdf) {
+      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
+    }
+
+    // Delete the PDF record from database
+    await prisma.pDF.delete({
+      where: { id: pdf.id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('PDF delete error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete PDF' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const { title } = await request.json();
+
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+    }
+
+    const pdf = await prisma.pDF.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+    });
+
+    if (!pdf) {
+      return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
+    }
+
+    // Update the PDF title
+    const updatedPdf = await prisma.pDF.update({
+      where: { id: pdf.id },
+      data: { title: title.trim() },
+    });
+
+    return NextResponse.json({
+      id: updatedPdf.id,
+      title: updatedPdf.title,
+      fileName: updatedPdf.fileName,
+    });
+  } catch (error) {
+    console.error('PDF update error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update PDF' },
+      { status: 500 }
+    );
+  }
+}
