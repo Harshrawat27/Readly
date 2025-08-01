@@ -58,7 +58,7 @@
     --accent: #c96342;
     --divider: #404040;
     --faded-white: #2a2a2a;
-    --sidebar-bg: #1a1918;
+    --sidebar-bg: #1f1e1d;
     --pdf-viewer-bg: #1f1e1d;
     --chat-bg: #1c1b1a;
   }
@@ -141,7 +141,8 @@ a {
 }
 
 /* Ensure lists maintain proper spacing and bullets */
-ul, ol {
+ul,
+ol {
   list-style: revert;
   margin: revert;
   padding: revert;
@@ -171,10 +172,12 @@ li {
 
 /* Blinking cursor animation for text tool */
 @keyframes blink {
-  0%, 50% {
+  0%,
+  50% {
     opacity: 1;
   }
-  51%, 100% {
+  51%,
+  100% {
     opacity: 0;
   }
 }
