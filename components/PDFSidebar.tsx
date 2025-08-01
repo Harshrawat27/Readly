@@ -568,14 +568,28 @@ export default function PDFSidebar({
 
                   {/* Gradient overlay with 3 dots */}
                   <div
-                    className={`absolute right-1 top-0 h-full w-12 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
-                      selectedPdfId === pdf.id ||
-                      'group-hover:bg-gradient-to-l group-hover:from-[#0F0F0E] group-hover:to-transparent'
-                    } ${
+                    className={`absolute right-1 top-0 h-full w-10 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
                       selectedPdfId === pdf.id
-                        ? 'bg-gradient-to-l from-[#0F0F0E] to-transparent'
+                        ? ''
                         : 'opacity-0 group-hover:opacity-100'
                     }`}
+                    style={{
+                      background:
+                        selectedPdfId === pdf.id
+                          ? 'linear-gradient(to left, #0F0F0E 70%, transparent 100%)'
+                          : undefined,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedPdfId !== pdf.id) {
+                        e.currentTarget.style.background =
+                          'linear-gradient(to left, #0F0F0E 80%, transparent 100%)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedPdfId !== pdf.id) {
+                        e.currentTarget.style.background = '';
+                      }
+                    }}
                   >
                     <div className='flex flex-row gap-0.5'>
                       <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
