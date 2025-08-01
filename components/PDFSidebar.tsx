@@ -41,6 +41,7 @@ export default function PDFSidebar({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [toast, setToast] = useState<{message: string, type: 'error' | 'success'} | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load PDFs from API with caching
@@ -129,6 +130,16 @@ export default function PDFSidebar({
     };
   }, []);
 
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Listen for page focus to refresh PDF list when returning from upload
   useEffect(() => {
     const handleFocus = () => {
@@ -207,28 +218,48 @@ export default function PDFSidebar({
   const handleRename = async () => {
     if (!renameId || !renameValue.trim()) return;
 
+    const newTitle = renameValue.trim();
+    const oldTitle = pdfHistory.find(pdf => pdf.id === renameId)?.title || '';
+
+    // Optimistic update - update UI immediately
+    setPdfHistory((prev) =>
+      prev.map((pdf) =>
+        pdf.id === renameId ? { ...pdf, title: newTitle } : pdf
+      )
+    );
+
+    // Close dialog immediately
+    setRenameId(null);
+    setRenameValue('');
+
     try {
       const response = await fetch(`/api/pdf/${renameId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title: renameValue.trim() }),
+        body: JSON.stringify({ title: newTitle }),
       });
 
-      if (response.ok) {
-        setPdfHistory((prev) =>
-          prev.map((pdf) =>
-            pdf.id === renameId ? { ...pdf, title: renameValue.trim() } : pdf
-          )
-        );
+      if (!response.ok) {
+        throw new Error('Failed to rename');
       }
     } catch (error) {
       console.error('Error renaming PDF:', error);
+      
+      // Rollback the optimistic update
+      setPdfHistory((prev) =>
+        prev.map((pdf) =>
+          pdf.id === renameId ? { ...pdf, title: oldTitle } : pdf
+        )
+      );
+      
+      // Show error toast
+      setToast({
+        message: 'Sorry we failed to rename your file, try again',
+        type: 'error'
+      });
     }
-
-    setRenameId(null);
-    setRenameValue('');
   };
 
   if (isCollapsed) {
@@ -863,6 +894,23 @@ export default function PDFSidebar({
             <div className='flex gap-3 justify-end'>
               <button
                 onClick={async () => {
+                  const isActiveDeleteConfirmId = selectedPdfId === deleteConfirmId;
+                  const deletingPdf = pdfHistory.find(pdf => pdf.id === deleteConfirmId);
+                  
+                  // Optimistic update - remove from UI immediately
+                  setPdfHistory((prev) =>
+                    prev.filter((pdf) => pdf.id !== deleteConfirmId)
+                  );
+                  
+                  // If deleting active PDF, redirect to home
+                  if (isActiveDeleteConfirmId) {
+                    onPdfSelect('');
+                    router.push('/');
+                  }
+                  
+                  // Close dialog immediately
+                  setDeleteConfirmId(null);
+
                   try {
                     const response = await fetch(
                       `/api/pdf/${deleteConfirmId}`,
@@ -870,18 +918,32 @@ export default function PDFSidebar({
                         method: 'DELETE',
                       }
                     );
-                    if (response.ok) {
-                      setPdfHistory((prev) =>
-                        prev.filter((pdf) => pdf.id !== deleteConfirmId)
-                      );
-                      if (selectedPdfId === deleteConfirmId) {
-                        onPdfSelect('');
-                      }
+                    
+                    if (!response.ok) {
+                      throw new Error('Failed to delete');
                     }
                   } catch (error) {
                     console.error('Error deleting PDF:', error);
+                    
+                    // Rollback the optimistic update
+                    if (deletingPdf) {
+                      setPdfHistory((prev) => [...prev, deletingPdf].sort((a, b) => 
+                        new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime()
+                      ));
+                      
+                      // If we redirected to home, redirect back
+                      if (isActiveDeleteConfirmId) {
+                        onPdfSelect(deletingPdf.id);
+                        router.push(`/pdf/${deletingPdf.id}`);
+                      }
+                    }
+                    
+                    // Show error toast
+                    setToast({
+                      message: 'Sorry we failed to delete your file, try again',
+                      type: 'error'
+                    });
                   }
-                  setDeleteConfirmId(null);
                 }}
                 className='px-4 py-2 text-sm bg-[#8A2423] text-white rounded-lg hover:opacity-80 transition-colors'
               >
@@ -938,6 +1000,39 @@ export default function PDFSidebar({
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+          toast.type === 'error' 
+            ? 'bg-red-600 text-white' 
+            : 'bg-green-600 text-white'
+        }`}>
+          <div className='flex items-center gap-2'>
+            {toast.type === 'error' ? (
+              <svg className='w-5 h-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                <circle cx='12' cy='12' r='10' />
+                <line x1='15' y1='9' x2='9' y2='15' />
+                <line x1='9' y1='9' x2='15' y2='15' />
+              </svg>
+            ) : (
+              <svg className='w-5 h-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                <polyline points='20,6 9,17 4,12' />
+              </svg>
+            )}
+            <span className='text-sm font-medium'>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className='ml-2 p-1 hover:bg-white/20 rounded'
+            >
+              <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                <line x1='18' y1='6' x2='6' y2='18' />
+                <line x1='6' y1='6' x2='18' y2='18' />
+              </svg>
+            </button>
           </div>
         </div>
       )}
