@@ -74,7 +74,7 @@ export default function PDFViewer({
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
-  
+
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
@@ -83,17 +83,17 @@ export default function PDFViewer({
   const handleLinkClick = useCallback((event: Event) => {
     const target = event.target as HTMLElement;
     const link = target.closest('a[href]') as HTMLAnchorElement;
-    
+
     if (!link) return;
-    
+
     const href = link.getAttribute('href');
     if (!href) return;
-    
+
     // Check if it's an external link
     try {
       const currentDomain = window.location.hostname;
       const url = new URL(href, window.location.origin);
-      
+
       // If the link domain is different from current domain, open in new tab
       if (url.hostname !== currentDomain) {
         event.preventDefault();
@@ -372,58 +372,64 @@ export default function PDFViewer({
   }, [onScaleChange]);
 
   // Handle text selection
-  const handleTextSelect = useCallback((textId: string | null, textElement?: any) => {
-    setSelectedTextId(textId);
-    setSelectedTextElement(textElement || null);
-  }, []);
+  const handleTextSelect = useCallback(
+    (textId: string | null, textElement?: any) => {
+      setSelectedTextId(textId);
+      setSelectedTextElement(textElement || null);
+    },
+    []
+  );
 
   // Handle text formatting changes from top bar
-  const handleTextFormat = useCallback(async (updates: any) => {
-    if (!selectedTextId || !selectedTextElement) return;
+  const handleTextFormat = useCallback(
+    async (updates: any) => {
+      if (!selectedTextId || !selectedTextElement) return;
 
-    // Update local state immediately for instant visual feedback
-    const updatedElement = { ...selectedTextElement, ...updates };
-    setSelectedTextElement(updatedElement);
+      // Update local state immediately for instant visual feedback
+      const updatedElement = { ...selectedTextElement, ...updates };
+      setSelectedTextElement(updatedElement);
 
-    // Create a custom event that TextSystem will listen to for immediate updates
-    const event = new CustomEvent('textFormatUpdate', {
-      detail: { textId: selectedTextId, updates }
-    });
-    window.dispatchEvent(event);
-
-    // Background API call
-    try {
-      const response = await fetch(`/api/texts/${selectedTextId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
+      // Create a custom event that TextSystem will listen to for immediate updates
+      const event = new CustomEvent('textFormatUpdate', {
+        detail: { textId: selectedTextId, updates },
       });
+      window.dispatchEvent(event);
 
-      if (!response.ok) {
+      // Background API call
+      try {
+        const response = await fetch(`/api/texts/${selectedTextId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
+
+        if (!response.ok) {
+          // Rollback on error - create revert event
+          const revertEvent = new CustomEvent('textFormatUpdate', {
+            detail: { textId: selectedTextId, updates: selectedTextElement },
+          });
+          window.dispatchEvent(revertEvent);
+          setSelectedTextElement(selectedTextElement);
+        }
+      } catch (error) {
         // Rollback on error - create revert event
         const revertEvent = new CustomEvent('textFormatUpdate', {
-          detail: { textId: selectedTextId, updates: selectedTextElement }
+          detail: { textId: selectedTextId, updates: selectedTextElement },
         });
         window.dispatchEvent(revertEvent);
         setSelectedTextElement(selectedTextElement);
       }
-    } catch (error) {
-      // Rollback on error - create revert event
-      const revertEvent = new CustomEvent('textFormatUpdate', {
-        detail: { textId: selectedTextId, updates: selectedTextElement }
-      });
-      window.dispatchEvent(revertEvent);
-      setSelectedTextElement(selectedTextElement);
-    }
-  }, [selectedTextId, selectedTextElement]);
+    },
+    [selectedTextId, selectedTextElement]
+  );
 
   // Handle click outside to deselect text
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
+
       // Don't deselect if clicking on text elements, formatting controls, or toolbars
       if (
         target.closest('[data-text-element]') ||
@@ -529,7 +535,9 @@ export default function PDFViewer({
               {/* Font Size */}
               <select
                 value={selectedTextElement.fontSize}
-                onChange={(e) => handleTextFormat({ fontSize: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  handleTextFormat({ fontSize: parseInt(e.target.value) })
+                }
                 className='text-sm border border-[var(--border)] rounded px-2 py-1 bg-[var(--card-background)]'
               >
                 <option value={12}>12px</option>
@@ -556,7 +564,7 @@ export default function PDFViewer({
                 {[
                   { align: 'left', icon: '⬅' },
                   { align: 'center', icon: '↔' },
-                  { align: 'right', icon: '➡' }
+                  { align: 'right', icon: '➡' },
                 ].map(({ align, icon }) => (
                   <button
                     key={align}
@@ -568,7 +576,13 @@ export default function PDFViewer({
                     }`}
                     title={`Align ${align}`}
                   >
-                    <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                    <svg
+                      className='w-4 h-4'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
                       {align === 'left' && (
                         <>
                           <line x1='3' y1='6' x2='21' y2='6' />
@@ -752,7 +766,9 @@ export default function PDFViewer({
                                 pageNumber={pageNumber}
                                 isTextMode={activeTool === 'text'}
                                 selectedTextId={selectedTextId}
-                                onToolChange={(tool) => setActiveTool(tool as ToolType)}
+                                onToolChange={(tool) =>
+                                  setActiveTool(tool as ToolType)
+                                }
                                 onTextSelect={handleTextSelect}
                               />
                             )}
@@ -788,10 +804,7 @@ export default function PDFViewer({
       </div>
 
       {/* Figma Toolbar */}
-      <FigmaToolbar
-        activeTool={activeTool}
-        onToolChange={setActiveTool}
-      />
+      <FigmaToolbar activeTool={activeTool} onToolChange={setActiveTool} />
 
       {/* Text Selection Dialog */}
       {selectionDialog.visible && (
