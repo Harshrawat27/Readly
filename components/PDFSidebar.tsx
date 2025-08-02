@@ -41,7 +41,10 @@ export default function PDFSidebar({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [toast, setToast] = useState<{message: string, type: 'error' | 'success'} | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'error' | 'success';
+  } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load PDFs from API with caching
@@ -219,7 +222,7 @@ export default function PDFSidebar({
     if (!renameId || !renameValue.trim()) return;
 
     const newTitle = renameValue.trim();
-    const oldTitle = pdfHistory.find(pdf => pdf.id === renameId)?.title || '';
+    const oldTitle = pdfHistory.find((pdf) => pdf.id === renameId)?.title || '';
 
     // Optimistic update - update UI immediately
     setPdfHistory((prev) =>
@@ -246,18 +249,18 @@ export default function PDFSidebar({
       }
     } catch (error) {
       console.error('Error renaming PDF:', error);
-      
+
       // Rollback the optimistic update
       setPdfHistory((prev) =>
         prev.map((pdf) =>
           pdf.id === renameId ? { ...pdf, title: oldTitle } : pdf
         )
       );
-      
+
       // Show error toast
       setToast({
         message: 'Sorry we failed to rename your file, try again',
-        type: 'error'
+        type: 'error',
       });
     }
   };
@@ -673,7 +676,7 @@ export default function PDFSidebar({
                     }}
                   >
                     <button
-                      className='three-dots p-1 hover:bg-white/10 rounded transition-colors relative'
+                      className='three-dots p-2 hover:bg-white/10 rounded transition-colors relative'
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveDropdownId(
@@ -894,20 +897,23 @@ export default function PDFSidebar({
             <div className='flex gap-3 justify-end'>
               <button
                 onClick={async () => {
-                  const isActiveDeleteConfirmId = selectedPdfId === deleteConfirmId;
-                  const deletingPdf = pdfHistory.find(pdf => pdf.id === deleteConfirmId);
-                  
+                  const isActiveDeleteConfirmId =
+                    selectedPdfId === deleteConfirmId;
+                  const deletingPdf = pdfHistory.find(
+                    (pdf) => pdf.id === deleteConfirmId
+                  );
+
                   // Optimistic update - remove from UI immediately
                   setPdfHistory((prev) =>
                     prev.filter((pdf) => pdf.id !== deleteConfirmId)
                   );
-                  
+
                   // If deleting active PDF, redirect to home
                   if (isActiveDeleteConfirmId) {
                     onPdfSelect('');
                     router.push('/');
                   }
-                  
+
                   // Close dialog immediately
                   setDeleteConfirmId(null);
 
@@ -918,30 +924,34 @@ export default function PDFSidebar({
                         method: 'DELETE',
                       }
                     );
-                    
+
                     if (!response.ok) {
                       throw new Error('Failed to delete');
                     }
                   } catch (error) {
                     console.error('Error deleting PDF:', error);
-                    
+
                     // Rollback the optimistic update
                     if (deletingPdf) {
-                      setPdfHistory((prev) => [...prev, deletingPdf].sort((a, b) => 
-                        new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime()
-                      ));
-                      
+                      setPdfHistory((prev) =>
+                        [...prev, deletingPdf].sort(
+                          (a, b) =>
+                            new Date(b.lastAccessedAt).getTime() -
+                            new Date(a.lastAccessedAt).getTime()
+                        )
+                      );
+
                       // If we redirected to home, redirect back
                       if (isActiveDeleteConfirmId) {
                         onPdfSelect(deletingPdf.id);
                         router.push(`/pdf/${deletingPdf.id}`);
                       }
                     }
-                    
+
                     // Show error toast
                     setToast({
                       message: 'Sorry we failed to delete your file, try again',
-                      type: 'error'
+                      type: 'error',
                     });
                   }
                 }}
@@ -1006,20 +1016,34 @@ export default function PDFSidebar({
 
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
-          toast.type === 'error' 
-            ? 'bg-red-600 text-white' 
-            : 'bg-green-600 text-white'
-        }`}>
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+            toast.type === 'error'
+              ? 'bg-red-600 text-white'
+              : 'bg-green-600 text-white'
+          }`}
+        >
           <div className='flex items-center gap-2'>
             {toast.type === 'error' ? (
-              <svg className='w-5 h-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
                 <circle cx='12' cy='12' r='10' />
                 <line x1='15' y1='9' x2='9' y2='15' />
                 <line x1='9' y1='9' x2='15' y2='15' />
               </svg>
             ) : (
-              <svg className='w-5 h-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
                 <polyline points='20,6 9,17 4,12' />
               </svg>
             )}
@@ -1028,7 +1052,13 @@ export default function PDFSidebar({
               onClick={() => setToast(null)}
               className='ml-2 p-1 hover:bg-white/20 rounded'
             >
-              <svg className='w-4 h-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
                 <line x1='18' y1='6' x2='6' y2='18' />
                 <line x1='6' y1='6' x2='18' y2='18' />
               </svg>

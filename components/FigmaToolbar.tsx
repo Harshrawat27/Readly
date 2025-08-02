@@ -161,15 +161,15 @@ export default function FigmaToolbar({
 
     return (
       <div className='absolute bottom-full mb-2 left-0 z-50'>
-        <div className='bg-[var(--card-background)] rounded-lg shadow-xl border border-[var(--border)] py-1 min-w-[180px]'>
+        <div className='bg-[var(--card-background)] rounded-lg shadow-xl border border-[var(--border)] p-1 min-w-[180px]'>
           {items.map((item) => (
             <button
               key={item.id}
               onClick={() => handleToolClick(item.id, group)}
-              className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+              className={`w-full flex items-center justify-between px-3 rounded-md py-2 text-sm transition-colors ${
                 activeTool === item.id
                   ? 'bg-[var(--accent)] text-white'
-                  : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
+                  : 'text-[var(--text-primary)] hover:bg-[#0F0F0E] hover:text-[var(--text-primary)]'
               }`}
             >
               <div className='flex items-center gap-3'>
@@ -179,7 +179,9 @@ export default function FigmaToolbar({
                 <span>{item.name}</span>
               </div>
               {item.shortcut && (
-                <span className='text-xs text-[var(--text-muted)]'>{item.shortcut}</span>
+                <span className='text-xs text-white opacity-70'>
+                  {item.shortcut}
+                </span>
               )}
             </button>
           ))}
