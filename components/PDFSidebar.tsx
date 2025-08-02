@@ -45,7 +45,10 @@ export default function PDFSidebar({
     message: string;
     type: 'error' | 'success';
   } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load PDFs from API with caching
   const loadPdfs = useCallback(
@@ -185,6 +188,105 @@ export default function PDFSidebar({
     setIsDragOver(false);
   }, []);
 
+  const processPdfFile = useCallback(
+    async (file: File) => {
+      if (file.type !== 'application/pdf') {
+        setToast({
+          message: 'Please select a valid PDF file.',
+          type: 'error',
+        });
+        return false;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        // 10MB limit
+        setToast({
+          message: 'File size must be less than 10MB.',
+          type: 'error',
+        });
+        return false;
+      }
+
+      setIsUploading(true);
+      setUploadProgress('Uploading PDF...');
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/pdf/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Upload failed');
+        }
+
+        const result = await response.json();
+        setUploadProgress('Upload successful!');
+
+        // Clear cache and refresh PDF list
+        const cacheKey = `pdf-list-${userId}`;
+        const cacheTimeKey = `pdf-list-time-${userId}`;
+        localStorage.removeItem(cacheKey);
+        localStorage.removeItem(cacheTimeKey);
+
+        // Refresh the PDF list
+        await loadPdfs(true);
+
+        // Show success toast
+        setToast({
+          message: 'PDF uploaded successfully!',
+          type: 'success',
+        });
+
+        // Navigate to the PDF view page after a short delay
+        setTimeout(() => {
+          onPdfSelect(result.id);
+          router.push(`/pdf/${result.id}`);
+        }, 1000);
+
+        return true;
+      } catch (error) {
+        console.error('Error uploading PDF:', error);
+        setToast({
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Error uploading PDF file. Please try again.',
+          type: 'error',
+        });
+        setUploadProgress('');
+        return false;
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [userId, loadPdfs, onPdfSelect, router]
+  );
+
+  const handleFileSelect = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await processPdfFile(file);
+      }
+      // Reset the input value so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [processPdfFile]
+  );
+
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
@@ -194,20 +296,15 @@ export default function PDFSidebar({
       const pdfFile = files.find((file) => file.type === 'application/pdf');
 
       if (pdfFile) {
-        // Clear cache before navigating to upload page
-        const cacheKey = `pdf-list-${userId}`;
-        const cacheTimeKey = `pdf-list-time-${userId}`;
-        localStorage.removeItem(cacheKey);
-        localStorage.removeItem(cacheTimeKey);
-        localStorage.setItem('last-upload-navigation', Date.now().toString());
-
-        // Navigate to upload page with the file
-        router.push('/upload');
+        await processPdfFile(pdfFile);
       } else {
-        alert('Please drop a valid PDF file.');
+        setToast({
+          message: 'Please drop a valid PDF file.',
+          type: 'error',
+        });
       }
     },
-    [router, userId]
+    [processPdfFile]
   );
 
   const formatDate = (date: Date) => {
@@ -292,20 +389,9 @@ export default function PDFSidebar({
         <div className='flex-1 flex flex-col py-4'>
           {/* New Chat */}
           <button
-            onClick={() => {
-              // Clear cache before navigating to upload page
-              const cacheKey = `pdf-list-${userId}`;
-              const cacheTimeKey = `pdf-list-time-${userId}`;
-              localStorage.removeItem(cacheKey);
-              localStorage.removeItem(cacheTimeKey);
-              localStorage.setItem(
-                'last-upload-navigation',
-                Date.now().toString()
-              );
-
-              router.push('/upload');
-            }}
-            className='w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity'
+            onClick={handleFileSelect}
+            disabled={isUploading}
+            className='w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-50'
             title='New PDF'
           >
             <svg
@@ -478,7 +564,7 @@ export default function PDFSidebar({
     <div
       className={`h-full flex flex-col bg-[var(--sidebar-bg)] ${
         isDragOver ? 'bg-[var(--accent)]/10 border-[var(--accent)]' : ''
-      }`}
+      } ${isUploading ? 'pointer-events-none opacity-75' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -522,33 +608,44 @@ export default function PDFSidebar({
 
         {/* New Chat Button */}
         <button
-          onClick={() => {
-            // Clear cache before navigating to upload page
-            const cacheKey = `pdf-list-${userId}`;
-            const cacheTimeKey = `pdf-list-time-${userId}`;
-            localStorage.removeItem(cacheKey);
-            localStorage.removeItem(cacheTimeKey);
-            localStorage.setItem(
-              'last-upload-navigation',
-              Date.now().toString()
-            );
-
-            router.push('/upload');
-          }}
-          className='w-full bg-[var(--accent)] text-white rounded-lg py-2.5 px-4 font-medium hover:opacity-90 transition-opacity flex items-center gap-3 mb-4'
+          onClick={handleFileSelect}
+          disabled={isUploading}
+          className='flex items-center gap-3 mb-4 mt-10g text-accent disabled:opacity-50'
         >
-          <svg
-            className='w-4 h-4'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeWidth='2'
-          >
-            <path d='M12 5v14' />
-            <path d='M5 12h14' />
-          </svg>
-          New PDF
+          {isUploading ? (
+            <>
+              <div className='rounded-full text-white bg-accent p-1'>
+                <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+              </div>
+              <strong>{uploadProgress}</strong>
+            </>
+          ) : (
+            <>
+              <div className='rounded-full text-white bg-accent p-1'>
+                <svg
+                  className='w-4 h-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M12 5v14' />
+                  <path d='M5 12h14' />
+                </svg>
+              </div>
+              <strong>New PDF</strong>
+            </>
+          )}
         </button>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type='file'
+          accept='.pdf'
+          onChange={handleFileChange}
+          className='hidden'
+        />
 
         {/* Navigation Sections */}
         <div className='space-y-1'>
