@@ -146,6 +146,7 @@ export default function PDFSidebar({
     }
   }, [toast]);
 
+
   // Listen for page focus to refresh PDF list when returning from upload
   useEffect(() => {
     const handleFocus = () => {
@@ -362,15 +363,17 @@ export default function PDFSidebar({
     }
   };
 
-  if (isCollapsed) {
-    return (
-      <div className='h-full w-16 bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex flex-col relative'>
+  return (
+    <div className='h-full flex relative'>
+      {/* Icon Sidebar - Only when collapsed */}
+      {isCollapsed && (
+        <div className='h-full w-16 bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex flex-col relative z-20'>
         {/* Header with Logo */}
         <div className='p-3 border-b border-[var(--border)]'>
           <button
             onClick={onToggleSidebar}
             className='w-8 h-8 bg-[var(--accent)] rounded-md flex items-center justify-center mx-auto hover:opacity-90 transition-opacity'
-            title='Expand sidebar'
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <svg
               className='w-5 h-5 text-white'
@@ -394,16 +397,20 @@ export default function PDFSidebar({
             className='w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-50'
             title='New PDF'
           >
-            <svg
-              className='w-5 h-5'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M12 5v14' />
-              <path d='M5 12h14' />
-            </svg>
+            {isUploading ? (
+              <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+            ) : (
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M12 5v14' />
+                <path d='M5 12h14' />
+              </svg>
+            )}
           </button>
 
           {/* PDFs Icon */}
@@ -472,7 +479,7 @@ export default function PDFSidebar({
             {userName.charAt(0).toUpperCase()}
           </button>
 
-          {/* User Dropdown for Collapsed State */}
+          {/* User Dropdown for Icon State */}
           {isUserDropdownOpen && (
             <div className='absolute bottom-full left-16 mb-2 w-64 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
               <div className='px-4 py-2 border-b border-[var(--border)]'>
@@ -556,19 +563,23 @@ export default function PDFSidebar({
             </div>
           )}
         </div>
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  return (
-    <div
-      className={`h-full flex flex-col bg-[var(--sidebar-bg)] ${
-        isDragOver ? 'bg-[var(--accent)]/10 border-[var(--accent)]' : ''
-      } ${isUploading ? 'pointer-events-none opacity-75' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+      {/* Main Content Panel - Slides In/Out */}
+      <div
+        className={`h-full w-80 bg-[var(--sidebar-bg)] flex flex-col border-r border-[var(--border)] transform transition-transform duration-300 ${
+          isCollapsed ? '-translate-x-full' : 'translate-x-0'
+        } ${isDragOver ? 'bg-[var(--accent)]/10 border-[var(--accent)]' : ''} ${
+          isUploading ? 'pointer-events-none opacity-75' : ''
+        }`}
+        style={{
+          transitionTimingFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
       {/* Header with Logo and Title */}
       <div className='p-4 border-b border-[var(--border)]'>
         <div className='flex items-center justify-between mb-6'>
@@ -980,6 +991,16 @@ export default function PDFSidebar({
           </div>
         )}
       </div>
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        onChange={handleFileChange}
+        className="hidden"
+      />
 
       {/* Delete Confirmation Popup */}
       {deleteConfirmId && (
