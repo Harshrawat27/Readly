@@ -35,15 +35,21 @@ export async function GET(
       data: { lastAccessedAt: new Date() },
     });
 
-    // Get signed URL from S3
+    // Get signed URL from S3 with longer expiry for better caching
     const signedUrl = await getPdfFromS3(pdf.fileUrl);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       id: pdf.id,
       title: pdf.title,
       fileName: pdf.fileName,
       url: signedUrl,
     });
+
+    // Add caching headers for better performance
+    response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    response.headers.set('ETag', `"${pdf.id}-${pdf.lastAccessedAt.getTime()}"`);
+    
+    return response;
   } catch (error) {
     console.error('PDF fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });

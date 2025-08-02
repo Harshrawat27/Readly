@@ -49,11 +49,14 @@ export async function getPdfFromS3(key: string): Promise<string> {
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
+    // Enable range requests for faster partial loading
+    ResponseCacheControl: 'public, max-age=31536000',
   });
 
   try {
     const signedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600,
+      // Longer expiry for better caching (6 hours)
+      expiresIn: 21600,
     });
     return signedUrl;
   } catch (error) {

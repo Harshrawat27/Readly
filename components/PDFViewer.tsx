@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
 import TextSystem from './TextSystem';
+import { pdfOptimizations } from '@/lib/pdf-optimizations';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -20,7 +21,7 @@ const Page = dynamic(
 // Configure PDF.js worker and styles on client side only
 if (typeof window !== 'undefined') {
   import('react-pdf').then((pdfjs) => {
-    // Use a more stable worker version
+    // Use worker version that matches react-pdf's bundled version
     pdfjs.pdfjs.GlobalWorkerOptions.workerSrc =
       'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
   });
@@ -110,7 +111,7 @@ export default function PDFViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Load PDF file based on pdfId
+  // Load PDF file based on pdfId with caching
   useEffect(() => {
     if (pdfId) {
       const loadPdf = async () => {
@@ -118,12 +119,31 @@ export default function PDFViewer({
           setIsLoading(true);
           setError(null);
 
-          const response = await fetch(`/api/pdf/${pdfId}`);
+          // Check cache first
+          const cachedUrl = pdfOptimizations.getCachedPdfUrl(pdfId);
+          if (cachedUrl) {
+            setPdfFile(cachedUrl);
+            setCurrentPage(1);
+            setIsLoading(false);
+            return;
+          }
+
+          const response = await fetch(`/api/pdf/${pdfId}`, {
+            // Add cache headers for better performance
+            headers: {
+              'Cache-Control': 'public, max-age=300',
+            },
+          });
+          
           if (!response.ok) {
             throw new Error('Failed to load PDF');
           }
 
           const pdfData = await response.json();
+          
+          // Cache the URL for this session
+          pdfOptimizations.cachePdfUrl(pdfId, pdfData.url);
+          
           setPdfFile(pdfData.url);
           setCurrentPage(1);
         } catch (error) {
@@ -261,22 +281,27 @@ export default function PDFViewer({
             }
           }
 
-          // Progressive loading: load pages that are becoming visible
+          // Progressive loading: load pages that are becoming visible + smart prefetching
           if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
             setLoadedPages((prev) => {
               const newSet = new Set(prev);
-              // Load current page and nearby pages
-              newSet.add(pageNumber);
-              if (pageNumber > 1) newSet.add(pageNumber - 1);
-              if (pageNumber < numPages) newSet.add(pageNumber + 1);
+              // Load current page and 2 pages in each direction for smoother scrolling
+              for (let i = Math.max(1, pageNumber - 2); i <= Math.min(numPages, pageNumber + 2); i++) {
+                newSet.add(i);
+              }
               return newSet;
             });
           }
         });
 
-        // If we found a visible page, update current page
+        // If we found a visible page, update current page and prefetch nearby pages
         if (bestMatch.ratio > 0) {
           setCurrentPage(bestMatch.pageNumber);
+          
+          // Prefetch nearby pages for smoother scrolling
+          if (pdfFile && numPages) {
+            pdfOptimizations.prefetchPages(pdfFile, bestMatch.pageNumber, numPages);
+          }
         }
       },
       {
@@ -314,8 +339,8 @@ export default function PDFViewer({
       setIsLoading(false);
       setError(null);
       pageRefs.current = new Array(numPages).fill(null);
-      // Start with first page loaded
-      setLoadedPages(new Set([1]));
+      // Start with first 3 pages loaded for immediate viewing
+      setLoadedPages(new Set([1, 2, 3].filter(page => page <= numPages)));
     },
     []
   );
@@ -452,17 +477,8 @@ export default function PDFViewer({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectedTextId]);
 
-  // Memoize options to prevent unnecessary reloads
-  const pdfOptions = useMemo(
-    () => ({
-      cMapUrl: 'https://unpkg.com/pdfjs-dist@5.3.31/cmaps/',
-      standardFontDataUrl:
-        'https://unpkg.com/pdfjs-dist@5.3.31/standard_fonts/',
-      disableWorker: false,
-      httpHeaders: {},
-    }),
-    []
-  );
+  // Use optimized PDF options
+  const pdfOptions = useMemo(() => pdfOptimizations.getOptimizedOptions(), []);
 
   if (!pdfId) {
     return (
@@ -737,6 +753,8 @@ export default function PDFViewer({
                               renderTextLayer={true}
                               renderAnnotationLayer={true}
                               className='pdf-page shadow-lg border'
+                              // Optimize rendering for better performance
+                              renderMode='canvas'
                               loading={
                                 <div className='text-center py-4'>
                                   <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
