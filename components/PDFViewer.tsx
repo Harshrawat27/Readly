@@ -378,49 +378,19 @@ export default function PDFViewer({
     []
   );
 
-  // Handle text formatting changes from top bar
+  // Handle text formatting changes from top bar with debouncing
   const handleTextFormat = useCallback(
-    async (updates: any) => {
+    (updates: any) => {
       if (!selectedTextId || !selectedTextElement) return;
 
       // Update local state immediately for instant visual feedback
       const updatedElement = { ...selectedTextElement, ...updates };
       setSelectedTextElement(updatedElement);
 
-      // Create a custom event that TextSystem will listen to for immediate updates
-      const event = new CustomEvent('textFormatUpdate', {
-        detail: { textId: selectedTextId, updates },
-      });
-      window.dispatchEvent(event);
-
-      // Background API call
-      try {
-        const response = await fetch(`/api/texts/${selectedTextId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updates),
-        });
-
-        if (!response.ok) {
-          // Rollback on error - create revert event
-          const revertEvent = new CustomEvent('textFormatUpdate', {
-            detail: { textId: selectedTextId, updates: selectedTextElement },
-          });
-          window.dispatchEvent(revertEvent);
-          setSelectedTextElement(selectedTextElement);
-        }
-      } catch (error) {
-        // Rollback on error - create revert event
-        const revertEvent = new CustomEvent('textFormatUpdate', {
-          detail: { textId: selectedTextId, updates: selectedTextElement },
-        });
-        window.dispatchEvent(revertEvent);
-        setSelectedTextElement(selectedTextElement);
-      }
+      // Use the centralized updateText function which has proper debouncing
+      updateText(selectedTextId, updates);
     },
-    [selectedTextId, selectedTextElement]
+    [selectedTextId, selectedTextElement, updateText]
   );
 
   // Handle click outside to deselect text

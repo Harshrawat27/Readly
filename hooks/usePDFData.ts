@@ -52,6 +52,9 @@ interface PDFDataCache {
 const dataCache: PDFDataCache = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Global debounce timers for text updates
+const debounceTimers: { [key: string]: NodeJS.Timeout } = {};
+
 export function usePDFData(pdfId: string | null) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [texts, setTexts] = useState<TextElement[]>([]);
@@ -339,20 +342,35 @@ export function usePDFData(pdfId: string | null) {
     }
   }, [pdfId, texts]);
 
-  // Update text with debouncing for position/size changes
+  // Update text with comprehensive debouncing for ALL changes
   const updateText = useCallback(async (textId: string, updates: Partial<TextElement>) => {
     if (!pdfId) return;
 
-    // Optimistic update
+    // Optimistic update - always immediate for UI responsiveness
     setTexts(prev => prev.map(t => 
       t.id === textId ? { ...t, ...updates } : t
     ));
 
-    // Debounce API calls for position/size changes, immediate for content/formatting
-    const shouldDebounce = 'x' in updates || 'y' in updates || 'width' in updates;
-    const delay = shouldDebounce ? 500 : 0; // 500ms for position/size, immediate for content/formatting
+    // Determine debounce delay based on update type
+    let delay = 800; // Default 800ms for most operations
+    
+    if ('content' in updates) {
+      delay = 1000; // 1s for typing content
+    } else if ('fontSize' in updates || 'color' in updates || 'textAlign' in updates) {
+      delay = 600; // 600ms for formatting changes
+    } else if ('x' in updates || 'y' in updates || 'width' in updates) {
+      delay = 500; // 500ms for position/size changes
+    }
 
-    const makeAPICall = async () => {
+    const debounceKey = `${pdfId}-${textId}`;
+    
+    // Clear existing timer for this text element
+    if (debounceTimers[debounceKey]) {
+      clearTimeout(debounceTimers[debounceKey]);
+    }
+
+    // Set up new debounced API call
+    debounceTimers[debounceKey] = setTimeout(async () => {
       try {
         const response = await fetch(`/api/texts/${textId}`, {
           method: 'PATCH',
@@ -368,19 +386,17 @@ export function usePDFData(pdfId: string | null) {
             t.id === textId ? { ...t, ...updates } : t
           );
         }
+
+        // Clean up timer
+        delete debounceTimers[debounceKey];
       } catch (err) {
+        console.error('Error updating text:', err);
         // Rollback on error
         loadData(true);
-        throw err;
+        // Clean up timer
+        delete debounceTimers[debounceKey];
       }
-    };
-
-    if (delay > 0) {
-      // Use a simple timeout for debouncing
-      setTimeout(makeAPICall, delay);
-    } else {
-      await makeAPICall();
-    }
+    }, delay);
   }, [pdfId, loadData]);
 
   // Delete text

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const { content, x, y, pageNumber, width, fontSize, color, textAlign, pdfId } = await request.json();
 
     if (
-      !content ||
+      content === undefined ||
       !pdfId ||
       x === undefined ||
       y === undefined ||

@@ -75,23 +75,10 @@ export default function TextSystem({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Listen for formatting updates from top bar
-  useEffect(() => {
-    const handleFormatUpdate = (event: CustomEvent) => {
-      const { textId, updates } = event.detail;
-      // Call parent update handler
-      onTextUpdate?.(textId, updates);
-    };
-
-    window.addEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
-    
-    return () => {
-      window.removeEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
-    };
-  }, [onTextUpdate]);
+  // Note: Formatting updates are now handled directly through the centralized updateText function
 
   const handlePageClick = useCallback(
-    (event: React.MouseEvent) => {
+    async (event: React.MouseEvent) => {
       if (!isTextMode) return;
 
       const target = event.target as HTMLElement;
@@ -115,32 +102,35 @@ export default function TextSystem({
         visible: true,
       });
 
-      // Create new text element
-      const newText: TextElement = {
-        id: `temp-${Date.now()}`,
-        content: '',
-        x,
-        y,
-        pageNumber,
-        width: 200, // Default width in pixels
-        fontSize: 16,
-        color: '#000000',
-        textAlign: 'left',
-        createdAt: new Date().toISOString(),
-      };
+      try {
+        // Create new text element using the centralized data management
+        const tempId = await onTextCreate?.({
+          content: '',
+          x,
+          y,
+          pageNumber,
+          width: 200, // Default width in pixels
+          fontSize: 16,
+          color: '#000000',
+          textAlign: 'left',
+        });
 
-      // Note: In a real implementation, this temp text should be handled
-      // by the parent component's state management
-      setEditingTextId(newText.id);
-      setIsTyping(true);
-      handleTextSelect(null);
+        // Use the temporary ID returned from addText
+        const textId = tempId || `temp-${Date.now()}`;
+        setEditingTextId(textId);
+        setIsTyping(true);
+        handleTextSelect(null);
 
-      // Focus the input after a brief delay
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+        // Focus the input after a brief delay
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
+      } catch (error) {
+        console.error('Error creating text element:', error);
+        setCursor((prev) => ({ ...prev, visible: false }));
+      }
     },
-    [isTextMode, pageNumber]
+    [isTextMode, pageNumber, onTextCreate]
   );
 
   const handleTextSave = async (textId: string, content: string) => {
@@ -153,25 +143,15 @@ export default function TextSystem({
       return;
     }
 
-    const textElement = pageTexts.find((t) => t.id === textId);
-    if (!textElement) return;
-
     setEditingTextId(null);
     setIsTyping(false);
     setCursor((prev) => ({ ...prev, visible: false }));
     onToolChange?.('move');
 
     try {
-      if (textId.startsWith('temp-')) {
-        // Create new text
-        await onTextCreate?.({
-          ...textElement,
-          content: content.trim(),
-        });
-      } else {
-        // Update existing text
-        await onTextUpdate?.(textId, { content: content.trim() });
-      }
+      // Since we're now creating text elements immediately in handlePageClick,
+      // we only need to update the content here
+      await onTextUpdate?.(textId, { content: content.trim() });
     } catch (error) {
       console.error('Error saving text:', error);
     }
@@ -289,6 +269,7 @@ function TextElement({
   const [localWidth, setLocalWidth] = useState(text.width);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const contentUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -345,11 +326,27 @@ function TextElement({
     };
   }, [isResizing, resizeStart, text.id, onTextUpdate, localWidth]);
 
-  // Cleanup timeout on unmount
+  // Handle debounced content updates while typing
+  const handleContentChange = (newContent: string) => {
+    // Clear existing timeout
+    if (contentUpdateTimeoutRef.current) {
+      clearTimeout(contentUpdateTimeoutRef.current);
+    }
+
+    // Set up debounced update
+    contentUpdateTimeoutRef.current = setTimeout(() => {
+      onTextUpdate(text.id, { content: newContent });
+    }, 1000); // 1 second debounce for content changes
+  };
+
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
+      }
+      if (contentUpdateTimeoutRef.current) {
+        clearTimeout(contentUpdateTimeoutRef.current);
       }
     };
   }, []);
@@ -403,12 +400,30 @@ function TextElement({
               lineHeight: '1.2',
               minHeight: '28px',
             }}
-            onBlur={(e) => onTextSave(text.id, e.target.value)}
+            onChange={(e) => {
+              // Debounced content update while typing
+              handleContentChange(e.target.value);
+            }}
+            onBlur={(e) => {
+              // Clear debounce timer and save immediately on blur
+              if (contentUpdateTimeoutRef.current) {
+                clearTimeout(contentUpdateTimeoutRef.current);
+              }
+              onTextSave(text.id, e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
+                // Clear debounce timer and save immediately on Enter
+                if (contentUpdateTimeoutRef.current) {
+                  clearTimeout(contentUpdateTimeoutRef.current);
+                }
                 onTextSave(text.id, e.currentTarget.value);
               } else if (e.key === 'Escape') {
+                // Clear debounce timer and cancel on Escape
+                if (contentUpdateTimeoutRef.current) {
+                  clearTimeout(contentUpdateTimeoutRef.current);
+                }
                 onTextSave(text.id, '');
               }
             }}
