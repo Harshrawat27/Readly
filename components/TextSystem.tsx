@@ -20,9 +20,10 @@ interface TextSystemProps {
   pageNumber: number;
   isTextMode: boolean;
   selectedTextId?: string | null;
-  onTextCreate?: (text: Omit<TextElement, 'id' | 'createdAt'>) => void;
-  onTextUpdate?: (id: string, updates: Partial<TextElement>) => void;
-  onTextDelete?: (id: string) => void;
+  texts: TextElement[]; // Pre-loaded texts for this page
+  onTextCreate?: (text: Omit<TextElement, 'id' | 'createdAt'>) => Promise<string | void>;
+  onTextUpdate?: (id: string, updates: Partial<TextElement>) => Promise<void>;
+  onTextDelete?: (id: string) => Promise<void>;
   onToolChange?: (tool: 'move' | 'text') => void;
   onTextSelect?: (textId: string | null, textElement?: TextElement) => void;
 }
@@ -39,13 +40,13 @@ export default function TextSystem({
   pageNumber,
   isTextMode,
   selectedTextId: externalSelectedTextId,
+  texts: pageTexts,
   onTextCreate,
   onTextUpdate,
   onTextDelete,
   onToolChange,
   onTextSelect,
 }: TextSystemProps) {
-  const [texts, setTexts] = useState<TextElement[]>([]);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(
     externalSelectedTextId || null
   );
@@ -59,7 +60,7 @@ export default function TextSystem({
   const handleTextSelect = (textId: string | null) => {
     setSelectedTextId(textId);
     const selectedText = textId
-      ? texts.find((t) => t.id === textId)
+      ? pageTexts.find((t) => t.id === textId)
       : undefined;
     onTextSelect?.(textId, selectedText);
   };
@@ -74,22 +75,12 @@ export default function TextSystem({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Load texts for current PDF
-  useEffect(() => {
-    if (pdfId) {
-      loadTexts();
-    }
-  }, [pdfId]);
-
-  // Listen for formatting updates from top bar (like comments do)
+  // Listen for formatting updates from top bar
   useEffect(() => {
     const handleFormatUpdate = (event: CustomEvent) => {
       const { textId, updates } = event.detail;
-      
-      // Update text immediately (optimistic update)
-      setTexts((prev) =>
-        prev.map((text) => (text.id === textId ? { ...text, ...updates } : text))
-      );
+      // Call parent update handler
+      onTextUpdate?.(textId, updates);
     };
 
     window.addEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
@@ -97,19 +88,7 @@ export default function TextSystem({
     return () => {
       window.removeEventListener('textFormatUpdate', handleFormatUpdate as EventListener);
     };
-  }, []);
-
-  const loadTexts = async () => {
-    try {
-      const response = await fetch(`/api/texts?pdfId=${pdfId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTexts(data);
-      }
-    } catch (error) {
-      console.error('Error loading texts:', error);
-    }
-  };
+  }, [onTextUpdate]);
 
   const handlePageClick = useCallback(
     (event: React.MouseEvent) => {
@@ -166,60 +145,34 @@ export default function TextSystem({
   const handleTextSave = async (textId: string, content: string) => {
     if (!content.trim()) {
       // Delete text if empty
-      await handleTextDelete(textId);
+      await onTextDelete?.(textId);
       setEditingTextId(null);
       setIsTyping(false);
       setCursor((prev) => ({ ...prev, visible: false }));
       return;
     }
 
-    const textElement = texts.find((t) => t.id === textId);
+    const textElement = pageTexts.find((t) => t.id === textId);
     if (!textElement) return;
-
-    // Update local state
-    setTexts((prev) =>
-      prev.map((text) =>
-        text.id === textId ? { ...text, content: content.trim() } : text
-      )
-    );
 
     setEditingTextId(null);
     setIsTyping(false);
     setCursor((prev) => ({ ...prev, visible: false }));
-
-    // Auto-switch to move tool after text creation
     onToolChange?.('move');
 
-    // Check if this is a new text (temp ID) or existing text
-    if (textId.startsWith('temp-')) {
-      // Create new text
-      try {
-        const response = await fetch('/api/texts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...textElement,
-            content: content.trim(),
-            pdfId,
-          }),
+    try {
+      if (textId.startsWith('temp-')) {
+        // Create new text
+        await onTextCreate?.({
+          ...textElement,
+          content: content.trim(),
         });
-
-        if (response.ok) {
-          const realText = await response.json();
-          // Replace temp text with real one
-          setTexts((prev) =>
-            prev.map((text) => (text.id === textId ? realText : text))
-          );
-          onTextCreate?.(realText);
-        }
-      } catch (error) {
-        console.error('Error creating text:', error);
+      } else {
+        // Update existing text
+        await onTextUpdate?.(textId, { content: content.trim() });
       }
-    } else {
-      // Update existing text
-      await handleTextUpdate(textId, { content: content.trim() });
+    } catch (error) {
+      console.error('Error saving text:', error);
     }
   };
 
@@ -297,7 +250,7 @@ export default function TextSystem({
   };
 
   // Filter texts for current page
-  const pageTexts = texts.filter((text) => text.pageNumber === pageNumber);
+  // Texts are already filtered by page from parent component
 
   return (
     <div

@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
       return NextResponse.json(
-        { error: 'File size must be less than 10MB' },
+        { error: 'File size must be less than 50MB' },
         { status: 400 }
       );
     }

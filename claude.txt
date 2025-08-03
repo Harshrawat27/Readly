@@ -9,3 +9,11 @@
 - pdf after loading sometimes shound page 1 only and then text like page 2, page 3 etc
 
 and i'll be ready to launch. 
+
+- 3 aug
+    - chat optimise
+    - left bar optimise
+    - add shape functionality
+    - mind map
+    - flow chart 
+    - payment gateway

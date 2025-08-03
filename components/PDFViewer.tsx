@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
 import TextSystem from './TextSystem';
+import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -21,8 +22,9 @@ const Page = dynamic(
 if (typeof window !== 'undefined') {
   import('react-pdf').then((pdfjs) => {
     // Use a more stable worker version
-    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc =
-      'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
+    // pdfjs.pdfjs.GlobalWorkerOptions.workerSrc =
+    //   'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
+    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
   });
 
   // CSS files are imported in globals.css
@@ -64,7 +66,6 @@ export default function PDFViewer({
   const [error, setError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(800);
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
   const [selectionDialog, setSelectionDialog] = useState<TextSelectionDialog>({
     x: 0,
     y: 0,
@@ -78,6 +79,17 @@ export default function PDFViewer({
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
+
+  // Centralized PDF data management
+  const {
+    getCommentsForPage,
+    getTextsForPage,
+    addComment,
+    addText,
+    updateText,
+    deleteText,
+    isLoading: isDataLoading
+  } = usePDFData(pdfId);
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -241,13 +253,12 @@ export default function PDFViewer({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectionDialog.visible]);
 
-  // Intersection Observer for tracking current page and progressive loading
+  // Intersection observer for current page tracking
   useEffect(() => {
     if (!numPages) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Find the page with highest intersection ratio that's at least 50% visible
         let bestMatch = { pageNumber: 1, ratio: 0 };
 
         entries.forEach((entry) => {
@@ -260,32 +271,18 @@ export default function PDFViewer({
               bestMatch = { pageNumber, ratio: entry.intersectionRatio };
             }
           }
-
-          // Progressive loading: load pages that are becoming visible
-          if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-            setLoadedPages((prev) => {
-              const newSet = new Set(prev);
-              // Load current page and nearby pages
-              newSet.add(pageNumber);
-              if (pageNumber > 1) newSet.add(pageNumber - 1);
-              if (pageNumber < numPages) newSet.add(pageNumber + 1);
-              return newSet;
-            });
-          }
         });
 
-        // If we found a visible page, update current page
         if (bestMatch.ratio > 0) {
           setCurrentPage(bestMatch.pageNumber);
         }
       },
       {
-        threshold: [0.1, 0.3, 0.5, 0.7, 0.9], // Lower threshold for progressive loading
+        threshold: [0.1, 0.3, 0.5, 0.7, 0.9],
         root: containerRef.current?.querySelector('.pdf-scroll-container'),
       }
     );
 
-    // Small delay to ensure DOM is ready
     const timeoutId = setTimeout(() => {
       pageRefs.current.forEach((pageRef) => {
         if (pageRef) {
@@ -314,8 +311,6 @@ export default function PDFViewer({
       setIsLoading(false);
       setError(null);
       pageRefs.current = new Array(numPages).fill(null);
-      // Start with first page loaded
-      setLoadedPages(new Set([1]));
     },
     []
   );
@@ -714,85 +709,64 @@ export default function PDFViewer({
                 }
                 options={pdfOptions}
               >
-                {numPages &&
+{numPages &&
                   Array.from(new Array(numPages), (el, index) => {
                     const pageNumber = index + 1;
-                    const shouldLoad = loadedPages.has(pageNumber);
 
                     return (
                       <div
-                        key={`page-wrapper-${pageNumber}`}
+                        key={`page_${pageNumber}`}
                         ref={(el) => {
                           pageRefs.current[index] = el;
                         }}
                         data-page-number={pageNumber}
                         className='mb-4 relative'
                       >
-                        {shouldLoad ? (
-                          <>
-                            <Page
-                              key={`page_${pageNumber}_${calculateScale()}`}
-                              pageNumber={pageNumber}
-                              scale={calculateScale()}
-                              renderTextLayer={true}
-                              renderAnnotationLayer={true}
-                              className='pdf-page shadow-lg border'
-                              loading={
-                                <div className='text-center py-4'>
-                                  <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
-                                </div>
-                              }
-                              error={
-                                <div className='text-center py-4'>
-                                  <p className='text-[var(--text-muted)] text-sm'>
-                                    Failed to load page {pageNumber}
-                                  </p>
-                                </div>
-                              }
-                            />
-                            {/* Comment System Overlay */}
-                            {pdfId && currentUser && (
-                              <CommentSystem
-                                pdfId={pdfId}
-                                pageNumber={pageNumber}
-                                isCommentMode={activeTool === 'comment'}
-                                currentUser={currentUser}
-                              />
-                            )}
-                            {/* Text System Overlay */}
-                            {pdfId && (
-                              <TextSystem
-                                pdfId={pdfId}
-                                pageNumber={pageNumber}
-                                isTextMode={activeTool === 'text'}
-                                selectedTextId={selectedTextId}
-                                onToolChange={(tool) =>
-                                  setActiveTool(tool as ToolType)
-                                }
-                                onTextSelect={handleTextSelect}
-                              />
-                            )}
-                          </>
-                        ) : (
-                          <div
-                            className='pdf-page-placeholder shadow-lg border bg-gray-100 flex items-center justify-center'
-                            style={{ height: '600px', minHeight: '600px' }}
-                          >
-                            <div className='text-center text-gray-500'>
-                              <div className='w-8 h-8 mx-auto mb-2 opacity-50'>
-                                <svg
-                                  viewBox='0 0 24 24'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  strokeWidth='2'
-                                >
-                                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-                                </svg>
-                              </div>
-                              <p className='text-sm'>Page {pageNumber}</p>
+                        <Page
+                          key={`page_${pageNumber}_${calculateScale()}`}
+                          pageNumber={pageNumber}
+                          scale={calculateScale()}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                          className='pdf-page shadow-lg border'
+                          loading={
+                            <div className='text-center py-4'>
+                              <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
                             </div>
-                          </div>
+                          }
+                          error={
+                            <div className='text-center py-4'>
+                              <p className='text-[var(--text-muted)] text-sm'>
+                                Failed to load page {pageNumber}
+                              </p>
+                            </div>
+                          }
+                        />
+                        {/* Comment System Overlay */}
+                        {pdfId && currentUser && (
+                          <CommentSystem
+                            pdfId={pdfId}
+                            pageNumber={pageNumber}
+                            isCommentMode={activeTool === 'comment'}
+                            currentUser={currentUser}
+                            comments={getCommentsForPage(pageNumber)}
+                            onCommentCreate={addComment}
+                          />
+                        )}
+                        {/* Text System Overlay */}
+                        {pdfId && (
+                          <TextSystem
+                            pdfId={pdfId}
+                            pageNumber={pageNumber}
+                            isTextMode={activeTool === 'text'}
+                            selectedTextId={selectedTextId}
+                            texts={getTextsForPage(pageNumber)}
+                            onTextCreate={addText}
+                            onTextUpdate={updateText}
+                            onTextDelete={deleteText}
+                            onToolChange={(tool) => setActiveTool(tool as ToolType)}
+                            onTextSelect={handleTextSelect}
+                          />
                         )}
                       </div>
                     );

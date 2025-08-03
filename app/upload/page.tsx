@@ -23,8 +23,8 @@ export default function UploadPage() {
       return false;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      alert('File size must be less than 10MB.');
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      alert('File size must be less than 50MB.');
       return false;
     }
 
@@ -241,7 +241,7 @@ export default function UploadPage() {
                   </button>
                 </h3>
                 <p className='text-[var(--text-muted)]'>
-                  Supports PDF files up to 10MB
+                  Supports PDF files up to 50MB
                 </p>
               </div>
               

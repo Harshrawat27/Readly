@@ -199,10 +199,10 @@ export default function PDFSidebar({
         return false;
       }
 
-      if (file.size > 10 * 1024 * 1024) {
-        // 10MB limit
+      if (file.size > 50 * 1024 * 1024) {
+        // 50MB limit
         setToast({
-          message: 'File size must be less than 10MB.',
+          message: 'File size must be less than 50MB.',
           type: 'error',
         });
         return false;

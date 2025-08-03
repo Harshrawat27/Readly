@@ -44,6 +44,7 @@ interface CommentSystemProps {
     name: string;
     image?: string;
   };
+  comments: Comment[]; // Pre-loaded comments for this page
   onCommentCreate?: (
     comment: Omit<Comment, 'id' | 'createdAt' | 'user' | 'replies'>
   ) => void;
@@ -63,20 +64,18 @@ export default function CommentSystem({
   pageNumber,
   isCommentMode,
   currentUser,
+  comments: pageComments,
   onCommentCreate,
   onCommentUpdate,
   onCommentDelete,
   onReplyCreate,
 }: CommentSystemProps) {
-  const [comments, setComments] = useState<Comment[]>([]);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null
   );
   const [toasts, setToasts] = useState<Toast[]>([]);
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug logging
-  console.log('CommentSystem render:', { pdfId, pageNumber, isCommentMode });
   const [newCommentDialog, setNewCommentDialog] = useState<NewCommentDialog>({
     x: 0,
     y: 0,
@@ -84,7 +83,6 @@ export default function CommentSystem({
     visible: false,
   });
   const [newCommentText, setNewCommentText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Toast management
@@ -103,13 +101,6 @@ export default function CommentSystem({
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Load comments for current PDF
-  useEffect(() => {
-    if (pdfId) {
-      loadComments();
-    }
-  }, [pdfId]);
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -118,21 +109,6 @@ export default function CommentSystem({
       }
     };
   }, []);
-
-  const loadComments = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/comments?pdfId=${pdfId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setComments(data);
-      }
-    } catch (error) {
-      console.error('Error loading comments:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handlePageClick = useCallback(
     (event: React.MouseEvent) => {
@@ -187,51 +163,15 @@ export default function CommentSystem({
       resolved: false,
     };
 
-    // Create optimistic comment with temporary ID
-    const optimisticComment: Comment = {
-      id: `temp-${Date.now()}`,
-      ...commentData,
-      createdAt: new Date().toISOString(),
-      user: currentUser,
-      replies: [],
-    };
 
-    // Immediately add to UI
-    setComments((prev) => [...prev, optimisticComment]);
     setNewCommentDialog({ x: 0, y: 0, pageNumber: 0, visible: false });
     setNewCommentText('');
-    onCommentCreate?.(commentData);
 
-    // Background API call
     try {
-      const response = await fetch('/api/comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...commentData,
-          pdfId,
-        }),
-      });
-
-      if (response.ok) {
-        const realComment = await response.json();
-        // Replace optimistic comment with real one
-        setComments((prev) =>
-          prev.map((comment) =>
-            comment.id === optimisticComment.id ? realComment : comment
-          )
-        );
-      } else {
-        throw new Error('Failed to create comment');
-      }
+      await onCommentCreate?.(commentData);
+      addToast('Comment created successfully!', 'success');
     } catch (error) {
       console.error('Error creating comment:', error);
-      // Remove optimistic comment and show error
-      setComments((prev) =>
-        prev.filter((comment) => comment.id !== optimisticComment.id)
-      );
       addToast('Failed to create comment. Please try again.');
     }
   };
@@ -403,10 +343,7 @@ export default function CommentSystem({
     }
   };
 
-  // Filter comments for current page
-  const pageComments = comments.filter(
-    (comment) => comment.pageNumber === pageNumber
-  );
+  // Comments are already filtered by page from parent component
 
   return (
     <div
