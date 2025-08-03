@@ -212,6 +212,7 @@ export default function ChatPanel({
           })),
           pdfId,
           chatId: currentChatId,
+          selectedText: selectedText.trim() || null,
         }),
       });
 

@@ -73,19 +73,21 @@ model Verification {
 }
 
 model PDF {
-  id             String        @id @default(cuid())
-  title          String
-  fileName       String
-  fileUrl        String
-  fileSize       Int
-  pageCount      Int?
-  uploadedAt     DateTime      @default(now())
-  lastAccessedAt DateTime      @default(now())
-  userId         String
-  chats          Chat[]
-  comments       Comment[]
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  textElements   TextElement[]
+  id              String        @id @default(cuid())
+  title           String
+  fileName        String
+  fileUrl         String
+  fileSize        Int
+  pageCount       Int?
+  extractedText   String?       // Full PDF text content for AI context
+  isTextExtracted Boolean       @default(false) // Track extraction status
+  uploadedAt      DateTime      @default(now())
+  lastAccessedAt  DateTime      @default(now())
+  userId          String
+  chats           Chat[]
+  comments        Comment[]
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  textElements    TextElement[]
 
   @@map("pdf")
 }

@@ -3,6 +3,7 @@ import { uploadPdfToS3 } from '@/lib/s3';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { extractTextFromPDF } from '@/lib/pdf-text-extractor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,25 +46,40 @@ export async function POST(request: NextRequest) {
     const fileName = file.name;
     const userId = session.user.id;
 
-    // Upload to S3
-    const s3Key = await uploadPdfToS3(fileBuffer, fileName, userId);
+    // Extract text from PDF in parallel with S3 upload
+    const [s3Key, textExtractionResult] = await Promise.all([
+      uploadPdfToS3(fileBuffer, fileName, userId),
+      extractTextFromPDF(fileBuffer)
+    ]);
 
-    // Save PDF info to database
+    // Save PDF info to database with extracted text
     const pdf = await prisma.pDF.create({
       data: {
         title: fileName.replace('.pdf', ''),
         fileName: fileName,
         fileUrl: s3Key,
         fileSize: file.size,
+        pageCount: textExtractionResult.pageCount,
+        extractedText: textExtractionResult.success ? textExtractionResult.text : null,
+        isTextExtracted: textExtractionResult.success,
         userId: userId,
       },
     });
+
+    // Log extraction status for debugging
+    if (!textExtractionResult.success) {
+      console.warn(`Text extraction failed for PDF ${pdf.id}:`, textExtractionResult.error);
+    } else {
+      console.log(`Successfully extracted ${textExtractionResult.text.length} characters from PDF ${pdf.id}`);
+    }
 
     return NextResponse.json({
       id: pdf.id,
       title: pdf.title,
       fileName: pdf.fileName,
       uploadedAt: pdf.uploadedAt,
+      pageCount: pdf.pageCount,
+      isTextExtracted: pdf.isTextExtracted,
     });
 
   } catch (error) {

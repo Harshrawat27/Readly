@@ -243,7 +243,7 @@ export class UnifiedMarkdownProcessor {
         // Code
         .replace(/`(.*?)`/g, '<code>$1</code>')
         // Code blocks
-        .replace(/```([^`]*?)```/gs, '<pre><code>$1</code></pre>')
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         // Links
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
         // Line breaks
