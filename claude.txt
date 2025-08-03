@@ -17,3 +17,7 @@ and i'll be ready to launch.
     - mind map
     - flow chart 
     - payment gateway
+
+
+- with big pdfs getting this error
+Warning: AbortException: TextLayer task cancelled.

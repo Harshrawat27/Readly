@@ -345,6 +345,12 @@ export default function PDFSidebar({
       if (!response.ok) {
         throw new Error('Failed to rename');
       }
+
+      // Clear localStorage cache to ensure fresh data on page refresh
+      const cacheKey = `pdf-list-${userId}`;
+      const cacheTimeKey = `pdf-list-time-${userId}`;
+      localStorage.removeItem(cacheKey);
+      localStorage.removeItem(cacheTimeKey);
     } catch (error) {
       console.error('Error renaming PDF:', error);
 
@@ -721,10 +727,10 @@ export default function PDFSidebar({
           ) : pdfHistory.length > 0 ? (
             <div className='px-2 py-2'>
               {pdfHistory.map((pdf) => (
-                <button
+                <div
                   key={pdf.id}
                   onClick={() => onPdfSelect(pdf.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative ${
+                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative cursor-pointer ${
                     selectedPdfId === pdf.id
                       ? 'bg-[#0F0F0E] text-white'
                       : 'hover:bg-[#0F0F0E] text-[var(--text-primary)]'
@@ -867,7 +873,7 @@ export default function PDFSidebar({
                       )}
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : null}
@@ -1046,6 +1052,12 @@ export default function PDFSidebar({
                     if (!response.ok) {
                       throw new Error('Failed to delete');
                     }
+
+                    // Clear localStorage cache to ensure fresh data on page refresh
+                    const cacheKey = `pdf-list-${userId}`;
+                    const cacheTimeKey = `pdf-list-time-${userId}`;
+                    localStorage.removeItem(cacheKey);
+                    localStorage.removeItem(cacheTimeKey);
                   } catch (error) {
                     console.error('Error deleting PDF:', error);
 
