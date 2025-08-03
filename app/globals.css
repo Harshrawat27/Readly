@@ -185,3 +185,47 @@ li {
 .animate-blink {
   animation: blink 1s infinite;
 }
+
+/* PDF Chapter Navigation Styles */
+.chapter-item {
+  font-size: 14px;
+}
+
+.chapter-item .ml-4 {
+  margin-left: 1rem;
+}
+
+.chapter-item .ml-8 {
+  margin-left: 2rem;
+}
+
+.chapter-item .ml-12 {
+  margin-left: 3rem;
+}
+
+.chapter-item .ml-16 {
+  margin-left: 4rem;
+}
+
+/* Smooth transitions for chapter navigation */
+.chapter-nav-transition {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Custom scrollbar for chapter navigation */
+.chapter-nav-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chapter-nav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chapter-nav-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.chapter-nav-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

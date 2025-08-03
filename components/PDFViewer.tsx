@@ -5,7 +5,9 @@ import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
 import TextSystem from './TextSystem';
+import PDFChapterNavigation from './PDFChapterNavigation';
 import { usePDFData } from '@/hooks/usePDFData';
+import { extractPDFOutline, ProcessedOutlineItem } from '@/lib/pdfOutline';
 
 // Dynamically import PDF components to avoid SSR issues
 const Document = dynamic(
@@ -72,6 +74,10 @@ export default function PDFViewer({
     text: '',
     visible: false,
   });
+
+  // Chapter navigation state
+  const [pdfOutline, setPdfOutline] = useState<ProcessedOutlineItem[] | null>(null);
+  const [isChapterNavOpen, setIsChapterNavOpen] = useState(false);
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
@@ -308,14 +314,25 @@ export default function PDFViewer({
   }, [pdfFile]);
 
   const onDocumentLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
+    async ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
       setCurrentPage(1);
       setIsLoading(false);
       setError(null);
       pageRefs.current = new Array(numPages).fill(null);
+      
+      // Extract PDF outline/bookmarks
+      if (pdfFile) {
+        try {
+          const outline = await extractPDFOutline(pdfFile);
+          setPdfOutline(outline);
+        } catch (error) {
+          console.warn('Could not extract PDF outline:', error);
+          setPdfOutline(null);
+        }
+      }
     },
-    []
+    [pdfFile]
   );
 
   const onDocumentLoadError = useCallback((error: Error) => {
@@ -368,6 +385,20 @@ export default function PDFViewer({
       setInternalScale(resetScale);
     }
   }, [onScaleChange]);
+
+  // Handle chapter navigation
+  const handleChapterNavigate = useCallback((pageNumber: number) => {
+    setCurrentPage(pageNumber);
+    
+    // Scroll to the specific page
+    const pageElement = pageRefs.current[pageNumber - 1];
+    if (pageElement) {
+      pageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+  }, []);
 
   // Handle text selection
   const handleTextSelect = useCallback(
@@ -527,6 +558,31 @@ export default function PDFViewer({
         </div>
 
         <div className='flex items-center gap-4'>
+          {/* Chapter Navigation Toggle */}
+          {pdfOutline && pdfOutline.length > 0 && (
+            <button
+              onClick={() => setIsChapterNavOpen(!isChapterNavOpen)}
+              className={`p-2 rounded-lg transition-colors ${
+                isChapterNavOpen 
+                  ? 'bg-[var(--accent)] text-white' 
+                  : 'bg-[var(--faded-white)] hover:bg-[var(--border)]'
+              }`}
+              title='Toggle Table of Contents'
+            >
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M3 6h18' />
+                <path d='M3 12h18' />
+                <path d='M3 18h18' />
+              </svg>
+            </button>
+          )}
+          
           {/* Text Formatting Controls - Only show when text is selected */}
           {selectedTextElement && (
             <div className='flex items-center gap-2 border-r border-[var(--border)] pr-4'>
@@ -783,6 +839,15 @@ export default function PDFViewer({
         </div>
       </div>
 
+      {/* Chapter Navigation */}
+      <PDFChapterNavigation
+        outline={pdfOutline}
+        currentPage={currentPage}
+        onPageNavigate={handleChapterNavigate}
+        isOpen={isChapterNavOpen}
+        onToggle={() => setIsChapterNavOpen(!isChapterNavOpen)}
+      />
+      
       {/* Figma Toolbar */}
       <FigmaToolbar activeTool={activeTool} onToolChange={setActiveTool} />
 
