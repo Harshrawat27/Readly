@@ -783,8 +783,8 @@ export default function PDFSidebar({
                           : undefined,
                     }}
                   >
-                    <button
-                      className='three-dots p-2 hover:bg-white/10 rounded transition-colors relative'
+                    <div
+                      className='three-dots p-2 hover:bg-white/10 rounded transition-colors relative cursor-pointer'
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveDropdownId(
@@ -865,7 +865,7 @@ export default function PDFSidebar({
                           </button>
                         </div>
                       )}
-                    </button>
+                    </div>
                   </div>
                 </button>
               ))}
