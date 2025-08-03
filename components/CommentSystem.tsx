@@ -74,6 +74,7 @@ export default function CommentSystem({
     null
   );
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [tempPositions, setTempPositions] = useState<Record<string, {x: number, y: number}>>({});
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newCommentDialog, setNewCommentDialog] = useState<NewCommentDialog>({
@@ -176,13 +177,12 @@ export default function CommentSystem({
     }
   };
 
-  const handleCommentMove = async (id: string, x: number, y: number) => {
-    // Update local state immediately for smooth dragging
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === id ? { ...comment, x, y } : comment
-      )
-    );
+  const handleCommentMove = (id: string, x: number, y: number) => {
+    // Immediately update temp position for visual feedback
+    setTempPositions(prev => ({
+      ...prev,
+      [id]: { x, y }
+    }));
 
     // Clear existing timeout
     if (moveTimeoutRef.current) {
@@ -190,157 +190,30 @@ export default function CommentSystem({
     }
 
     // Set new 3-second debounced API call
-    moveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/comments/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ x, y }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update comment position');
-        }
-      } catch (error) {
-        console.error('Error updating comment position:', error);
-        // Show error toast but don't revert position (user already moved it)
-        addToast('Failed to save comment position. Changes may be lost.');
-      }
+    moveTimeoutRef.current = setTimeout(() => {
+      onCommentUpdate?.(id, { x, y });
+      // Clear temp position after API call
+      setTempPositions(prev => {
+        const newPositions = { ...prev };
+        delete newPositions[id];
+        return newPositions;
+      });
     }, 3000); // 3 seconds debounce
   };
 
-  const handleCommentResolve = async (id: string) => {
-    // Optimistically update UI
-    const previousState = comments.find((c) => c.id === id);
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === id ? { ...comment, resolved: true } : comment
-      )
-    );
-    onCommentUpdate?.(id, { resolved: true });
-
-    // Background API call
-    try {
-      const response = await fetch(`/api/comments/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ resolved: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to resolve comment');
-      }
-    } catch (error) {
-      console.error('Error resolving comment:', error);
-      // Rollback on error
-      if (previousState) {
-        setComments((prev) =>
-          prev.map((comment) => (comment.id === id ? previousState : comment))
-        );
-      }
-      addToast('Failed to resolve comment. Please try again.');
-    }
+  const handleCommentResolve = (id: string) => {
+    const comment = pageComments.find((c) => c.id === id);
+    if (!comment) return;
+    onCommentUpdate?.(id, { resolved: !comment.resolved });
   };
 
-  const handleCommentDelete = async (id: string) => {
-    // Store comment for potential rollback
-    const deletedComment = comments.find((c) => c.id === id);
-
-    // Optimistically remove from UI
-    setComments((prev) => prev.filter((comment) => comment.id !== id));
+  const handleCommentDelete = (id: string) => {
     onCommentDelete?.(id);
     setSelectedCommentId(null);
-
-    // Background API call
-    try {
-      const response = await fetch(`/api/comments/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete comment');
-      }
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-      // Rollback - restore the deleted comment
-      if (deletedComment) {
-        setComments((prev) => [...prev, deletedComment]);
-      }
-      addToast('Failed to delete comment. Please try again.');
-    }
   };
 
-  const handleReplyCreate = async (commentId: string, content: string) => {
-    // Create optimistic reply
-    const optimisticReply: CommentReply = {
-      id: `temp-reply-${Date.now()}`,
-      content,
-      createdAt: new Date().toISOString(),
-      user: currentUser,
-    };
-
-    // Optimistically add reply to UI
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === commentId
-          ? {
-              ...comment,
-              replies: [...(comment.replies || []), optimisticReply],
-            }
-          : comment
-      )
-    );
+  const handleReplyCreate = (commentId: string, content: string) => {
     onReplyCreate?.(commentId, content);
-
-    // Background API call
-    try {
-      const response = await fetch(`/api/comments/${commentId}/replies`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (response.ok) {
-        const realReply = await response.json();
-        // Replace optimistic reply with real one
-        setComments((prev) =>
-          prev.map((comment) =>
-            comment.id === commentId
-              ? {
-                  ...comment,
-                  replies: (comment.replies || []).map((reply) =>
-                    reply.id === optimisticReply.id ? realReply : reply
-                  ),
-                }
-              : comment
-          )
-        );
-      } else {
-        throw new Error('Failed to create reply');
-      }
-    } catch (error) {
-      console.error('Error creating reply:', error);
-      // Remove optimistic reply and show error
-      setComments((prev) =>
-        prev.map((comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                replies: (comment.replies || []).filter(
-                  (reply) => reply.id !== optimisticReply.id
-                ),
-              }
-            : comment
-        )
-      );
-      addToast('Failed to add reply. Please try again.');
-    }
   };
 
   // Comments are already filtered by page from parent component
@@ -368,26 +241,34 @@ export default function CommentSystem({
       )}
 
       {/* Existing Comments */}
-      {pageComments.map((comment) => (
-        <div
-          key={comment.id}
-          className='pointer-events-auto'
-          data-comment-pin
-          style={{ zIndex: 10 }}
-        >
-          <CommentPin
-            comment={comment}
-            onMove={handleCommentMove}
-            onResolve={handleCommentResolve}
-            onReply={handleReplyCreate}
-            onDelete={handleCommentDelete}
-            isSelected={selectedCommentId === comment.id}
-            onSelect={setSelectedCommentId}
-            isDraggable={isCommentMode}
-            currentUser={currentUser}
-          />
-        </div>
-      ))}
+      {pageComments.map((comment) => {
+        // Use temp position if available, otherwise use stored position
+        const tempPos = tempPositions[comment.id];
+        const displayComment = tempPos 
+          ? { ...comment, x: tempPos.x, y: tempPos.y }
+          : comment;
+
+        return (
+          <div
+            key={comment.id}
+            className='pointer-events-auto'
+            data-comment-pin
+            style={{ zIndex: 10 }}
+          >
+            <CommentPin
+              comment={displayComment}
+              onMove={handleCommentMove}
+              onResolve={handleCommentResolve}
+              onReply={handleReplyCreate}
+              onDelete={handleCommentDelete}
+              isSelected={selectedCommentId === comment.id}
+              onSelect={setSelectedCommentId}
+              isDraggable={isCommentMode}
+              currentUser={currentUser}
+            />
+          </div>
+        );
+      })}
 
       {/* New Comment Dialog */}
       {newCommentDialog.visible && (

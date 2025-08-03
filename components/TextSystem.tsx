@@ -129,7 +129,8 @@ export default function TextSystem({
         createdAt: new Date().toISOString(),
       };
 
-      setTexts((prev) => [...prev, newText]);
+      // Note: In a real implementation, this temp text should be handled
+      // by the parent component's state management
       setEditingTextId(newText.id);
       setIsTyping(true);
       handleTextSelect(null);
@@ -176,77 +177,20 @@ export default function TextSystem({
     }
   };
 
-  const handleTextUpdate = async (
-    textId: string,
-    updates: Partial<TextElement>
-  ) => {
-    // Update local state immediately for instant visual feedback
-    setTexts((prev) =>
-      prev.map((text) => (text.id === textId ? { ...text, ...updates } : text))
-    );
-
+  const handleTextUpdateDirect = (textId: string, updates: Partial<TextElement>) => {
     // Also update the selected text element for formatting controls
-    const updatedText = texts.find((t) => t.id === textId);
+    const updatedText = pageTexts.find((t) => t.id === textId);
     if (updatedText && selectedTextId === textId) {
       onTextSelect?.(textId, { ...updatedText, ...updates });
     }
 
-    // Background API call (no debouncing for formatting changes)
-    try {
-      const response = await fetch(`/api/texts/${textId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (response.ok) {
-        onTextUpdate?.(textId, updates);
-      } else {
-        // Rollback on error - restore original state
-        const originalText = texts.find((t) => t.id === textId);
-        if (originalText) {
-          setTexts((prev) =>
-            prev.map((text) => (text.id === textId ? originalText : text))
-          );
-          if (selectedTextId === textId) {
-            onTextSelect?.(textId, originalText);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error updating text:', error);
-      // Rollback on error - restore original state
-      const originalText = texts.find((t) => t.id === textId);
-      if (originalText) {
-        setTexts((prev) =>
-          prev.map((text) => (text.id === textId ? originalText : text))
-        );
-        if (selectedTextId === textId) {
-          onTextSelect?.(textId, originalText);
-        }
-      }
-    }
+    // Call parent update handler
+    onTextUpdate?.(textId, updates);
   };
 
-  const handleTextDelete = async (textId: string) => {
-    // Remove from local state
-    setTexts((prev) => prev.filter((text) => text.id !== textId));
+  const handleTextDeleteDirect = (textId: string) => {
     handleTextSelect(null);
-
-    // Background API call
-    try {
-      const response = await fetch(`/api/texts/${textId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        onTextDelete?.(textId);
-      }
-    } catch (error) {
-      console.error('Error deleting text:', error);
-    }
+    onTextDelete?.(textId);
   };
 
   // Filter texts for current page
@@ -296,8 +240,8 @@ export default function TextSystem({
           isEditing={editingTextId === text.id}
           isSelected={selectedTextId === text.id}
           onTextSave={handleTextSave}
-          onTextUpdate={handleTextUpdate}
-          onTextDelete={handleTextDelete}
+          onTextUpdate={handleTextUpdateDirect}
+          onTextDelete={handleTextDeleteDirect}
           onSelect={handleTextSelect}
           onEdit={setEditingTextId}
           inputRef={inputRef}

@@ -171,6 +171,130 @@ export function usePDFData(pdfId: string | null) {
     }
   }, [pdfId, comments]);
 
+  // Update comment
+  const updateComment = useCallback(async (commentId: string, updates: Partial<Comment>) => {
+    if (!pdfId) return;
+
+    // Optimistic update
+    setComments(prev => prev.map(c => 
+      c.id === commentId ? { ...c, ...updates } : c
+    ));
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) throw new Error('Failed to update comment');
+
+      // Update cache
+      if (dataCache[pdfId]) {
+        dataCache[pdfId].comments = dataCache[pdfId].comments.map(c => 
+          c.id === commentId ? { ...c, ...updates } : c
+        );
+      }
+    } catch (err) {
+      // Rollback on error
+      loadData(true);
+      throw err;
+    }
+  }, [pdfId, loadData]);
+
+  // Delete comment
+  const deleteComment = useCallback(async (commentId: string) => {
+    if (!pdfId) return;
+
+    const originalComments = comments;
+    setComments(prev => prev.filter(c => c.id !== commentId));
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete comment');
+
+      // Update cache
+      if (dataCache[pdfId]) {
+        dataCache[pdfId].comments = dataCache[pdfId].comments.filter(c => c.id !== commentId);
+      }
+    } catch (err) {
+      // Rollback on error
+      setComments(originalComments);
+      throw err;
+    }
+  }, [pdfId, comments]);
+
+  // Add reply to comment
+  const addReply = useCallback(async (commentId: string, content: string) => {
+    if (!pdfId) return;
+
+    const tempReply: CommentReply = {
+      id: `temp-reply-${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      user: { name: 'You' }
+    };
+
+    // Optimistic update
+    setComments(prev => prev.map(c => 
+      c.id === commentId 
+        ? { ...c, replies: [...(c.replies || []), tempReply] }
+        : c
+    ));
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) throw new Error('Failed to create reply');
+
+      const createdReply = await response.json();
+      
+      // Replace temp reply with real one
+      setComments(prev => prev.map(c => 
+        c.id === commentId 
+          ? { 
+              ...c, 
+              replies: (c.replies || []).map(r => 
+                r.id === tempReply.id ? createdReply : r
+              ) 
+            }
+          : c
+      ));
+
+      // Update cache
+      if (dataCache[pdfId]) {
+        dataCache[pdfId].comments = dataCache[pdfId].comments.map(c => 
+          c.id === commentId 
+            ? { 
+                ...c, 
+                replies: (c.replies || []).map(r => 
+                  r.id === tempReply.id ? createdReply : r
+                ) 
+              }
+            : c
+        );
+      }
+    } catch (err) {
+      // Rollback optimistic update
+      setComments(prev => prev.map(c => 
+        c.id === commentId 
+          ? { 
+              ...c, 
+              replies: (c.replies || []).filter(r => r.id !== tempReply.id) 
+            }
+          : c
+      ));
+      throw err;
+    }
+  }, [pdfId]);
+
   // Add new text (optimistic update + cache invalidation)
   const addText = useCallback(async (newText: Omit<TextElement, 'id' | 'createdAt'>) => {
     if (!pdfId) return;
@@ -215,7 +339,7 @@ export function usePDFData(pdfId: string | null) {
     }
   }, [pdfId, texts]);
 
-  // Update text
+  // Update text with debouncing for position/size changes
   const updateText = useCallback(async (textId: string, updates: Partial<TextElement>) => {
     if (!pdfId) return;
 
@@ -224,25 +348,38 @@ export function usePDFData(pdfId: string | null) {
       t.id === textId ? { ...t, ...updates } : t
     ));
 
-    try {
-      const response = await fetch(`/api/texts/${textId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
+    // Debounce API calls for position/size changes, immediate for content/formatting
+    const shouldDebounce = 'x' in updates || 'y' in updates || 'width' in updates;
+    const delay = shouldDebounce ? 500 : 0; // 500ms for position/size, immediate for content/formatting
 
-      if (!response.ok) throw new Error('Failed to update text');
+    const makeAPICall = async () => {
+      try {
+        const response = await fetch(`/api/texts/${textId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
 
-      // Update cache
-      if (dataCache[pdfId]) {
-        dataCache[pdfId].texts = dataCache[pdfId].texts.map(t => 
-          t.id === textId ? { ...t, ...updates } : t
-        );
+        if (!response.ok) throw new Error('Failed to update text');
+
+        // Update cache
+        if (dataCache[pdfId]) {
+          dataCache[pdfId].texts = dataCache[pdfId].texts.map(t => 
+            t.id === textId ? { ...t, ...updates } : t
+          );
+        }
+      } catch (err) {
+        // Rollback on error
+        loadData(true);
+        throw err;
       }
-    } catch (err) {
-      // Rollback on error
-      loadData(true);
-      throw err;
+    };
+
+    if (delay > 0) {
+      // Use a simple timeout for debouncing
+      setTimeout(makeAPICall, delay);
+    } else {
+      await makeAPICall();
     }
   }, [pdfId, loadData]);
 
@@ -280,6 +417,9 @@ export function usePDFData(pdfId: string | null) {
     getCommentsForPage,
     getTextsForPage,
     addComment,
+    updateComment,
+    deleteComment,
+    addReply,
     addText,
     updateText,
     deleteText,

@@ -85,6 +85,9 @@ export default function PDFViewer({
     getCommentsForPage,
     getTextsForPage,
     addComment,
+    updateComment,
+    deleteComment,
+    addReply,
     addText,
     updateText,
     deleteText,
@@ -751,6 +754,9 @@ export default function PDFViewer({
                             currentUser={currentUser}
                             comments={getCommentsForPage(pageNumber)}
                             onCommentCreate={addComment}
+                            onCommentUpdate={updateComment}
+                            onCommentDelete={deleteComment}
+                            onReplyCreate={addReply}
                           />
                         )}
                         {/* Text System Overlay */}
