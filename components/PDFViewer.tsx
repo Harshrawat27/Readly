@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
 import TextSystem from './TextSystem';
+import HighlightColorPicker from './HighlightColorPicker';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components to avoid SSR issues
@@ -80,6 +81,31 @@ export default function PDFViewer({
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTextElement, setSelectedTextElement] = useState<any>(null);
 
+  // Highlight state
+  const [highlights, setHighlights] = useState<any[]>([]);
+
+  // Load highlights when PDF changes
+  useEffect(() => {
+    const loadHighlights = async () => {
+      if (!pdfId) {
+        setHighlights([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/highlights?pdfId=${pdfId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setHighlights(data);
+        }
+      } catch (error) {
+        console.error('Failed to load highlights:', error);
+      }
+    };
+
+    loadHighlights();
+  }, [pdfId]);
+
   // Centralized PDF data management
   const {
     getCommentsForPage,
@@ -93,6 +119,85 @@ export default function PDFViewer({
     deleteText,
     isLoading: isDataLoading
   } = usePDFData(pdfId);
+
+  // Highlight functions with precise range-based positioning
+  const handleHighlight = useCallback(async (color: string, text: string) => {
+    if (!pdfId) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    
+    // Find the PDF page container
+    const pageContainer = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
+      ? range.commonAncestorContainer.parentElement?.closest('.pdf-page')
+      : (range.commonAncestorContainer as Element)?.closest('.pdf-page');
+    
+    if (!pageContainer) return;
+    
+    const pageRect = pageContainer.getBoundingClientRect();
+    
+    // Get all text rectangles for precise highlighting
+    const rects = range.getClientRects();
+    const highlightRects = [];
+    
+    for (let i = 0; i < rects.length; i++) {
+      const rect = rects[i];
+      if (rect.width > 0 && rect.height > 0) {
+        // Calculate relative coordinates for each rectangle
+        const relativeX = ((rect.left - pageRect.left) / pageRect.width) * 100;
+        const relativeY = ((rect.top - pageRect.top) / pageRect.height) * 100;
+        const relativeWidth = (rect.width / pageRect.width) * 100;
+        const relativeHeight = (rect.height / pageRect.height) * 100;
+        
+        highlightRects.push({
+          x: relativeX,
+          y: relativeY,
+          width: relativeWidth,
+          height: relativeHeight,
+        });
+      }
+    }
+    
+    // Create highlight object with multiple rectangles
+    const highlight = {
+      id: `highlight_${Date.now()}`,
+      pdfId,
+      text,
+      color,
+      rects: highlightRects,
+      pageNumber: currentPage,
+    };
+
+    // Add to local state immediately for instant feedback
+    setHighlights(prev => [...prev, highlight]);
+
+    // Save to database in background
+    try {
+      await fetch('/api/highlights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(highlight),
+      });
+    } catch (error) {
+      console.error('Failed to save highlight:', error);
+      // Remove from local state if save failed
+      setHighlights(prev => prev.filter(h => h.id !== highlight.id));
+    }
+
+    // Clear selection after highlighting
+    selection.removeAllRanges();
+  }, [pdfId, currentPage]);
+
+  const handleAskReadly = useCallback((text: string) => {
+    onTextSelect(text);
+  }, [onTextSelect]);
+
+  // Get highlights for a specific page
+  const getHighlightsForPage = useCallback((pageNumber: number) => {
+    return highlights.filter(highlight => highlight.pageNumber === pageNumber);
+  }, [highlights]);
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -199,42 +304,66 @@ export default function PDFViewer({
     let timeoutId: NodeJS.Timeout;
 
     const handleSelection = () => {
-      // Debounce to prevent excessive calls
+      // Debounce to prevent excessive calls and flickering
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         try {
           const selection = window.getSelection();
           if (!selection || selection.isCollapsed) {
-            setSelectionDialog((prev) => ({ ...prev, visible: false }));
+            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
             return;
           }
 
           const selectedText = selection.toString().trim();
-          if (!selectedText || selectedText.length < 3) {
-            setSelectionDialog((prev) => ({ ...prev, visible: false }));
+          if (!selectedText || selectedText.length < 2) {
+            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
             return;
           }
 
           const range = selection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
 
-          // Check if selection is within PDF viewer
+          // More strict checking - ensure selection is within a PDF page text layer
+          const startContainer = range.startContainer;
+          const endContainer = range.endContainer;
+          
+          // Check if both start and end are within the same PDF page's text layer
+          const startPage = startContainer.nodeType === Node.TEXT_NODE 
+            ? startContainer.parentElement?.closest('.react-pdf__Page__textContent')
+            : (startContainer as Element)?.closest('.react-pdf__Page__textContent');
+            
+          const endPage = endContainer.nodeType === Node.TEXT_NODE 
+            ? endContainer.parentElement?.closest('.react-pdf__Page__textContent')
+            : (endContainer as Element)?.closest('.react-pdf__Page__textContent');
+
+          // Only show dialog if selection is within the same PDF page text layer
           if (
+            startPage && 
+            endPage && 
+            startPage === endPage &&
             containerRef.current &&
             containerRef.current.contains(range.commonAncestorContainer)
           ) {
-            setSelectionDialog({
-              x: rect.left + rect.width / 2,
-              y: rect.top - 10,
-              text: selectedText,
-              visible: true,
-            });
+            // Get the first rectangle for positioning the dialog
+            const rects = range.getClientRects();
+            if (rects.length > 0) {
+              const firstRect = rects[0];
+              const lastRect = rects[rects.length - 1];
+              
+              setSelectionDialog({
+                x: firstRect.left + (lastRect.right - firstRect.left) / 2,
+                y: firstRect.top - 10,
+                text: selectedText,
+                visible: true,
+              });
+            }
+          } else {
+            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
           }
         } catch (error) {
           console.error('Selection error:', error);
-          setSelectionDialog((prev) => ({ ...prev, visible: false }));
+          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
         }
-      }, 100); // 100ms debounce
+      }, 200); // Longer debounce to reduce flickering
     };
 
     document.addEventListener('selectionchange', handleSelection);
@@ -326,7 +455,7 @@ export default function PDFViewer({
     setPdfFile(null); // Clear the problematic file
   }, []);
 
-  const handleAskReadly = useCallback(() => {
+  const handleAskReadlyFromDialog = useCallback(() => {
     onTextSelect(selectionDialog.text);
     setSelectionDialog((prev) => ({ ...prev, visible: false }));
 
@@ -744,6 +873,46 @@ export default function PDFViewer({
                             onTextSelect={handleTextSelect}
                           />
                         )}
+                        
+                        {/* Highlight Overlay */}
+                        {getHighlightsForPage(pageNumber).map((highlight) => (
+                          <div key={highlight.id}>
+                            {/* Handle new multi-rect highlights */}
+                            {highlight.rects ? highlight.rects.map((rect: any, rectIndex: number) => (
+                              <div
+                                key={`${highlight.id}-${rectIndex}`}
+                                className="absolute pointer-events-none"
+                                style={{
+                                  left: `${rect.x}%`,
+                                  top: `${rect.y}%`,
+                                  width: `${rect.width}%`,
+                                  height: `${rect.height}%`,
+                                  backgroundColor: highlight.color,
+                                  opacity: 0.4,
+                                  borderRadius: '1px',
+                                  zIndex: 0,
+                                }}
+                                title={highlight.text}
+                              />
+                            )) : (
+                              /* Fallback for old single-rect highlights */
+                              <div
+                                className="absolute pointer-events-none"
+                                style={{
+                                  left: `${highlight.x}%`,
+                                  top: `${highlight.y}%`,
+                                  width: `${highlight.width}%`,
+                                  height: `${highlight.height}%`,
+                                  backgroundColor: highlight.color,
+                                  opacity: 0.4,
+                                  borderRadius: '1px',
+                                  zIndex: 0,
+                                }}
+                                title={highlight.text}
+                              />
+                            )}
+                          </div>
+                        ))}
                       </div>
                     );
                   })}
@@ -756,35 +925,16 @@ export default function PDFViewer({
       {/* Figma Toolbar */}
       <FigmaToolbar activeTool={activeTool} onToolChange={setActiveTool} />
 
-      {/* Text Selection Dialog */}
-      {selectionDialog.visible && (
-        <div
-          className='fixed z-50 transform -translate-x-1/2 -translate-y-full'
-          style={{
-            left: selectionDialog.x,
-            top: selectionDialog.y,
-          }}
-        >
-          <div className='bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg p-2'>
-            <button
-              onClick={handleAskReadly}
-              className='bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2'
-            >
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M8 12h8' />
-                <path d='M12 8v8' />
-              </svg>
-              Ask Readly
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Highlight Color Picker */}
+      <HighlightColorPicker
+        x={selectionDialog.x}
+        y={selectionDialog.y}
+        visible={selectionDialog.visible}
+        selectedText={selectionDialog.text}
+        onHighlight={handleHighlight}
+        onAskReadly={handleAskReadlyFromDialog}
+        onClose={() => setSelectionDialog(prev => ({ ...prev, visible: false }))}
+      />
     </div>
   );
 }

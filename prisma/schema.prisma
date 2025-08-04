@@ -24,6 +24,7 @@ model User {
   pdfs           PDF[]
   sessions       Session[]
   textElements   TextElement[]
+  highlights     Highlight[]
 
   @@map("user")
 }
@@ -86,6 +87,7 @@ model PDF {
   comments       Comment[]
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   textElements   TextElement[]
+  highlights     Highlight[]
 
   @@map("pdf")
 }
@@ -165,4 +167,23 @@ model TextElement {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("text_element")
+}
+
+model Highlight {
+  id         String   @id @default(cuid())
+  text       String
+  color      String
+  rects      Json?    // Store array of rectangles as JSON
+  x          Float?   // Keep for backward compatibility
+  y          Float?   // Keep for backward compatibility  
+  width      Float?   // Keep for backward compatibility
+  height     Float?   // Keep for backward compatibility
+  pageNumber Int
+  createdAt  DateTime @default(now())
+  pdfId      String
+  userId     String
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("highlight")
 }

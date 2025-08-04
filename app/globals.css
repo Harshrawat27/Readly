@@ -185,3 +185,54 @@ li {
 .animate-blink {
   animation: blink 1s infinite;
 }
+
+/* Shimmer animation for loading states */
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Improve text selection on PDF pages */
+.pdf-page {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+/* Optimize text selection within PDF text content */
+.react-pdf__Page__textContent {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Prevent selection flickering */
+.react-pdf__Page__textContent span {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Ensure highlight overlays don't interfere with selection */
+.pdf-page [class*="highlight"],
+.pdf-page div[style*="pointer-events-none"] {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Smooth selection appearance */
+::selection {
+  background-color: rgba(74, 144, 226, 0.3);
+}
+
+::-moz-selection {
+  background-color: rgba(74, 144, 226, 0.3);
+}
