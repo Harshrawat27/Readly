@@ -21,3 +21,5 @@ and i'll be ready to launch.
 
 - with big pdfs getting this error
 Warning: AbortException: TextLayer task cancelled.
+
+- double highlight to middle lines and top and bottom are in single color.
