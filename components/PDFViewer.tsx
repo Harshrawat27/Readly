@@ -649,9 +649,14 @@ export default function PDFViewer({
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 loading={
-                  <div className='text-center py-8'>
-                    <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
-                    <p className='text-[var(--text-muted)]'>Loading PDF...</p>
+                  <div className='text-center py-12'>
+                    <div className='space-y-4'>
+                      <div className='w-16 h-20 bg-[var(--card-bg)] rounded-lg mx-auto animate-pulse'></div>
+                      <div className='space-y-2'>
+                        <div className='h-4 bg-[var(--card-bg)] rounded w-32 mx-auto animate-pulse'></div>
+                        <div className='h-3 bg-[var(--card-bg)] rounded w-24 mx-auto animate-pulse'></div>
+                      </div>
+                    </div>
                   </div>
                 }
                 error={
@@ -704,7 +709,7 @@ export default function PDFViewer({
                           className='pdf-page shadow-lg border'
                           loading={
                             <div className='text-center py-4'>
-                              <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
+                              <div className='w-full h-96 bg-[var(--card-bg)] rounded-lg animate-pulse'></div>
                             </div>
                           }
                           error={

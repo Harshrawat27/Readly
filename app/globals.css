@@ -185,3 +185,13 @@ li {
 .animate-blink {
   animation: blink 1s infinite;
 }
+
+/* Shimmer animation for loading states */
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

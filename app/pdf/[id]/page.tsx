@@ -38,26 +38,8 @@ export default function PDFPage() {
     }
   }, [session, isPending, router]);
 
-  if (isPending) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
-        <div className='text-center space-y-4'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
-          <p className='text-[var(--text-muted)] text-sm'>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
-        <div className='text-center space-y-4'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
-          <p className='text-[var(--text-muted)] text-sm'>Redirecting...</p>
-        </div>
-      </div>
-    );
+  if (isPending || !session) {
+    return null; // Let Next.js loading.tsx handle the loading state
   }
 
   return (

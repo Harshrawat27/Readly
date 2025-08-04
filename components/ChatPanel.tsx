@@ -44,9 +44,12 @@ export default function ChatPanel({
     }
   }, []);
 
+  // Only scroll to bottom after initial load is complete and for new messages
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (!isLoadingHistory && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom, isLoadingHistory]);
 
   // Debug useEffect to track message changes
   useEffect(() => {
@@ -118,11 +121,23 @@ export default function ChatPanel({
             timestamp: new Date(msg.createdAt),
           }));
 
-          // Load all messages at once - no progressive loading to avoid scroll animation
-          setMessages(allMessages);
+          // Load recent messages first (last 6), then load the rest
+          const recentMessages = allMessages.slice(-6);
+          const olderMessages = allMessages.slice(0, -6);
+
+          // Set recent messages immediately
+          setMessages(recentMessages);
           setCurrentChatId(mostRecentChat.id);
 
-          console.log('Loaded all messages at once:', allMessages.length);
+          console.log('Loaded recent messages first:', recentMessages.length);
+
+          // Load older messages after a short delay to avoid scroll jitter
+          if (olderMessages.length > 0) {
+            setTimeout(() => {
+              setMessages(allMessages);
+              console.log('Loaded all messages:', allMessages.length);
+            }, 100);
+          }
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
@@ -355,11 +370,22 @@ export default function ChatPanel({
         style={{ maxHeight: 'calc(100vh - 12rem)' }}
       >
         {isLoadingHistory ? (
-          <div className='text-center py-8'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-3'></div>
-            <p className='text-sm text-[var(--text-muted)]'>
-              Loading chat history...
-            </p>
+          <div className='space-y-4'>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                <div className={`max-w-[80%] p-3 rounded-lg space-y-2 relative overflow-hidden ${
+                  i % 2 === 0 ? 'bg-[var(--card-bg)]' : 'bg-[var(--accent)] bg-opacity-20'
+                }`}>
+                  <div className='h-3 bg-[var(--background)] rounded w-full animate-pulse'></div>
+                  <div className='h-3 bg-[var(--background)] rounded w-2/3 animate-pulse [animation-delay:0.2s]'></div>
+                  <div className='h-3 bg-[var(--background)] rounded w-4/5 animate-pulse [animation-delay:0.4s]'></div>
+                  {/* Shimmer wave effect */}
+                  <div className='absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent' style={{
+                    animation: 'slide 1.5s ease-in-out infinite'
+                  }}></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : messages.length === 0 ? (
           <div className='text-center py-8'>
