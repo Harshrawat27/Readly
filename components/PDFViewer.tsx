@@ -122,10 +122,18 @@ export default function PDFViewer({
 
   // Highlight functions with precise range-based positioning
   const handleHighlight = useCallback(async (color: string, text: string) => {
-    if (!pdfId) return;
+    console.log('handleHighlight called with:', { color, text, pdfId, currentPage });
+    
+    if (!pdfId) {
+      console.log('No pdfId, returning');
+      return;
+    }
 
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+    if (!selection || selection.rangeCount === 0) {
+      console.log('No selection, returning');
+      return;
+    }
 
     const range = selection.getRangeAt(0);
     
@@ -134,13 +142,18 @@ export default function PDFViewer({
       ? range.commonAncestorContainer.parentElement?.closest('.pdf-page')
       : (range.commonAncestorContainer as Element)?.closest('.pdf-page');
     
-    if (!pageContainer) return;
+    if (!pageContainer) {
+      console.log('No page container found');
+      return;
+    }
     
     const pageRect = pageContainer.getBoundingClientRect();
     
     // Get all text rectangles for precise highlighting
     const rects = range.getClientRects();
     const highlightRects = [];
+    
+    console.log('Found', rects.length, 'text rectangles');
     
     for (let i = 0; i < rects.length; i++) {
       const rect = rects[i];
@@ -160,6 +173,8 @@ export default function PDFViewer({
       }
     }
     
+    console.log('Created highlight rects:', highlightRects);
+    
     // Create highlight object with multiple rectangles
     const highlight = {
       id: `highlight_${Date.now()}`,
@@ -170,24 +185,39 @@ export default function PDFViewer({
       pageNumber: currentPage,
     };
 
+    console.log('Adding highlight to local state:', highlight);
+    
     // Add to local state immediately for instant feedback
-    setHighlights(prev => [...prev, highlight]);
+    setHighlights(prev => {
+      const newHighlights = [...prev, highlight];
+      console.log('New highlights state:', newHighlights);
+      return newHighlights;
+    });
 
     // Save to database in background
     try {
-      await fetch('/api/highlights', {
+      console.log('Saving to database...');
+      const response = await fetch('/api/highlights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(highlight),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const savedHighlight = await response.json();
+      console.log('Saved highlight:', savedHighlight);
     } catch (error) {
       console.error('Failed to save highlight:', error);
       // Remove from local state if save failed
       setHighlights(prev => prev.filter(h => h.id !== highlight.id));
     }
 
-    // Clear selection after highlighting
+    // Clear selection and dialog after highlighting
     selection.removeAllRanges();
+    setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
   }, [pdfId, currentPage]);
 
   const handleAskReadly = useCallback((text: string) => {
@@ -299,51 +329,50 @@ export default function PDFViewer({
     };
   }, [handleLinkClick]);
 
-  // Handle text selection with debouncing to prevent crashes
+  // Track mouse state for proper selection detection
+  const [isMousePressed, setIsMousePressed] = useState(false);
+
+  // Handle text selection with mouse-based control
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
-    const handleSelection = () => {
-      // Debounce to prevent excessive calls and flickering
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        try {
-          const selection = window.getSelection();
-          if (!selection || selection.isCollapsed) {
-            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
-            return;
-          }
+    const showSelectionDialog = (forceShow = false) => {
+      try {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+          return;
+        }
 
-          const selectedText = selection.toString().trim();
-          if (!selectedText || selectedText.length < 2) {
-            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
-            return;
-          }
+        const selectedText = selection.toString().trim();
+        if (!selectedText || selectedText.length < 2) {
+          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+          return;
+        }
 
-          const range = selection.getRangeAt(0);
+        const range = selection.getRangeAt(0);
 
-          // More strict checking - ensure selection is within a PDF page text layer
-          const startContainer = range.startContainer;
-          const endContainer = range.endContainer;
+        // Check if selection is within PDF text content
+        const startContainer = range.startContainer;
+        const endContainer = range.endContainer;
+        
+        const startPage = startContainer.nodeType === Node.TEXT_NODE 
+          ? startContainer.parentElement?.closest('.react-pdf__Page__textContent')
+          : (startContainer as Element)?.closest('.react-pdf__Page__textContent');
           
-          // Check if both start and end are within the same PDF page's text layer
-          const startPage = startContainer.nodeType === Node.TEXT_NODE 
-            ? startContainer.parentElement?.closest('.react-pdf__Page__textContent')
-            : (startContainer as Element)?.closest('.react-pdf__Page__textContent');
-            
-          const endPage = endContainer.nodeType === Node.TEXT_NODE 
-            ? endContainer.parentElement?.closest('.react-pdf__Page__textContent')
-            : (endContainer as Element)?.closest('.react-pdf__Page__textContent');
+        const endPage = endContainer.nodeType === Node.TEXT_NODE 
+          ? endContainer.parentElement?.closest('.react-pdf__Page__textContent')
+          : (endContainer as Element)?.closest('.react-pdf__Page__textContent');
 
-          // Only show dialog if selection is within the same PDF page text layer
-          if (
-            startPage && 
-            endPage && 
-            startPage === endPage &&
-            containerRef.current &&
-            containerRef.current.contains(range.commonAncestorContainer)
-          ) {
-            // Get the first rectangle for positioning the dialog
+        if (
+          startPage && 
+          endPage && 
+          startPage === endPage &&
+          containerRef.current &&
+          containerRef.current.contains(range.commonAncestorContainer)
+        ) {
+          // Show dialog if mouse is not pressed OR if forced (after mouseup)
+          if (!isMousePressed || forceShow) {
             const rects = range.getClientRects();
             if (rects.length > 0) {
               const firstRect = rects[0];
@@ -356,22 +385,53 @@ export default function PDFViewer({
                 visible: true,
               });
             }
-          } else {
-            setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
           }
-        } catch (error) {
-          console.error('Selection error:', error);
+        } else {
           setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
         }
-      }, 200); // Longer debounce to reduce flickering
+      } catch (error) {
+        console.error('Selection error:', error);
+        setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (containerRef.current && containerRef.current.contains(target)) {
+        setIsMousePressed(true);
+        setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMousePressed) {
+        setIsMousePressed(false);
+        // Force show dialog after mouse up regardless of state
+        setTimeout(() => {
+          showSelectionDialog(true); // Force show
+        }, 100);
+      }
+    };
+
+    const handleSelection = () => {
+      clearTimeout(timeoutId);
+      // Don't show dialog immediately on selection change, wait for mouse up
+      if (!isMousePressed) {
+        timeoutId = setTimeout(showSelectionDialog, 100);
+      }
     };
 
     document.addEventListener('selectionchange', handleSelection);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
+    
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('selectionchange', handleSelection);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [isMousePressed]);
 
   // Clear selection when clicking elsewhere
   useEffect(() => {
@@ -457,7 +517,7 @@ export default function PDFViewer({
 
   const handleAskReadlyFromDialog = useCallback(() => {
     onTextSelect(selectionDialog.text);
-    setSelectionDialog((prev) => ({ ...prev, visible: false }));
+    setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
 
     // Clear the current selection
     if (window.getSelection) {
@@ -888,7 +948,8 @@ export default function PDFViewer({
                                   width: `${rect.width}%`,
                                   height: `${rect.height}%`,
                                   backgroundColor: highlight.color,
-                                  opacity: 0.4,
+                                  opacity: 0.5,
+                                  mixBlendMode: 'multiply',
                                   borderRadius: '1px',
                                   zIndex: 0,
                                 }}
@@ -904,7 +965,8 @@ export default function PDFViewer({
                                   width: `${highlight.width}%`,
                                   height: `${highlight.height}%`,
                                   backgroundColor: highlight.color,
-                                  opacity: 0.4,
+                                  opacity: 0.5,
+                                  mixBlendMode: 'multiply',
                                   borderRadius: '1px',
                                   zIndex: 0,
                                 }}
