@@ -117,117 +117,127 @@ export default function PDFViewer({
     addText,
     updateText,
     deleteText,
-    isLoading: isDataLoading
+    isLoading: isDataLoading,
   } = usePDFData(pdfId);
 
+  // Store current selection data to avoid losing it when dialog interacts
+  const [currentSelectionData, setCurrentSelectionData] = useState<{
+    text: string;
+    range: Range;
+    pageContainer: Element;
+    pageRect: DOMRect;
+    rects: DOMRectList;
+  } | null>(null);
+
   // Highlight functions with precise range-based positioning
-  const handleHighlight = useCallback(async (color: string, text: string) => {
-    console.log('handleHighlight called with:', { color, text, pdfId, currentPage });
-    
-    if (!pdfId) {
-      console.log('No pdfId, returning');
-      return;
-    }
-
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-      console.log('No selection, returning');
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    
-    // Find the PDF page container
-    const pageContainer = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
-      ? range.commonAncestorContainer.parentElement?.closest('.pdf-page')
-      : (range.commonAncestorContainer as Element)?.closest('.pdf-page');
-    
-    if (!pageContainer) {
-      console.log('No page container found');
-      return;
-    }
-    
-    const pageRect = pageContainer.getBoundingClientRect();
-    
-    // Get all text rectangles for precise highlighting
-    const rects = range.getClientRects();
-    const highlightRects = [];
-    
-    console.log('Found', rects.length, 'text rectangles');
-    
-    for (let i = 0; i < rects.length; i++) {
-      const rect = rects[i];
-      if (rect.width > 0 && rect.height > 0) {
-        // Calculate relative coordinates for each rectangle
-        const relativeX = ((rect.left - pageRect.left) / pageRect.width) * 100;
-        const relativeY = ((rect.top - pageRect.top) / pageRect.height) * 100;
-        const relativeWidth = (rect.width / pageRect.width) * 100;
-        const relativeHeight = (rect.height / pageRect.height) * 100;
-        
-        highlightRects.push({
-          x: relativeX,
-          y: relativeY,
-          width: relativeWidth,
-          height: relativeHeight,
-        });
-      }
-    }
-    
-    console.log('Created highlight rects:', highlightRects);
-    
-    // Create highlight object with multiple rectangles
-    const highlight = {
-      id: `highlight_${Date.now()}`,
-      pdfId,
-      text,
-      color,
-      rects: highlightRects,
-      pageNumber: currentPage,
-    };
-
-    console.log('Adding highlight to local state:', highlight);
-    
-    // Add to local state immediately for instant feedback
-    setHighlights(prev => {
-      const newHighlights = [...prev, highlight];
-      console.log('New highlights state:', newHighlights);
-      return newHighlights;
-    });
-
-    // Save to database in background
-    try {
-      console.log('Saving to database...');
-      const response = await fetch('/api/highlights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(highlight),
+  const handleHighlight = useCallback(
+    async (color: string, text: string) => {
+      console.log('=== HIGHLIGHT FUNCTION CALLED ===');
+      console.log('handleHighlight called with:', {
+        color,
+        text,
+        pdfId,
+        currentPage,
+        hasStoredData: !!currentSelectionData
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+
+      if (!pdfId || !currentSelectionData) {
+        console.log('No pdfId or stored data, returning');
+        return;
       }
-      
-      const savedHighlight = await response.json();
-      console.log('Saved highlight:', savedHighlight);
-    } catch (error) {
-      console.error('Failed to save highlight:', error);
-      // Remove from local state if save failed
-      setHighlights(prev => prev.filter(h => h.id !== highlight.id));
-    }
 
-    // Clear selection and dialog after highlighting
-    selection.removeAllRanges();
-    setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
-  }, [pdfId, currentPage]);
+      const selectionData = currentSelectionData;
+      const highlightRects = [];
 
-  const handleAskReadly = useCallback((text: string) => {
-    onTextSelect(text);
-  }, [onTextSelect]);
+      console.log('Found', selectionData.rects.length, 'text rectangles');
+
+      for (let i = 0; i < selectionData.rects.length; i++) {
+        const rect = selectionData.rects[i];
+        if (rect.width > 0 && rect.height > 0) {
+          // Calculate relative coordinates for each rectangle
+          const relativeX =
+            ((rect.left - selectionData.pageRect.left) /
+              selectionData.pageRect.width) *
+            100;
+          const relativeY =
+            ((rect.top - selectionData.pageRect.top) /
+              selectionData.pageRect.height) *
+            100;
+          const relativeWidth =
+            (rect.width / selectionData.pageRect.width) * 100;
+          const relativeHeight =
+            (rect.height / selectionData.pageRect.height) * 100;
+
+          highlightRects.push({
+            x: relativeX,
+            y: relativeY,
+            width: relativeWidth,
+            height: relativeHeight,
+          });
+        }
+      }
+
+      console.log('Created highlight rects:', highlightRects);
+
+      // Create highlight object with multiple rectangles
+      const highlight = {
+        id: `highlight_${Date.now()}`,
+        pdfId,
+        text: selectionData.text,
+        color,
+        rects: highlightRects,
+        pageNumber: currentPage,
+      };
+
+      console.log('Adding highlight to local state:', highlight);
+
+      // Add to local state immediately for instant feedback
+      setHighlights((prev) => {
+        const newHighlights = [...prev, highlight];
+        console.log('New highlights state:', newHighlights);
+        return newHighlights;
+      });
+
+      // Save to database in background
+      try {
+        console.log('Saving to database...');
+        const response = await fetch('/api/highlights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(highlight),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const savedHighlight = await response.json();
+        console.log('Saved highlight:', savedHighlight);
+      } catch (error) {
+        console.error('Failed to save highlight:', error);
+        // Remove from local state if save failed
+        setHighlights((prev) => prev.filter((h) => h.id !== highlight.id));
+      }
+    },
+    [pdfId, currentPage, currentSelectionData]
+  );
+
+  const handleAskReadly = useCallback(
+    (text: string) => {
+      onTextSelect(text);
+    },
+    [onTextSelect]
+  );
 
   // Get highlights for a specific page
-  const getHighlightsForPage = useCallback((pageNumber: number) => {
-    return highlights.filter(highlight => highlight.pageNumber === pageNumber);
-  }, [highlights]);
+  const getHighlightsForPage = useCallback(
+    (pageNumber: number) => {
+      return highlights.filter(
+        (highlight) => highlight.pageNumber === pageNumber
+      );
+    },
+    [highlights]
+  );
 
   // Handle external link detection and opening
   const handleLinkClick = useCallback((event: Event) => {
@@ -340,13 +350,17 @@ export default function PDFViewer({
       try {
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) {
-          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
           return;
         }
 
         const selectedText = selection.toString().trim();
         if (!selectedText || selectedText.length < 2) {
-          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
           return;
         }
 
@@ -355,18 +369,28 @@ export default function PDFViewer({
         // Check if selection is within PDF text content
         const startContainer = range.startContainer;
         const endContainer = range.endContainer;
-        
-        const startPage = startContainer.nodeType === Node.TEXT_NODE 
-          ? startContainer.parentElement?.closest('.react-pdf__Page__textContent')
-          : (startContainer as Element)?.closest('.react-pdf__Page__textContent');
-          
-        const endPage = endContainer.nodeType === Node.TEXT_NODE 
-          ? endContainer.parentElement?.closest('.react-pdf__Page__textContent')
-          : (endContainer as Element)?.closest('.react-pdf__Page__textContent');
+
+        const startPage =
+          startContainer.nodeType === Node.TEXT_NODE
+            ? startContainer.parentElement?.closest(
+                '.react-pdf__Page__textContent'
+              )
+            : (startContainer as Element)?.closest(
+                '.react-pdf__Page__textContent'
+              );
+
+        const endPage =
+          endContainer.nodeType === Node.TEXT_NODE
+            ? endContainer.parentElement?.closest(
+                '.react-pdf__Page__textContent'
+              )
+            : (endContainer as Element)?.closest(
+                '.react-pdf__Page__textContent'
+              );
 
         if (
-          startPage && 
-          endPage && 
+          startPage &&
+          endPage &&
           startPage === endPage &&
           containerRef.current &&
           containerRef.current.contains(range.commonAncestorContainer)
@@ -377,7 +401,16 @@ export default function PDFViewer({
             if (rects.length > 0) {
               const firstRect = rects[0];
               const lastRect = rects[rects.length - 1];
-              
+
+              // Store selection data for use when highlighting
+              setCurrentSelectionData({
+                text: selectedText,
+                range: range.cloneRange(), // Clone the range to preserve it
+                pageContainer: startPage,
+                pageRect: startPage.getBoundingClientRect(),
+                rects: range.getClientRects(),
+              });
+
               setSelectionDialog({
                 x: firstRect.left + (lastRect.right - firstRect.left) / 2,
                 y: firstRect.top - 10,
@@ -387,19 +420,37 @@ export default function PDFViewer({
             }
           }
         } else {
-          setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
         }
       } catch (error) {
         console.error('Selection error:', error);
-        setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+        setSelectionDialog((prev) =>
+          prev.visible ? { ...prev, visible: false } : prev
+        );
       }
     };
 
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as Element;
+      
+      // Don't interfere with dialog clicks - check for any dialog-related elements
+      if (target.closest('.highlight-color-picker') || 
+          target.closest('button[title*="Highlight"]') ||
+          target.closest('button[class*="bg-yellow"]') ||
+          target.closest('button[class*="bg-green"]') ||
+          target.closest('button[class*="bg-blue"]') ||
+          target.closest('button[class*="bg-pink"]') ||
+          target.closest('button[class*="bg-purple"]')) {
+        return;
+      }
+      
       if (containerRef.current && containerRef.current.contains(target)) {
         setIsMousePressed(true);
-        setSelectionDialog((prev) => prev.visible ? { ...prev, visible: false } : prev);
+        setSelectionDialog((prev) =>
+          prev.visible ? { ...prev, visible: false } : prev
+        );
       }
     };
 
@@ -424,7 +475,7 @@ export default function PDFViewer({
     document.addEventListener('selectionchange', handleSelection);
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
-    
+
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('selectionchange', handleSelection);
@@ -436,8 +487,14 @@ export default function PDFViewer({
   // Clear selection when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (selectionDialog.visible && !event.target) {
+      const target = event.target as Element;
+      
+      // Don't close dialog if clicking on the dialog itself or color buttons
+      if (selectionDialog.visible && 
+          !target.closest('.highlight-color-picker') &&
+          !target.closest('button[title*="Highlight"]')) {
         setSelectionDialog((prev) => ({ ...prev, visible: false }));
+        setCurrentSelectionData(null);
       }
     };
 
@@ -871,7 +928,7 @@ export default function PDFViewer({
                 }
                 options={pdfOptions}
               >
-{numPages &&
+                {numPages &&
                   Array.from(new Array(numPages), (el, index) => {
                     const pageNumber = index + 1;
 
@@ -929,36 +986,42 @@ export default function PDFViewer({
                             onTextCreate={addText}
                             onTextUpdate={updateText}
                             onTextDelete={deleteText}
-                            onToolChange={(tool) => setActiveTool(tool as ToolType)}
+                            onToolChange={(tool) =>
+                              setActiveTool(tool as ToolType)
+                            }
                             onTextSelect={handleTextSelect}
                           />
                         )}
-                        
+
                         {/* Highlight Overlay */}
                         {getHighlightsForPage(pageNumber).map((highlight) => (
                           <div key={highlight.id}>
                             {/* Handle new multi-rect highlights */}
-                            {highlight.rects ? highlight.rects.map((rect: any, rectIndex: number) => (
-                              <div
-                                key={`${highlight.id}-${rectIndex}`}
-                                className="absolute pointer-events-none"
-                                style={{
-                                  left: `${rect.x}%`,
-                                  top: `${rect.y}%`,
-                                  width: `${rect.width}%`,
-                                  height: `${rect.height}%`,
-                                  backgroundColor: highlight.color,
-                                  opacity: 0.5,
-                                  mixBlendMode: 'multiply',
-                                  borderRadius: '1px',
-                                  zIndex: 0,
-                                }}
-                                title={highlight.text}
-                              />
-                            )) : (
+                            {highlight.rects ? (
+                              highlight.rects.map(
+                                (rect: any, rectIndex: number) => (
+                                  <div
+                                    key={`${highlight.id}-${rectIndex}`}
+                                    className='absolute pointer-events-none'
+                                    style={{
+                                      left: `${rect.x}%`,
+                                      top: `${rect.y}%`,
+                                      width: `${rect.width}%`,
+                                      height: `${rect.height}%`,
+                                      backgroundColor: highlight.color,
+                                      opacity: 0.5,
+                                      mixBlendMode: 'multiply',
+                                      borderRadius: '1px',
+                                      zIndex: 0,
+                                    }}
+                                    title={highlight.text}
+                                  />
+                                )
+                              )
+                            ) : (
                               /* Fallback for old single-rect highlights */
                               <div
-                                className="absolute pointer-events-none"
+                                className='absolute pointer-events-none'
                                 style={{
                                   left: `${highlight.x}%`,
                                   top: `${highlight.y}%`,
@@ -995,7 +1058,11 @@ export default function PDFViewer({
         selectedText={selectionDialog.text}
         onHighlight={handleHighlight}
         onAskReadly={handleAskReadlyFromDialog}
-        onClose={() => setSelectionDialog(prev => ({ ...prev, visible: false }))}
+        onClose={() => {
+          console.log('Dialog onClose called');
+          setCurrentSelectionData(null);
+          setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
+        }}
       />
     </div>
   );
