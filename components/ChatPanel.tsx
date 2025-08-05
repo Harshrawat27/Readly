@@ -25,10 +25,8 @@ export default function ChatPanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null
-  );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
@@ -111,7 +109,7 @@ export default function ChatPanel({
         console.log('Fetched chat with messages:', chat);
 
         if (chat && chat.messages) {
-          const allMessages = chat.messages.map((msg: any) => ({
+          const allMessages = chat.messages.map((msg: { role: string; content: string; createdAt: string; id: string }) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
@@ -181,7 +179,6 @@ export default function ChatPanel({
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const currentInput = inputValue.trim(); // Store to avoid stale closure
     setInputValue('');
     setIsLoading(true);
 
@@ -298,7 +295,7 @@ export default function ChatPanel({
       setIsLoading(false);
       onTextSubmit(); // Clear selected text
     }
-  }, [inputValue, isLoading, messages, pdfId, onTextSubmit]);
+  }, [inputValue, isLoading, messages, pdfId, currentChatId, onTextSubmit]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -312,7 +309,6 @@ export default function ChatPanel({
 
   const clearChat = useCallback(() => {
     setMessages([]);
-    setStreamingMessageId(null);
   }, []);
 
   const formatTime = (date: Date) => {
@@ -454,11 +450,11 @@ export default function ChatPanel({
               className='text-sm text-[var(--text-primary)] italic break-words overflow-hidden'
               style={{ wordBreak: 'break-word' }}
             >
-              "
+              &quot;
               {selectedText.length > 100
                 ? selectedText.substring(0, 100) + '...'
                 : selectedText}
-              "
+              &quot;
             </div>
           </div>
         )}

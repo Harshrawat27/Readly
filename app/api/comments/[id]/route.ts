@@ -33,7 +33,7 @@ export async function PATCH(
 
     // Allowed fields to update
     const allowedUpdates = ['x', 'y', 'content', 'resolved'];
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     for (const key of allowedUpdates) {
       if (updates[key] !== undefined) {

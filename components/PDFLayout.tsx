@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PDFSidebar from '@/components/PDFSidebar';
 import PDFViewer from '@/components/PDFViewer';

@@ -1,14 +1,19 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import PDFSidebar from '@/components/PDFSidebar';
 import PDFViewer from '@/components/PDFViewer';
 import ChatPanel from '@/components/ChatPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface AppLayoutProps {
-  session: any;
+  session: {
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  };
   onSignOut: () => void;
   isSigningOut: boolean;
   selectedPdfId: string | null;
@@ -28,7 +33,6 @@ export default function AppLayout({
   onTextSelect,
   onTextSubmit,
 }: AppLayoutProps) {
-  const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatWidth, setChatWidth] = useState(384);
   const [isResizing, setIsResizing] = useState(false);

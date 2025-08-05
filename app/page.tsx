@@ -9,7 +9,7 @@ export default function Home() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [selectedPdfId] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string>('');
 
   const handleSignOut = async () => {

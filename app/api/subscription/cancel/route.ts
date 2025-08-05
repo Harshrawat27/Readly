@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dodopayments } from '@/lib/dodopayments';
 import { auth } from '@/lib/auth';
 import { getUserSubscription, updateUserSubscription } from '@/lib/subscription-utils';
 

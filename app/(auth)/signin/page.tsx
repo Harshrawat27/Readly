@@ -1,5 +1,4 @@
 'use client';
-import Image from 'next/image';
 import { signIn, useSession } from '@/lib/auth-client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -260,7 +259,7 @@ export default function SignIn() {
 
               <div className='text-center'>
                 <span className='text-[14px] text-[var(--text-secondary)]'>
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <Link
                     href='/signup'
                     className='text-[var(--text-primary)] hover:underline font-medium'

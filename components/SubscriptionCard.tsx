@@ -4,18 +4,38 @@ import { useState, useEffect } from 'react';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
 
 interface SubscriptionData {
-  plan: any;
-  subscription: any;
-  limits: any;
-  usage: any;
-  user: any;
+  plan: {
+    name: string;
+    displayName: string;
+    price: number;
+    interval: string;
+  };
+  subscription: {
+    subscriptionId: string;
+    currentPeriodEnd: string;
+  } | null;
+  limits: {
+    maxPdfs: number;
+    maxFileSize: number;
+    maxQuestionsPerMonth: number;
+    maxPagesPerPdf: number;
+  };
+  usage: {
+    totalPdfsUploaded: number;
+    monthlyQuestionsUsed: number;
+  };
+  user: {
+    subscriptionPlan: string;
+    subscriptionStatus: string;
+    subscriptionEndDate: string | null;
+  };
 }
 
 export default function SubscriptionCard() {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Array<{ id: string; name: string; price_amount: number; description?: string }>>([]);
 
   useEffect(() => {
     fetchSubscriptionData();

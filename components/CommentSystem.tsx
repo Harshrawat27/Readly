@@ -36,7 +36,6 @@ interface NewCommentDialog {
 }
 
 interface CommentSystemProps {
-  pdfId: string;
   pageNumber: number;
   isCommentMode: boolean;
   currentUser: {
@@ -60,7 +59,6 @@ interface Toast {
 }
 
 export default function CommentSystem({
-  pdfId,
   pageNumber,
   isCommentMode,
   currentUser,

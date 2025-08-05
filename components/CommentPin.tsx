@@ -49,7 +49,6 @@ export default function CommentPin({
   onResolve,
   onReply,
   onDelete,
-  isSelected = false,
   onSelect,
   isDraggable = true,
   currentUser,

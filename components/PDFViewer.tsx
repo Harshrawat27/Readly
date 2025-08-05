@@ -964,7 +964,6 @@ export default function PDFViewer({
                         {/* Comment System Overlay */}
                         {pdfId && currentUser && (
                           <CommentSystem
-                            pdfId={pdfId}
                             pageNumber={pageNumber}
                             isCommentMode={activeTool === 'comment'}
                             currentUser={currentUser}

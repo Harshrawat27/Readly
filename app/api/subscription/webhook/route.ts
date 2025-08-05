@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Webhook } from "standardwebhooks";
 import { headers } from "next/headers";
 import { dodopayments } from "@/lib/dodopayments";

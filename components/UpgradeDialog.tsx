@@ -13,8 +13,7 @@ interface UpgradeDialogProps {
 export default function UpgradeDialog({ isOpen, onClose, reason, currentPlan = 'free' }: UpgradeDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('pro');
-  const [products, setProducts] = useState<any[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [products, setProducts] = useState<Array<{ id: string; name: string; price_amount: number; description?: string }>>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,8 +30,6 @@ export default function UpgradeDialog({ isOpen, onClose, reason, currentPlan = '
       }
     } catch (error) {
       console.error('Failed to fetch products:', error);
-    } finally {
-      setProductsLoading(false);
     }
   };
 

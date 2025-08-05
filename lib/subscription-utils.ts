@@ -48,7 +48,7 @@ export async function updateUserSubscription(
     productId?: string;
   }
 ) {
-  const { plan, status, ...otherData } = subscriptionData;
+  const { plan, status } = subscriptionData;
 
   // Update user subscription plan
   await prisma.user.update({

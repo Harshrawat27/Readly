@@ -123,7 +123,7 @@ When users select text from the PDF, help them understand or elaborate on that s
     // Create streaming response
     const stream = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: chatMessages as any,
+      messages: chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,
       temperature: 0.7,
       max_tokens: 1500,

@@ -31,7 +31,7 @@ export async function PATCH(
     }
 
     // Prepare update data with type conversion
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.x !== undefined) updateData.x = parseFloat(updates.x);
     if (updates.y !== undefined) updateData.y = parseFloat(updates.y);

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const pdfId = searchParams.get('pdfId');
 
-    const whereClause: any = {
+    const whereClause: { userId: string; pdfId?: string } = {
       userId: session.user.id,
     };
 

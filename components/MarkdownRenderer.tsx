@@ -12,7 +12,7 @@ interface MarkdownRendererProps {
   fontSize?: number;
   theme?: string;
   isHighlightEnabled?: boolean;
-  onRenderComplete?: (success: boolean, stats: any) => void;
+  onRenderComplete?: (success: boolean, stats: ProcessingResult['stats']) => void;
   className?: string; // Add className prop for chat styling
   compact?: boolean; // Add compact mode for chat messages
 }
@@ -41,10 +41,6 @@ export default function MarkdownRenderer({
   });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    processMarkdown();
-  }, [markdownText]);
-
   const processMarkdown = async () => {
     if (!markdownText) {
       setResult({
@@ -64,23 +60,15 @@ export default function MarkdownRenderer({
     }
 
     setIsProcessing(true);
-
     try {
-      const processingResult = await markdownProcessor.processMarkdown(
-        markdownText
-      );
-      setResult(processingResult);
+      const processed = await markdownProcessor.processMarkdown(markdownText);
 
-      const mathCount =
-        processingResult.stats.inlineMath + processingResult.stats.displayMath;
-      onRenderComplete?.(processingResult.success, {
-        mathCount,
-        ...processingResult.stats,
-      });
+      setResult(processed);
+      onRenderComplete?.(processed.success, processed.stats);
     } catch (error) {
-      console.error('Markdown processing failed:', error);
+      console.error('Error processing markdown:', error);
       setResult({
-        html: markdownText.replace(/\n/g, '<br>'),
+        html: `<p class="error">Error processing markdown: ${error}</p>`,
         stats: {
           inlineMath: 0,
           displayMath: 0,
@@ -90,14 +78,17 @@ export default function MarkdownRenderer({
           processingTime: 0,
         },
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        processor: 'fallback',
+        processor: 'unified',
       });
-      onRenderComplete?.(false, { mathCount: 0 });
+      onRenderComplete?.(false, result.stats);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    processMarkdown();
+  }, [markdownText, isHighlightEnabled, onRenderComplete]);
 
   // Theme configurations
   const getThemeStyles = (theme: string) => {

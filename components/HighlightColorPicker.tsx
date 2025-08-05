@@ -83,7 +83,7 @@ export default function HighlightColorPicker({
           className='text-xs text-gray-600 mb-2 max-w-xs truncate'
           title={selectedText}
         >
-          "{selectedText}"
+          &quot;{selectedText}&quot;
         </div>
 
         {/* Color options */}
