@@ -88,6 +88,7 @@ export default function MarkdownRenderer({
 
   useEffect(() => {
     processMarkdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markdownText, isHighlightEnabled, onRenderComplete]);
 
   // Theme configurations

@@ -8,7 +8,14 @@ import ChatPanel from '@/components/ChatPanel';
 import ResizableDivider from '@/components/ResizableDivider';
 
 interface PDFLayoutProps {
-  session: any;
+  session: {
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string | null;
+    };
+  };
   onSignOut: () => void;
   isSigningOut: boolean;
   pdfId: string;
@@ -66,7 +73,7 @@ export default function PDFLayout({
             currentUser={{
               id: session.user.id,
               name: session.user.name,
-              image: session.user.image,
+              image: session.user.image || undefined,
             }}
           />
         </div>

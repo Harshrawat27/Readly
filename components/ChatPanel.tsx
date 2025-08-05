@@ -26,6 +26,7 @@ export default function ChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);

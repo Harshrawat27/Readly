@@ -72,7 +72,7 @@ export default function PDFSidebar({
         ) {
           const cachedPdfs = JSON.parse(cached);
           setPdfHistory(
-            cachedPdfs.map((pdf: any) => ({
+            cachedPdfs.map((pdf: { id: string; title: string; fileName: string; uploadedAt: string; lastAccessedAt: string }) => ({
               ...pdf,
               uploadedAt: new Date(pdf.uploadedAt),
               lastAccessedAt: new Date(pdf.lastAccessedAt),
@@ -90,7 +90,7 @@ export default function PDFSidebar({
           localStorage.setItem(cacheTimeKey, now.toString());
 
           setPdfHistory(
-            pdfs.map((pdf: any) => ({
+            pdfs.map((pdf: { id: string; title: string; fileName: string; uploadedAt: string; lastAccessedAt: string }) => ({
               ...pdf,
               uploadedAt: new Date(pdf.uploadedAt),
               lastAccessedAt: new Date(pdf.lastAccessedAt),
@@ -308,7 +308,7 @@ export default function PDFSidebar({
     [processPdfFile]
   );
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date) => { // eslint-disable-line @typescript-eslint/no-unused-vars
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',

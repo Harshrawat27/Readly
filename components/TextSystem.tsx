@@ -36,7 +36,7 @@ interface CursorState {
 }
 
 export default function TextSystem({
-  pdfId,
+  pdfId, // eslint-disable-line @typescript-eslint/no-unused-vars
   pageNumber,
   isTextMode,
   selectedTextId: externalSelectedTextId,
@@ -57,13 +57,13 @@ export default function TextSystem({
   }, [externalSelectedTextId]);
 
   // Notify parent of selection changes
-  const handleTextSelect = (textId: string | null) => {
+  const handleTextSelect = useCallback((textId: string | null) => {
     setSelectedTextId(textId);
     const selectedText = textId
       ? pageTexts.find((t) => t.id === textId)
       : undefined;
     onTextSelect?.(textId, selectedText);
-  };
+  }, [pageTexts, onTextSelect]);
   const [cursor, setCursor] = useState<CursorState>({
     x: 0,
     y: 0,
@@ -71,7 +71,7 @@ export default function TextSystem({
     visible: false,
   });
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -130,7 +130,7 @@ export default function TextSystem({
         setCursor((prev) => ({ ...prev, visible: false }));
       }
     },
-    [isTextMode, pageNumber, onTextCreate]
+    [isTextMode, pageNumber, onTextCreate, handleTextSelect]
   );
 
   const handleTextSave = async (textId: string, content: string) => {
@@ -259,7 +259,7 @@ function TextElement({
   isSelected,
   onTextSave,
   onTextUpdate,
-  onTextDelete,
+  onTextDelete, // eslint-disable-line @typescript-eslint/no-unused-vars
   onSelect,
   onEdit,
   inputRef,

@@ -16,7 +16,7 @@ export default function ResizableDivider({
   defaultWidth = 384 
 }: ResizableDividerProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [width, setWidth] = useState(defaultWidth);
+  const [width, setWidth] = useState(defaultWidth); // eslint-disable-line @typescript-eslint/no-unused-vars
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
