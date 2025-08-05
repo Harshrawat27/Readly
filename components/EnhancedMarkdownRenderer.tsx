@@ -182,36 +182,6 @@ const EnhancedMarkdownRenderer = memo(
         {/* Enhanced styles for unified processing */}
         <style jsx global>{`
           /* Thin scrollbar for code blocks */
-          .scrollbar-thin::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-          }
-          
-          .scrollbar-thin::-webkit-scrollbar-track {
-            background: rgba(156, 163, 175, 0.2);
-            border-radius: 2px;
-          }
-          
-          .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: rgba(156, 163, 175, 0.6);
-            border-radius: 2px;
-          }
-          
-          .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: rgba(156, 163, 175, 0.8);
-          }
-          
-          .dark .scrollbar-thin::-webkit-scrollbar-track {
-            background: rgba(75, 85, 99, 0.3);
-          }
-          
-          .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: rgba(156, 163, 175, 0.5);
-          }
-          
-          .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: rgba(156, 163, 175, 0.7);
-          }
 
           .unified-markdown-content {
             font-family: var(--font-geist-sans), -apple-system,
