@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import MarkdownRenderer from './MarkdownRenderer';
+import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 
 interface ChatPanelProps {
   pdfId: string | null;
@@ -407,10 +407,9 @@ export default function ChatPanel({
                   }}
                 >
                   {message.role === 'assistant' ? (
-                    <MarkdownRenderer
+                    <EnhancedMarkdownRenderer
                       markdownText={message.content}
                       compact={true}
-                      isHighlightEnabled={true}
                       className='chat-message'
                       fontSize={15}
                     />

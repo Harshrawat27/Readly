@@ -3,7 +3,10 @@ import OpenAI from 'openai';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { canUserPerformAction, incrementQuestionUsage } from '@/lib/subscription-utils';
+import {
+  canUserPerformAction,
+  incrementQuestionUsage,
+} from '@/lib/subscription-utils';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -60,9 +63,9 @@ export async function POST(request: NextRequest) {
     const canAsk = await canUserPerformAction(userId, 'ask_question');
     if (!canAsk.allowed) {
       return NextResponse.json(
-        { 
+        {
           error: canAsk.reason,
-          requiresUpgrade: canAsk.requiresUpgrade || false
+          requiresUpgrade: canAsk.requiresUpgrade || false,
         },
         { status: 403 }
       );
@@ -122,8 +125,9 @@ When users select text from the PDF, help them understand or elaborate on that s
 
     // Create streaming response
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      model: 'gpt-4.1-nano',
+      messages:
+        chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,
       temperature: 0.7,
       max_tokens: 1500,

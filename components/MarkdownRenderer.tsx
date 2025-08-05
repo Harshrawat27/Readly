@@ -12,7 +12,10 @@ interface MarkdownRendererProps {
   fontSize?: number;
   theme?: string;
   isHighlightEnabled?: boolean;
-  onRenderComplete?: (success: boolean, stats: ProcessingResult['stats']) => void;
+  onRenderComplete?: (
+    success: boolean,
+    stats: ProcessingResult['stats']
+  ) => void;
   className?: string; // Add className prop for chat styling
   compact?: boolean; // Add compact mode for chat messages
 }
