@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { canUserPerformAction, incrementQuestionUsage } from '@/lib/subscription-utils';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -53,6 +54,18 @@ export async function POST(request: NextRequest) {
 
     if (!pdf) {
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
+    }
+
+    // Check subscription limits for questions
+    const canAsk = await canUserPerformAction(userId, 'ask_question');
+    if (!canAsk.allowed) {
+      return NextResponse.json(
+        { 
+          error: canAsk.reason,
+          requiresUpgrade: canAsk.requiresUpgrade || false
+        },
+        { status: 403 }
+      );
     }
 
     // Get or create chat
@@ -153,6 +166,9 @@ When users select text from the PDF, help them understand or elaborate on that s
                 content: assistantResponse.trim(),
               },
             });
+
+            // Increment user's question usage after successful response
+            await incrementQuestionUsage(userId);
           }
 
           // Send completion signal

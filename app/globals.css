@@ -219,8 +219,8 @@ li {
 }
 
 /* Ensure highlight overlays don't interfere with selection */
-.pdf-page [class*="highlight"],
-.pdf-page div[style*="pointer-events-none"] {
+.pdf-page [class*='highlight'],
+.pdf-page div[style*='pointer-events-none'] {
   pointer-events: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;

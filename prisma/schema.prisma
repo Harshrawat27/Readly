@@ -16,6 +16,20 @@ model User {
   createdAt      DateTime
   updatedAt      DateTime
   emailVerified  Boolean
+  
+  // Subscription fields
+  subscriptionPlan    String       @default("free") // free, pro, ultimate
+  subscriptionStatus  String       @default("active") // active, inactive, cancelled, past_due
+  subscriptionId      String?      // DodoPayments subscription ID
+  customerId          String?      // DodoPayments customer ID
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  
+  // Usage tracking
+  monthlyQuestionsUsed Int         @default(0)
+  monthlyQuestionsResetDate DateTime @default(now())
+  totalPdfsUploaded    Int         @default(0)
+  
   accounts       Account[]
   chats          Chat[]
   comments       Comment[]
@@ -25,6 +39,7 @@ model User {
   sessions       Session[]
   textElements   TextElement[]
   highlights     Highlight[]
+  subscriptions  Subscription[]
 
   @@map("user")
 }
@@ -186,4 +201,43 @@ model Highlight {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("highlight")
+}
+
+model Subscription {
+  id                    String   @id @default(cuid())
+  userId                String
+  subscriptionId        String   @unique // DodoPayments subscription ID
+  customerId            String   // DodoPayments customer ID
+  productId             String   // DodoPayments product ID
+  plan                  String   // free, pro, ultimate
+  status                String   // active, inactive, cancelled, past_due, on_hold
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean  @default(false)
+  cancelledAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("subscription")
+}
+
+model SubscriptionPlan {
+  id                    String @id @default(cuid())
+  name                  String @unique // free, pro, ultimate
+  displayName           String
+  price                 Float
+  currency              String @default("USD")
+  interval              String // month
+  maxPdfs               Int    // -1 for unlimited
+  maxFileSize           Int    // in MB
+  maxQuestionsPerMonth  Int    // -1 for unlimited
+  maxPagesPerPdf        Int    // -1 for unlimited
+  features              Json?  // Additional features as JSON
+  active                Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("subscription_plan")
 }

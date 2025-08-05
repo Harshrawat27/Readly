@@ -3,6 +3,8 @@ import { uploadPdfToS3 } from '@/lib/s3';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { canUserPerformAction, incrementPdfUpload } from '@/lib/subscription-utils';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,16 +36,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileName = file.name;
+    const userId = session.user.id;
+
+    // Get PDF page count
+    let pageCount = 0;
+    try {
+      const pdfDoc = await getDocument({ data: fileBuffer }).promise;
+      pageCount = pdfDoc.numPages;
+    } catch (error) {
+      console.error('Error reading PDF:', error);
       return NextResponse.json(
-        { error: 'File size must be less than 50MB' },
+        { error: 'Invalid PDF file' },
         { status: 400 }
       );
     }
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileName = file.name;
-    const userId = session.user.id;
+    // Check subscription limits
+    const canUpload = await canUserPerformAction(userId, 'upload_pdf', {
+      fileSize: file.size,
+      pageCount: pageCount
+    });
+
+    if (!canUpload.allowed) {
+      return NextResponse.json(
+        { 
+          error: canUpload.reason,
+          requiresUpgrade: canUpload.requiresUpgrade || false
+        },
+        { status: 403 }
+      );
+    }
 
     // Upload to S3
     const s3Key = await uploadPdfToS3(fileBuffer, fileName, userId);
@@ -55,9 +79,13 @@ export async function POST(request: NextRequest) {
         fileName: fileName,
         fileUrl: s3Key,
         fileSize: file.size,
+        pageCount: pageCount,
         userId: userId,
       },
     });
+
+    // Increment user's PDF upload count
+    await incrementPdfUpload(userId);
 
     return NextResponse.json({
       id: pdf.id,
