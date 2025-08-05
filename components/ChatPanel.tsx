@@ -328,7 +328,7 @@ export default function ChatPanel({
       <div className='p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0'>
         <div className='flex items-center justify-between'>
           <h2 className='text-lg font-semibold text-[var(--text-primary)]'>
-            Chat with PDF
+            No need to cheat{' '}
           </h2>
 
           {messages.length > 0 && (
