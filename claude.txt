@@ -29,3 +29,5 @@ Warning: AbortException: TextLayer task cancelled.
     free users - 3 pdf total, less than 10mb, 50 questions per/m, upto 10 pages. $0/m
     pro user - 10  pdf total, less than 50mb, 1000 questions per/m, upto 50 pages.  $10/m
     ultimate user - everything unlimited but upto 50mb file size and 200 pages pdf. $20/m
+
+- just for reployment!
