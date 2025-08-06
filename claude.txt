@@ -33,3 +33,6 @@ Warning: AbortException: TextLayer task cancelled.
 - just for reployment!
 
 - code is not in style and able to copy in messages. 
+
+
+- 'virtual-scrolling-chat' branch has good progress
