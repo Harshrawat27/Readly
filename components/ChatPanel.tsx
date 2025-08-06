@@ -5,7 +5,6 @@ import {
   useRef,
   useEffect,
   useCallback,
-  useLayoutEffect,
 } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 
@@ -32,9 +31,6 @@ export default function ChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null
-  );
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
@@ -91,7 +87,7 @@ export default function ChatPanel({
         const data = await response.json();
 
         if (data.chat && data.chat.messages) {
-          const allMessages = data.chat.messages.map((msg: any) => ({
+          const allMessages = data.chat.messages.map((msg: { id: string; role: string; content: string; createdAt: string }) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
@@ -178,7 +174,6 @@ export default function ChatPanel({
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
-    setStreamingMessageId(assistantMessageId);
 
     try {
       const response = await fetch('/api/chat', {
@@ -241,7 +236,6 @@ export default function ChatPanel({
                           : msg
                       )
                     );
-                    setStreamingMessageId(null);
                   }
                 } catch (e) {
                   console.error('Error parsing SSE data:', e);
@@ -267,7 +261,6 @@ export default function ChatPanel({
             : msg
         )
       );
-      setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
       onTextSubmit();
