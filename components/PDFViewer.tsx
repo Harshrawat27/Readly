@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
-import TextSystem from './TextSystem';
+import TextSystem, { TextElement } from './TextSystem';
 import HighlightColorPicker from './HighlightColorPicker';
 import { usePDFData } from '@/hooks/usePDFData';
 
@@ -79,10 +79,8 @@ export default function PDFViewer({
 
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-  const [selectedTextElement, setSelectedTextElement] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  const [selectedTextElement, setSelectedTextElement] =
+    useState<TextElement | null>(null);
 
   // Highlight state
   const [highlights, setHighlights] = useState<Array<Record<string, unknown>>>(
@@ -619,8 +617,7 @@ export default function PDFViewer({
 
   // Handle text selection
   const handleTextSelect = useCallback(
-    // eslint-disable-line @typescript-eslint/no-explicit-any
-    (textId: string | null, textElement?: any) => {
+    (textId: string | null, textElement?: TextElement) => {
       setSelectedTextId(textId);
       setSelectedTextElement(textElement || null);
     },
@@ -629,7 +626,7 @@ export default function PDFViewer({
 
   // Handle text formatting changes from top bar with debouncing
   const handleTextFormat = useCallback(
-    (updates: Record<string, unknown>) => {
+    (updates: Partial<TextElement>) => {
       if (!selectedTextId || !selectedTextElement) return;
 
       // Update local state immediately for instant visual feedback
@@ -779,9 +776,9 @@ export default function PDFViewer({
               {/* Text Alignment */}
               <div className='flex border border-[var(--border)] rounded overflow-hidden'>
                 {[
-                  { align: 'left', icon: '⬅' },
-                  { align: 'center', icon: '↔' },
-                  { align: 'right', icon: '➡' },
+                  { align: 'left' as const, icon: '⬅' },
+                  { align: 'center' as const, icon: '↔' },
+                  { align: 'right' as const, icon: '➡' },
                 ].map(
                   (
                     { align, icon } // eslint-disable-line @typescript-eslint/no-unused-vars
