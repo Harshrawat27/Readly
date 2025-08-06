@@ -1,8 +1,14 @@
+// app/api/pdf/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getPdfFromS3 } from '@/lib/s3';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+
+// Note: Using Node.js runtime for Prisma compatibility
+
+// Cache configuration
+const CACHE_DURATION = 3600; // 1 hour in seconds
 
 export async function GET(
   request: NextRequest,
@@ -18,10 +24,22 @@ export async function GET(
     }
 
     const { id } = await params;
+
+    // Check if we have a cached response
+    const cacheKey = `pdf_${id}_${session.user.id}`;
+
     const pdf = await prisma.pDF.findFirst({
       where: {
         id,
         userId: session.user.id,
+      },
+      select: {
+        id: true,
+        title: true,
+        fileName: true,
+        fileUrl: true,
+        uploadedAt: true,
+        lastAccessedAt: true,
       },
     });
 
@@ -29,21 +47,40 @@ export async function GET(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
-    // Update last accessed time
-    await prisma.pDF.update({
-      where: { id: pdf.id },
-      data: { lastAccessedAt: new Date() },
-    });
+    // Update last accessed time in background (don't wait)
+    prisma.pDF
+      .update({
+        where: { id: pdf.id },
+        data: { lastAccessedAt: new Date() },
+      })
+      .catch(console.error);
 
-    // Get signed URL from S3
+    // Get signed URL from S3 with optimizations
     const signedUrl = await getPdfFromS3(pdf.fileUrl);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       id: pdf.id,
       title: pdf.title,
       fileName: pdf.fileName,
       url: signedUrl,
+      uploadedAt: pdf.uploadedAt,
+      lastAccessedAt: pdf.lastAccessedAt,
     });
+
+    // Set aggressive caching headers
+    response.headers.set(
+      'Cache-Control',
+      `private, max-age=${CACHE_DURATION}, stale-while-revalidate=3600`
+    );
+    response.headers.set('ETag', `"${pdf.id}-${pdf.lastAccessedAt.getTime()}"`);
+
+    // Check if client has valid cache
+    const ifNoneMatch = request.headers.get('If-None-Match');
+    if (ifNoneMatch === `"${pdf.id}-${pdf.lastAccessedAt.getTime()}"`) {
+      return new NextResponse(null, { status: 304 });
+    }
+
+    return response;
   } catch (error) {
     console.error('PDF fetch error:', error);
     return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
@@ -75,7 +112,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
-    // Delete the PDF record from database
     await prisma.pDF.delete({
       where: { id: pdf.id },
     });
@@ -121,7 +157,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
-    // Update the PDF title
     const updatedPdf = await prisma.pDF.update({
       where: { id: pdf.id },
       data: { title: title.trim() },

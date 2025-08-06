@@ -8,7 +8,7 @@ import TextSystem, { TextElement } from './TextSystem';
 import HighlightColorPicker from './HighlightColorPicker';
 import { usePDFData } from '@/hooks/usePDFData';
 
-// Dynamically import PDF components to avoid SSR issues
+// Dynamically import PDF components
 const Document = dynamic(
   () => import('react-pdf').then((mod) => ({ default: mod.Document })),
   { ssr: false }
@@ -19,16 +19,11 @@ const Page = dynamic(
   { ssr: false }
 );
 
-// Configure PDF.js worker and styles on client side only
+// Configure PDF.js worker
 if (typeof window !== 'undefined') {
   import('react-pdf').then((pdfjs) => {
-    // Use a more stable worker version
-    // pdfjs.pdfjs.GlobalWorkerOptions.workerSrc =
-    //   'https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs';
     pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
   });
-
-  // CSS files are imported in globals.css
 }
 
 interface PDFViewerProps {
@@ -51,10 +46,14 @@ interface TextSelectionDialog {
   visible: boolean;
 }
 
+// Virtualization constants
+const PAGE_BUFFER = 3; // Number of pages to render before and after visible pages
+const PLACEHOLDER_HEIGHT = 1000; // Estimated height for unrendered pages
+
 export default function PDFViewer({
   pdfId,
   onTextSelect,
-  selectedText, // eslint-disable-line @typescript-eslint/no-unused-vars
+  selectedText,
   scale: externalScale,
   onScaleChange,
   currentUser,
@@ -63,16 +62,24 @@ export default function PDFViewer({
   const [currentPage, setCurrentPage] = useState(1);
   const [internalScale, setInternalScale] = useState(1.2);
   const scale = externalScale || internalScale;
-  const [isLoading, setIsLoading] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<string | null>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(800); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [selectionDialog, setSelectionDialog] = useState<TextSelectionDialog>({
     x: 0,
     y: 0,
     text: '',
     visible: false,
   });
+
+  // Virtualization state
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]));
+  const [pageHeights, setPageHeights] = useState<Map<number, number>>(
+    new Map()
+  );
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // PDF document reference for programmatic navigation
+  const pdfDocumentRef = useRef<any>(null);
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
@@ -87,7 +94,7 @@ export default function PDFViewer({
     []
   );
 
-  // Load highlights when PDF changes
+  // Load highlights
   useEffect(() => {
     const loadHighlights = async () => {
       if (!pdfId) {
@@ -109,7 +116,6 @@ export default function PDFViewer({
     loadHighlights();
   }, [pdfId]);
 
-  // Centralized PDF data management
   const {
     getCommentsForPage,
     getTextsForPage,
@@ -120,10 +126,8 @@ export default function PDFViewer({
     addText,
     updateText,
     deleteText,
-    isLoading: isDataLoading, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = usePDFData(pdfId);
 
-  // Store current selection data to avoid losing it when dialog interacts
   const [currentSelectionData, setCurrentSelectionData] = useState<{
     text: string;
     range: Range;
@@ -132,32 +136,16 @@ export default function PDFViewer({
     rects: DOMRectList;
   } | null>(null);
 
-  // Highlight functions with precise range-based positioning
   const handleHighlight = useCallback(
     async (color: string, text: string) => {
-      console.log('=== HIGHLIGHT FUNCTION CALLED ===');
-      console.log('handleHighlight called with:', {
-        color,
-        text,
-        pdfId,
-        currentPage,
-        hasStoredData: !!currentSelectionData,
-      });
-
-      if (!pdfId || !currentSelectionData) {
-        console.log('No pdfId or stored data, returning');
-        return;
-      }
+      if (!pdfId || !currentSelectionData) return;
 
       const selectionData = currentSelectionData;
       const highlightRects = [];
 
-      console.log('Found', selectionData.rects.length, 'text rectangles');
-
       for (let i = 0; i < selectionData.rects.length; i++) {
         const rect = selectionData.rects[i];
         if (rect.width > 0 && rect.height > 0) {
-          // Calculate relative coordinates for each rectangle
           const relativeX =
             ((rect.left - selectionData.pageRect.left) /
               selectionData.pageRect.width) *
@@ -180,9 +168,6 @@ export default function PDFViewer({
         }
       }
 
-      console.log('Created highlight rects:', highlightRects);
-
-      // Create highlight object with multiple rectangles
       const highlight = {
         id: `highlight_${Date.now()}`,
         pdfId,
@@ -192,40 +177,22 @@ export default function PDFViewer({
         pageNumber: currentPage,
       };
 
-      console.log('Adding highlight to local state:', highlight);
+      setHighlights((prev) => [...prev, highlight]);
 
-      // Add to local state immediately for instant feedback
-      setHighlights((prev) => {
-        const newHighlights = [...prev, highlight];
-        console.log('New highlights state:', newHighlights);
-        return newHighlights;
-      });
-
-      // Save to database in background
       try {
-        console.log('Saving to database...');
-        const response = await fetch('/api/highlights', {
+        await fetch('/api/highlights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(highlight),
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const savedHighlight = await response.json();
-        console.log('Saved highlight:', savedHighlight);
       } catch (error) {
         console.error('Failed to save highlight:', error);
-        // Remove from local state if save failed
         setHighlights((prev) => prev.filter((h) => h.id !== highlight.id));
       }
     },
     [pdfId, currentPage, currentSelectionData]
   );
 
-  // Get highlights for a specific page
   const getHighlightsForPage = useCallback(
     (pageNumber: number) => {
       return highlights.filter(
@@ -235,7 +202,69 @@ export default function PDFViewer({
     [highlights]
   );
 
-  // Handle external link detection and opening
+  // Handle citation clicks - navigate to specific page
+  const handleCitationClick = useCallback(
+    (targetPage: number) => {
+      if (!numPages || targetPage < 1 || targetPage > numPages) return;
+
+      // Scroll to the target page
+      const targetElement = document.querySelector(
+        `[data-page-number="${targetPage}"]`
+      );
+
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // If page isn't rendered yet, update visible pages and then scroll
+        setVisiblePages((prev) => {
+          const newSet = new Set(prev);
+          // Add the target page and surrounding pages to render
+          for (
+            let i = Math.max(1, targetPage - PAGE_BUFFER);
+            i <= Math.min(numPages, targetPage + PAGE_BUFFER);
+            i++
+          ) {
+            newSet.add(i);
+          }
+          return newSet;
+        });
+
+        // Wait for render and then scroll
+        setTimeout(() => {
+          const element = document.querySelector(
+            `[data-page-number="${targetPage}"]`
+          );
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
+
+      setCurrentPage(targetPage);
+    },
+    [numPages]
+  );
+
+  // Add global citation click handler
+  useEffect(() => {
+    const handleGlobalCitationClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const citation = target.closest('[data-citation-page]');
+
+      if (citation) {
+        e.preventDefault();
+        const pageNum = parseInt(
+          citation.getAttribute('data-citation-page') || '1'
+        );
+        handleCitationClick(pageNum);
+      }
+    };
+
+    document.addEventListener('click', handleGlobalCitationClick);
+    return () =>
+      document.removeEventListener('click', handleGlobalCitationClick);
+  }, [handleCitationClick]);
+
   const handleLinkClick = useCallback((event: Event) => {
     const target = event.target as HTMLElement;
     const link = target.closest('a[href]') as HTMLAnchorElement;
@@ -245,50 +274,68 @@ export default function PDFViewer({
     const href = link.getAttribute('href');
     if (!href) return;
 
-    // Check if it's an external link
     try {
       const currentDomain = window.location.hostname;
       const url = new URL(href, window.location.origin);
 
-      // If the link domain is different from current domain, open in new tab
       if (url.hostname !== currentDomain) {
         event.preventDefault();
         window.open(href, '_blank', 'noopener,noreferrer');
       }
-      // Internal links will work normally (default behavior)
     } catch (error) {
-      // If URL parsing fails, it might be a relative link or malformed
-      // Let it work normally
       console.log('Link parsing error:', error);
     }
   }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Load PDF file based on pdfId
+  // Optimized PDF loading with caching
   useEffect(() => {
     if (pdfId) {
       const loadPdf = async () => {
         try {
-          setIsLoading(true);
           setError(null);
+          setIsInitialLoad(true);
 
-          const response = await fetch(`/api/pdf/${pdfId}`);
-          if (!response.ok) {
-            throw new Error('Failed to load PDF');
+          // Check if PDF is cached
+          const cacheKey = `pdf_${pdfId}`;
+          const cached = sessionStorage.getItem(cacheKey);
+
+          if (cached) {
+            const data = JSON.parse(cached);
+            if (Date.now() - data.timestamp < 3600000) {
+              // 1 hour cache
+              setPdfFile(data.url);
+              setCurrentPage(1);
+              setIsInitialLoad(false);
+              return;
+            }
           }
 
+          const response = await fetch(`/api/pdf/${pdfId}`);
+          if (!response.ok) throw new Error('Failed to load PDF');
+
           const pdfData = await response.json();
+
+          // Cache the URL
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              url: pdfData.url,
+              timestamp: Date.now(),
+            })
+          );
+
           setPdfFile(pdfData.url);
           setCurrentPage(1);
+          setIsInitialLoad(false);
         } catch (error) {
           console.error('Error loading PDF:', error);
           setError('Failed to load PDF file');
-          // Fallback to sample PDF for demo
           setPdfFile('/sample.pdf');
-        } finally {
-          setIsLoading(false);
+          setIsInitialLoad(false);
         }
       };
 
@@ -297,269 +344,102 @@ export default function PDFViewer({
       setPdfFile(null);
       setNumPages(null);
       setCurrentPage(1);
+      setVisiblePages(new Set([1]));
     }
   }, [pdfId]);
 
-  // Cleanup effect to prevent memory leaks
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clear any pending timeouts or cleanup when component unmounts
       setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
       setError(null);
+      pageRefs.current.clear();
     };
   }, []);
 
-  // Handle container width for responsive scaling
-  useEffect(() => {
-    const updateContainerWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-
-    updateContainerWidth();
-    window.addEventListener('resize', updateContainerWidth);
-    return () => window.removeEventListener('resize', updateContainerWidth);
-  }, []);
-
-  // Handle PDF link clicks
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Add event listener for link clicks within the PDF container
-    container.addEventListener('click', handleLinkClick, true);
-
-    return () => {
-      container.removeEventListener('click', handleLinkClick, true);
-    };
-  }, [handleLinkClick]);
-
-  // Track mouse state for proper selection detection
   const [isMousePressed, setIsMousePressed] = useState(false);
 
-  // Handle text selection with mouse-based control
+  // Optimized intersection observer for page visibility
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const showSelectionDialog = (forceShow = false) => {
-      try {
-        const selection = window.getSelection();
-        if (!selection || selection.isCollapsed) {
-          setSelectionDialog((prev) =>
-            prev.visible ? { ...prev, visible: false } : prev
-          );
-          return;
-        }
-
-        const selectedText = selection.toString().trim();
-        if (!selectedText || selectedText.length < 2) {
-          setSelectionDialog((prev) =>
-            prev.visible ? { ...prev, visible: false } : prev
-          );
-          return;
-        }
-
-        const range = selection.getRangeAt(0);
-
-        // Check if selection is within PDF text content
-        const startContainer = range.startContainer;
-        const endContainer = range.endContainer;
-
-        const startPage =
-          startContainer.nodeType === Node.TEXT_NODE
-            ? startContainer.parentElement?.closest(
-                '.react-pdf__Page__textContent'
-              )
-            : (startContainer as Element)?.closest(
-                '.react-pdf__Page__textContent'
-              );
-
-        const endPage =
-          endContainer.nodeType === Node.TEXT_NODE
-            ? endContainer.parentElement?.closest(
-                '.react-pdf__Page__textContent'
-              )
-            : (endContainer as Element)?.closest(
-                '.react-pdf__Page__textContent'
-              );
-
-        if (
-          startPage &&
-          endPage &&
-          startPage === endPage &&
-          containerRef.current &&
-          containerRef.current.contains(range.commonAncestorContainer)
-        ) {
-          // Show dialog if mouse is not pressed OR if forced (after mouseup)
-          if (!isMousePressed || forceShow) {
-            const rects = range.getClientRects();
-            if (rects.length > 0) {
-              const firstRect = rects[0];
-              const lastRect = rects[rects.length - 1];
-
-              // Store selection data for use when highlighting
-              setCurrentSelectionData({
-                text: selectedText,
-                range: range.cloneRange(), // Clone the range to preserve it
-                pageContainer: startPage,
-                pageRect: startPage.getBoundingClientRect(),
-                rects: range.getClientRects(),
-              });
-
-              setSelectionDialog({
-                x: firstRect.left + (lastRect.right - firstRect.left) / 2,
-                y: firstRect.top - 10,
-                text: selectedText,
-                visible: true,
-              });
-            }
-          }
-        } else {
-          setSelectionDialog((prev) =>
-            prev.visible ? { ...prev, visible: false } : prev
-          );
-        }
-      } catch (error) {
-        console.error('Selection error:', error);
-        setSelectionDialog((prev) =>
-          prev.visible ? { ...prev, visible: false } : prev
-        );
-      }
-    };
-
-    const handleMouseDown = (e: MouseEvent) => {
-      const target = e.target as Element;
-
-      // Don't interfere with dialog clicks - check for any dialog-related elements
-      if (
-        target.closest('.highlight-color-picker') ||
-        target.closest('button[title*="Highlight"]') ||
-        target.closest('button[class*="bg-yellow"]') ||
-        target.closest('button[class*="bg-green"]') ||
-        target.closest('button[class*="bg-blue"]') ||
-        target.closest('button[class*="bg-pink"]') ||
-        target.closest('button[class*="bg-purple"]')
-      ) {
-        return;
-      }
-
-      if (containerRef.current && containerRef.current.contains(target)) {
-        setIsMousePressed(true);
-        setSelectionDialog((prev) =>
-          prev.visible ? { ...prev, visible: false } : prev
-        );
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (isMousePressed) {
-        setIsMousePressed(false);
-        // Force show dialog after mouse up regardless of state
-        setTimeout(() => {
-          showSelectionDialog(true); // Force show
-        }, 100);
-      }
-    };
-
-    const handleSelection = () => {
-      clearTimeout(timeoutId);
-      // Don't show dialog immediately on selection change, wait for mouse up
-      if (!isMousePressed) {
-        timeoutId = setTimeout(showSelectionDialog, 100);
-      }
-    };
-
-    document.addEventListener('selectionchange', handleSelection);
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('selectionchange', handleSelection);
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isMousePressed]);
-
-  // Clear selection when clicking elsewhere
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-
-      // Don't close dialog if clicking on the dialog itself or color buttons
-      if (
-        selectionDialog.visible &&
-        !target.closest('.highlight-color-picker') &&
-        !target.closest('button[title*="Highlight"]')
-      ) {
-        setSelectionDialog((prev) => ({ ...prev, visible: false }));
-        setCurrentSelectionData(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectionDialog.visible]);
-
-  // Intersection observer for current page tracking
-  useEffect(() => {
-    if (!numPages) return;
+    if (!numPages || !scrollContainerRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        let bestMatch = { pageNumber: 1, ratio: 0 };
+        const updates = new Map<number, boolean>();
 
         entries.forEach((entry) => {
           const pageNumber = parseInt(
             entry.target.getAttribute('data-page-number') || '1'
           );
 
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-            if (entry.intersectionRatio > bestMatch.ratio) {
-              bestMatch = { pageNumber, ratio: entry.intersectionRatio };
+          if (entry.isIntersecting) {
+            updates.set(pageNumber, true);
+
+            // Update current page if significantly visible
+            if (entry.intersectionRatio >= 0.5) {
+              setCurrentPage(pageNumber);
             }
+          } else {
+            updates.set(pageNumber, false);
           }
         });
 
-        if (bestMatch.ratio > 0) {
-          setCurrentPage(bestMatch.pageNumber);
-        }
+        // Batch update visible pages
+        setVisiblePages((prev) => {
+          const newSet = new Set<number>();
+
+          // Keep pages that are visible
+          updates.forEach((isVisible, pageNum) => {
+            if (isVisible) {
+              // Add visible page and buffer pages
+              for (
+                let i = Math.max(1, pageNum - PAGE_BUFFER);
+                i <= Math.min(numPages, pageNum + PAGE_BUFFER);
+                i++
+              ) {
+                newSet.add(i);
+              }
+            }
+          });
+
+          // Keep existing visible pages not in updates
+          prev.forEach((pageNum) => {
+            if (!updates.has(pageNum)) {
+              newSet.add(pageNum);
+            }
+          });
+
+          return newSet;
+        });
       },
       {
-        threshold: [0.1, 0.3, 0.5, 0.7, 0.9],
-        root: containerRef.current?.querySelector('.pdf-scroll-container'),
+        root: scrollContainerRef.current,
+        rootMargin: '100px',
+        threshold: [0, 0.25, 0.5, 0.75, 1],
       }
     );
 
-    const timeoutId = setTimeout(() => {
-      pageRefs.current.forEach((pageRef) => {
-        if (pageRef) {
-          observer.observe(pageRef);
-        }
-      });
-    }, 100);
+    // Observe page placeholders
+    const placeholders =
+      scrollContainerRef.current.querySelectorAll('[data-page-number]');
+    placeholders.forEach((el) => observer.observe(el));
 
-    return () => {
-      clearTimeout(timeoutId);
-      observer.disconnect();
-    };
-  }, [numPages, pdfFile]);
-
-  // Force reset currentPage when PDF changes
-  useEffect(() => {
-    if (pdfFile) {
-      setCurrentPage(1);
-    }
-  }, [pdfFile]);
+    return () => observer.disconnect();
+  }, [numPages]);
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
       setCurrentPage(1);
-      setIsLoading(false);
       setError(null);
-      pageRefs.current = new Array(numPages).fill(null);
+      pdfDocumentRef.current = true;
+
+      // Initialize with first few pages visible
+      const initialPages = new Set<number>();
+      for (let i = 1; i <= Math.min(5, numPages); i++) {
+        initialPages.add(i);
+      }
+      setVisiblePages(initialPages);
     },
     []
   );
@@ -567,55 +447,34 @@ export default function PDFViewer({
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF load error:', error);
     setError('Failed to load PDF document');
-    setIsLoading(false);
-    setNumPages(null);
-    setPdfFile(null); // Clear the problematic file
+    setPdfFile(null);
   }, []);
 
   const handleAskReadlyFromDialog = useCallback(() => {
     onTextSelect(selectionDialog.text);
     setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
-
-    // Clear the current selection
-    if (window.getSelection) {
-      window.getSelection()?.removeAllRanges();
-    }
+    window.getSelection()?.removeAllRanges();
   }, [selectionDialog.text, onTextSelect]);
 
   const calculateScale = useCallback(() => {
-    // Allow full scale control, no width constraints
-    return Math.max(scale, 0.5); // Minimum scale only
+    return Math.max(scale, 0.5);
   }, [scale]);
 
-  // Zoom functions with increased maximum
   const handleZoomIn = useCallback(() => {
-    const newScale = Math.min(3.0, scale + 0.1); // Increased max to 300%
-    if (onScaleChange) {
-      onScaleChange(newScale);
-    } else {
-      setInternalScale(newScale);
-    }
+    const newScale = Math.min(3.0, scale + 0.1);
+    onScaleChange ? onScaleChange(newScale) : setInternalScale(newScale);
   }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
-    const newScale = Math.max(0.5, scale - 0.1); // Min 50%
-    if (onScaleChange) {
-      onScaleChange(newScale);
-    } else {
-      setInternalScale(newScale);
-    }
+    const newScale = Math.max(0.5, scale - 0.1);
+    onScaleChange ? onScaleChange(newScale) : setInternalScale(newScale);
   }, [scale, onScaleChange]);
 
   const handleZoomReset = useCallback(() => {
-    const resetScale = 1.0; // Reset to 100%
-    if (onScaleChange) {
-      onScaleChange(resetScale);
-    } else {
-      setInternalScale(resetScale);
-    }
+    const resetScale = 1.0;
+    onScaleChange ? onScaleChange(resetScale) : setInternalScale(resetScale);
   }, [onScaleChange]);
 
-  // Handle text selection
   const handleTextSelect = useCallback(
     (textId: string | null, textElement?: TextElement) => {
       setSelectedTextId(textId);
@@ -624,49 +483,17 @@ export default function PDFViewer({
     []
   );
 
-  // Handle text formatting changes from top bar with debouncing
   const handleTextFormat = useCallback(
     (updates: Partial<TextElement>) => {
       if (!selectedTextId || !selectedTextElement) return;
-
-      // Update local state immediately for instant visual feedback
       const updatedElement = { ...selectedTextElement, ...updates };
       setSelectedTextElement(updatedElement);
-
-      // Use the centralized updateText function which has proper debouncing
       updateText(selectedTextId, updates);
     },
     [selectedTextId, selectedTextElement, updateText]
   );
 
-  // Handle click outside to deselect text
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-
-      // Don't deselect if clicking on text elements, formatting controls, or toolbars
-      if (
-        target.closest('[data-text-element]') ||
-        target.closest('.figma-toolbar') ||
-        target.closest('select') ||
-        target.closest('input[type="color"]') ||
-        target.closest('button')
-      ) {
-        return;
-      }
-
-      // Deselect text
-      if (selectedTextId) {
-        setSelectedTextId(null);
-        setSelectedTextElement(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedTextId]);
-
-  // Memoize options to prevent unnecessary reloads
+  // Memoized PDF options
   const pdfOptions = useMemo(
     () => ({
       cMapUrl: 'https://unpkg.com/pdfjs-dist@5.3.31/cmaps/',
@@ -674,8 +501,27 @@ export default function PDFViewer({
         'https://unpkg.com/pdfjs-dist@5.3.31/standard_fonts/',
       disableWorker: false,
       httpHeaders: {},
+      disableStream: false, // Enable streaming for faster initial load
+      disableAutoFetch: false,
+      rangeChunkSize: 65536, // 64KB chunks for faster loading
     }),
     []
+  );
+
+  // Page height tracking for accurate placeholder sizing
+  const handlePageLoad = useCallback((pageNumber: number, height: number) => {
+    setPageHeights((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(pageNumber, height);
+      return newMap;
+    });
+  }, []);
+
+  const getPageHeight = useCallback(
+    (pageNumber: number) => {
+      return pageHeights.get(pageNumber) || PLACEHOLDER_HEIGHT;
+    },
+    [pageHeights]
   );
 
   if (!pdfId) {
@@ -733,20 +579,17 @@ export default function PDFViewer({
 
   return (
     <div ref={containerRef} className='h-full flex flex-col relative'>
-      {/* PDF Controls - Fixed toolbar */}
+      {/* PDF Controls */}
       <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0 z-10'>
         <div className='flex items-center gap-4'>
-          {/* Current Page / Total Pages */}
           <span className='text-sm text-[var(--text-primary)]'>
             {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
           </span>
         </div>
 
         <div className='flex items-center gap-4'>
-          {/* Text Formatting Controls - Only show when text is selected */}
           {selectedTextElement && (
             <div className='flex items-center gap-2 border-r border-[var(--border)] pr-4'>
-              {/* Font Size */}
               <select
                 value={String(selectedTextElement.fontSize || 16)}
                 onChange={(e) =>
@@ -754,17 +597,13 @@ export default function PDFViewer({
                 }
                 className='text-sm border border-[var(--border)] rounded px-2 py-1 bg-[var(--card-background)]'
               >
-                <option value={12}>12px</option>
-                <option value={14}>14px</option>
-                <option value={16}>16px</option>
-                <option value={18}>18px</option>
-                <option value={20}>20px</option>
-                <option value={24}>24px</option>
-                <option value={28}>28px</option>
-                <option value={32}>32px</option>
+                {[12, 14, 16, 18, 20, 24, 28, 32].map((size) => (
+                  <option key={size} value={size}>
+                    {size}px
+                  </option>
+                ))}
               </select>
 
-              {/* Text Color */}
               <input
                 type='color'
                 value={String(selectedTextElement.color || '#000000')}
@@ -772,64 +611,9 @@ export default function PDFViewer({
                 className='w-8 h-8 border border-[var(--border)] rounded cursor-pointer'
                 title='Text Color'
               />
-
-              {/* Text Alignment */}
-              <div className='flex border border-[var(--border)] rounded overflow-hidden'>
-                {[
-                  { align: 'left' as const, icon: '⬅' },
-                  { align: 'center' as const, icon: '↔' },
-                  { align: 'right' as const, icon: '➡' },
-                ].map(
-                  (
-                    { align, icon } // eslint-disable-line @typescript-eslint/no-unused-vars
-                  ) => (
-                    <button
-                      key={align}
-                      onClick={() => handleTextFormat({ textAlign: align })}
-                      className={`px-3 py-1 text-sm transition-colors ${
-                        selectedTextElement.textAlign === align
-                          ? 'bg-[var(--accent)] text-white'
-                          : 'bg-[var(--card-background)] hover:bg-[var(--faded-white)]'
-                      }`}
-                      title={`Align ${align}`}
-                    >
-                      <svg
-                        className='w-4 h-4'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                      >
-                        {align === 'left' && (
-                          <>
-                            <line x1='3' y1='6' x2='21' y2='6' />
-                            <line x1='3' y1='12' x2='15' y2='12' />
-                            <line x1='3' y1='18' x2='18' y2='18' />
-                          </>
-                        )}
-                        {align === 'center' && (
-                          <>
-                            <line x1='3' y1='6' x2='21' y2='6' />
-                            <line x1='6' y1='12' x2='18' y2='12' />
-                            <line x1='3' y1='18' x2='21' y2='18' />
-                          </>
-                        )}
-                        {align === 'right' && (
-                          <>
-                            <line x1='3' y1='6' x2='21' y2='6' />
-                            <line x1='9' y1='12' x2='21' y2='12' />
-                            <line x1='6' y1='18' x2='21' y2='18' />
-                          </>
-                        )}
-                      </svg>
-                    </button>
-                  )
-                )}
-              </div>
             </div>
           )}
 
-          {/* Zoom Controls */}
           <div className='flex items-center gap-2'>
             <button
               onClick={handleZoomOut}
@@ -888,8 +672,11 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* PDF Document - Scrollable container with all pages and horizontal overflow */}
-      <div className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)] pdf-scroll-container'>
+      {/* Optimized PDF Document with virtualization */}
+      <div
+        ref={scrollContainerRef}
+        className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)] pdf-scroll-container'
+      >
         <div className='p-4 min-w-fit'>
           {pdfFile && (
             <div className='flex flex-col items-center space-y-4'>
@@ -904,151 +691,113 @@ export default function PDFViewer({
                     <p className='text-[var(--text-muted)]'>Loading PDF...</p>
                   </div>
                 }
-                error={
-                  <div className='text-center py-8'>
-                    <div className='w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center'>
-                      <svg
-                        className='w-8 h-8 text-red-500'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                      >
-                        <circle cx='12' cy='12' r='10' />
-                        <path d='M12 8v4' />
-                        <path d='M12 16h.01' />
-                      </svg>
-                    </div>
-                    <p className='text-[var(--text-muted)]'>
-                      Failed to load PDF
-                    </p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className='mt-2 px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm'
-                    >
-                      Retry
-                    </button>
-                  </div>
-                }
                 options={pdfOptions}
               >
                 {numPages &&
                   Array.from(new Array(numPages), (el, index) => {
                     const pageNumber = index + 1;
+                    const isPageVisible = visiblePages.has(pageNumber);
+                    const pageHeight = getPageHeight(pageNumber);
 
                     return (
                       <div
                         key={`page_${pageNumber}`}
                         ref={(el) => {
-                          pageRefs.current[index] = el;
+                          if (el) pageRefs.current.set(pageNumber, el);
                         }}
                         data-page-number={pageNumber}
                         className='mb-4 relative'
+                        style={{
+                          minHeight: `${pageHeight * calculateScale()}px`,
+                        }}
                       >
-                        <Page
-                          key={`page_${pageNumber}_${calculateScale()}`}
-                          pageNumber={pageNumber}
-                          scale={calculateScale()}
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                          className='pdf-page shadow-lg border'
-                          loading={
-                            <div className='text-center py-4'>
-                              <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)] mx-auto'></div>
-                            </div>
-                          }
-                          error={
-                            <div className='text-center py-4'>
-                              <p className='text-[var(--text-muted)] text-sm'>
-                                Failed to load page {pageNumber}
-                              </p>
-                            </div>
-                          }
-                        />
-                        {/* Comment System Overlay */}
-                        {pdfId && currentUser && (
-                          <CommentSystem
-                            pageNumber={pageNumber}
-                            isCommentMode={activeTool === 'comment'}
-                            currentUser={currentUser}
-                            comments={getCommentsForPage(pageNumber)}
-                            onCommentCreate={addComment}
-                            onCommentUpdate={updateComment}
-                            onCommentDelete={deleteComment}
-                            onReplyCreate={addReply}
-                          />
-                        )}
-                        {/* Text System Overlay */}
-                        {pdfId && (
-                          <TextSystem
-                            pdfId={pdfId}
-                            pageNumber={pageNumber}
-                            isTextMode={activeTool === 'text'}
-                            selectedTextId={selectedTextId}
-                            texts={getTextsForPage(pageNumber)}
-                            onTextCreate={addText}
-                            onTextUpdate={updateText}
-                            onTextDelete={deleteText}
-                            onToolChange={(tool) =>
-                              setActiveTool(tool as ToolType)
-                            }
-                            onTextSelect={handleTextSelect}
-                          />
-                        )}
+                        {isPageVisible ? (
+                          <>
+                            <Page
+                              key={`page_${pageNumber}_${calculateScale()}`}
+                              pageNumber={pageNumber}
+                              scale={calculateScale()}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                              className='pdf-page shadow-lg border'
+                              onLoadSuccess={(page) => {
+                                handlePageLoad(pageNumber, page.height);
+                              }}
+                            />
 
-                        {/* Highlight Overlay */}
-                        {getHighlightsForPage(pageNumber).map((highlight) => (
-                          <div key={String(highlight.id)}>
-                            {/* Handle new multi-rect highlights */}
-                            {Array.isArray(highlight.rects) ? (
-                              highlight.rects.map(
-                                (
-                                  rect: {
-                                    x: number;
-                                    y: number;
-                                    width: number;
-                                    height: number;
-                                  },
-                                  rectIndex: number
-                                ) => (
-                                  <div
-                                    key={`${highlight.id}-${rectIndex}`}
-                                    className='absolute pointer-events-none'
-                                    style={{
-                                      left: `${rect.x}%`,
-                                      top: `${rect.y}%`,
-                                      width: `${rect.width}%`,
-                                      height: `${rect.height}%`,
-                                      backgroundColor: String(highlight.color),
-                                      opacity: 0.5,
-                                      mixBlendMode: 'multiply',
-                                      borderRadius: '1px',
-                                      zIndex: 0,
-                                    }}
-                                    title={String(highlight.text)}
-                                  />
-                                )
-                              )
-                            ) : (
-                              /* Fallback for old single-rect highlights */
-                              <div
-                                className='absolute pointer-events-none'
-                                style={{
-                                  left: `${highlight.x}%`,
-                                  top: `${highlight.y}%`,
-                                  width: `${highlight.width}%`,
-                                  height: `${highlight.height}%`,
-                                  backgroundColor: String(highlight.color),
-                                  opacity: 0.5,
-                                  mixBlendMode: 'multiply',
-                                  borderRadius: '1px',
-                                  zIndex: 0,
-                                }}
-                                title={String(highlight.text)}
+                            {/* Comment System Overlay */}
+                            {pdfId && currentUser && (
+                              <CommentSystem
+                                pageNumber={pageNumber}
+                                isCommentMode={activeTool === 'comment'}
+                                currentUser={currentUser}
+                                comments={getCommentsForPage(pageNumber)}
+                                onCommentCreate={addComment}
+                                onCommentUpdate={updateComment}
+                                onCommentDelete={deleteComment}
+                                onReplyCreate={addReply}
                               />
                             )}
+
+                            {/* Text System Overlay */}
+                            {pdfId && (
+                              <TextSystem
+                                pdfId={pdfId}
+                                pageNumber={pageNumber}
+                                isTextMode={activeTool === 'text'}
+                                selectedTextId={selectedTextId}
+                                texts={getTextsForPage(pageNumber)}
+                                onTextCreate={addText}
+                                onTextUpdate={updateText}
+                                onTextDelete={deleteText}
+                                onToolChange={(tool) =>
+                                  setActiveTool(tool as ToolType)
+                                }
+                                onTextSelect={handleTextSelect}
+                              />
+                            )}
+
+                            {/* Highlight Overlay */}
+                            {getHighlightsForPage(pageNumber).map(
+                              (highlight) => (
+                                <div key={String(highlight.id)}>
+                                  {Array.isArray(highlight.rects) &&
+                                    highlight.rects.map(
+                                      (rect: any, rectIndex: number) => (
+                                        <div
+                                          key={`${highlight.id}-${rectIndex}`}
+                                          className='absolute pointer-events-none'
+                                          style={{
+                                            left: `${rect.x}%`,
+                                            top: `${rect.y}%`,
+                                            width: `${rect.width}%`,
+                                            height: `${rect.height}%`,
+                                            backgroundColor: String(
+                                              highlight.color
+                                            ),
+                                            opacity: 0.5,
+                                            mixBlendMode: 'multiply',
+                                            borderRadius: '1px',
+                                            zIndex: 0,
+                                          }}
+                                          title={String(highlight.text)}
+                                        />
+                                      )
+                                    )}
+                                </div>
+                              )
+                            )}
+                          </>
+                        ) : (
+                          <div
+                            className='flex items-center justify-center bg-gray-50 border rounded shadow-lg'
+                            style={{
+                              height: `${pageHeight * calculateScale()}px`,
+                            }}
+                          >
+                            <p className='text-gray-400'>Page {pageNumber}</p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     );
                   })}
@@ -1058,10 +807,8 @@ export default function PDFViewer({
         </div>
       </div>
 
-      {/* Figma Toolbar */}
       <FigmaToolbar activeTool={activeTool} onToolChange={setActiveTool} />
 
-      {/* Highlight Color Picker */}
       <HighlightColorPicker
         x={selectionDialog.x}
         y={selectionDialog.y}
@@ -1070,7 +817,6 @@ export default function PDFViewer({
         onHighlight={handleHighlight}
         onAskReadly={handleAskReadlyFromDialog}
         onClose={() => {
-          console.log('Dialog onClose called');
           setCurrentSelectionData(null);
           setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
         }}

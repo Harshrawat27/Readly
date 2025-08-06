@@ -1,11 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import PDFSidebar from '@/components/PDFSidebar';
-import PDFViewer from '@/components/PDFViewer';
 import ChatPanel from '@/components/ChatPanel';
 import ResizableDivider from '@/components/ResizableDivider';
+import { usePDFServiceWorker } from '@/hooks/usePDFServiceWorker';
+
+// Lazy load PDF viewer for better performance
+const PDFViewer = dynamic(() => import('./PDFViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className='h-full flex items-center justify-center'>
+      <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]'></div>
+    </div>
+  ),
+});
 
 interface PDFLayoutProps {
   session: {
@@ -24,7 +35,8 @@ interface PDFLayoutProps {
   onTextSubmit: () => void;
 }
 
-export default function PDFLayout({
+// Memoized component to prevent unnecessary re-renders
+const PDFLayout = memo(function PDFLayout({
   session,
   onSignOut,
   isSigningOut,
@@ -36,6 +48,16 @@ export default function PDFLayout({
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
+
+  // Use service worker for PDF caching
+  const { clearPDFCache } = usePDFServiceWorker();
+
+  // Enhanced sign out with cache clearing
+  const handleSignOut = useCallback(async () => {
+    clearPDFCache();
+    sessionStorage.clear();
+    await onSignOut();
+  }, [onSignOut, clearPDFCache]);
 
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
@@ -51,7 +73,7 @@ export default function PDFLayout({
             onPdfSelect={(id) => router.push(`/pdf/${id}`)}
             selectedPdfId={pdfId}
             userId={session.user.id}
-            onSignOut={onSignOut}
+            onSignOut={handleSignOut}
             isSigningOut={isSigningOut}
             userName={session.user.name}
             onToggleSidebar={() => {
@@ -62,7 +84,7 @@ export default function PDFLayout({
         </div>
 
         {/* PDF Viewer - Flexible middle section */}
-        <div 
+        <div
           className='flex-1 bg-[var(--pdf-viewer-bg)] relative overflow-hidden'
           style={{ minWidth: '400px' }}
         >
@@ -89,10 +111,10 @@ export default function PDFLayout({
         {/* Chat Panel - Fixed width section */}
         <div
           className='bg-[var(--chat-bg)] flex-shrink-0'
-          style={{ 
-            width: `${chatPanelWidth}px`, 
+          style={{
+            width: `${chatPanelWidth}px`,
             minWidth: `${chatPanelWidth}px`,
-            maxWidth: `${chatPanelWidth}px`
+            maxWidth: `${chatPanelWidth}px`,
           }}
         >
           <ChatPanel
@@ -104,4 +126,6 @@ export default function PDFLayout({
       </div>
     </div>
   );
-}
+});
+
+export default PDFLayout;
