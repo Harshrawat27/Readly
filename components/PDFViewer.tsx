@@ -141,8 +141,24 @@ export default function PDFViewer({
   const consolidateRects = (rects: DOMRect[]): DOMRect[] => {
     if (rects.length === 0) return [];
     
+    // First pass: Filter out obviously invalid rectangles
+    const filteredRects = rects.filter(rect => {
+      // Remove zero/negative size rectangles
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      
+      // Remove extremely large rectangles (likely invalid)
+      if (rect.width > window.innerWidth || rect.height > window.innerHeight) return false;
+      
+      // Remove rectangles with invalid coordinates
+      if (rect.left < -1000 || rect.top < -1000) return false;
+      
+      return true;
+    });
+    
+    console.log(`  Pre-filtered ${rects.length} rects down to ${filteredRects.length} potentially valid rects`);
+    
     // Sort rects by position (top-left to bottom-right)
-    const sortedRects = [...rects].sort((a, b) => {
+    const sortedRects = [...filteredRects].sort((a, b) => {
       if (Math.abs(a.top - b.top) < 5) { // Same line
         return a.left - b.left;
       }
@@ -280,7 +296,30 @@ export default function PDFViewer({
         const consolidatedRects = consolidateRects(rects);
         console.log(`  Consolidated ${rects.length} rects into ${consolidatedRects.length} rects`);
 
-        for (const rect of consolidatedRects) {
+        // Filter out invalid rectangles that are too large (likely covering entire page)
+        const maxReasonableWidth = pageRect.width * 0.8; // Max 80% of page width
+        const maxReasonableHeight = pageRect.height * 0.3; // Max 30% of page height
+        const minReasonableSize = 5; // Minimum 5px
+
+        const validRects = consolidatedRects.filter(rect => {
+          // Check size limits
+          const sizeValid = rect.width > minReasonableSize && 
+                           rect.height > minReasonableSize && 
+                           rect.width < maxReasonableWidth && 
+                           rect.height < maxReasonableHeight;
+          
+          // Check if rectangle is within page boundaries
+          const boundsValid = rect.left >= pageRect.left - 10 && 
+                             rect.top >= pageRect.top - 10 &&
+                             rect.right <= pageRect.right + 10 && 
+                             rect.bottom <= pageRect.bottom + 10;
+          
+          return sizeValid && boundsValid;
+        });
+
+        console.log(`  Filtered ${consolidatedRects.length} rects down to ${validRects.length} valid rects`);
+
+        for (const rect of validRects) {
           const relativeX = ((rect.left - pageRect.left) / pageRect.width) * 100;
           const relativeY = ((rect.top - pageRect.top) / pageRect.height) * 100;
           const relativeWidth = (rect.width / pageRect.width) * 100;
