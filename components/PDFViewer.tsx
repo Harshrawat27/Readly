@@ -227,14 +227,6 @@ export default function PDFViewer({
     [pdfId, currentPage, currentSelectionData]
   );
 
-  const handleAskReadly = useCallback(
-    // eslint-disable-line @typescript-eslint/no-unused-vars
-    (text: string) => {
-      onTextSelect(text);
-    },
-    [onTextSelect]
-  );
-
   // Get highlights for a specific page
   const getHighlightsForPage = useCallback(
     (pageNumber: number) => {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-interface TextElement {
+export interface TextElement {
   id: string;
   content: string;
   x: number;
