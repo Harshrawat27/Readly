@@ -706,10 +706,7 @@ export default function PDFViewer({
                           if (el) pageRefs.current.set(pageNumber, el);
                         }}
                         data-page-number={pageNumber}
-                        className='mb-4 relative'
-                        style={{
-                          minHeight: `${pageHeight * calculateScale()}px`,
-                        }}
+                        className='relative mb-4'
                       >
                         {isPageVisible ? (
                           <>
