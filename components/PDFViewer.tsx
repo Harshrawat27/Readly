@@ -77,6 +77,7 @@ export default function PDFViewer({
     new Map()
   );
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isMousePressed, setIsMousePressed] = useState(false);
 
   // PDF document reference for programmatic navigation
   const pdfDocumentRef = useRef<any>(null);
@@ -207,13 +208,25 @@ export default function PDFViewer({
     (targetPage: number) => {
       if (!numPages || targetPage < 1 || targetPage > numPages) return;
 
-      // Scroll to the target page
-      const targetElement = document.querySelector(
+      const scrollContainer = scrollContainerRef.current;
+      if (!scrollContainer) return;
+
+      // Scroll to the target page within the container
+      const targetElement = scrollContainer.querySelector(
         `[data-page-number="${targetPage}"]`
       );
 
       if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Calculate scroll position relative to container
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const elementRect = targetElement.getBoundingClientRect();
+        const scrollTop =
+          scrollContainer.scrollTop + elementRect.top - containerRect.top - 20; // 20px offset from top
+
+        scrollContainer.scrollTo({
+          top: scrollTop,
+          behavior: 'smooth',
+        });
       } else {
         // If page isn't rendered yet, update visible pages and then scroll
         setVisiblePages((prev) => {
@@ -231,13 +244,24 @@ export default function PDFViewer({
 
         // Wait for render and then scroll
         setTimeout(() => {
-          const element = document.querySelector(
+          const element = scrollContainer.querySelector(
             `[data-page-number="${targetPage}"]`
           );
           if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            const scrollTop =
+              scrollContainer.scrollTop +
+              elementRect.top -
+              containerRect.top -
+              20;
+
+            scrollContainer.scrollTo({
+              top: scrollTop,
+              behavior: 'smooth',
+            });
           }
-        }, 100);
+        }, 200); // Increased timeout to ensure page renders
       }
 
       setCurrentPage(targetPage);
@@ -274,6 +298,16 @@ export default function PDFViewer({
     const href = link.getAttribute('href');
     if (!href) return;
 
+    // Skip internal PDF citations - let onItemClick handle them
+    // Internal citations often have href like "#page=12" or similar
+    if (
+      href.startsWith('#') ||
+      href.startsWith('javascript:') ||
+      href.includes('page=')
+    ) {
+      return; // Let onItemClick handle internal navigation
+    }
+
     try {
       const currentDomain = window.location.hostname;
       const url = new URL(href, window.location.origin);
@@ -283,9 +317,214 @@ export default function PDFViewer({
         window.open(href, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
-      console.log('Link parsing error:', error);
+      // If URL parsing fails, it might be an internal link - don't handle it
+      console.log('Link parsing error (likely internal link):', error);
     }
   }, []);
+
+  // Add PDF text layer link handler
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Handle clicks on PDF text layer links
+    const handlePDFLinkClick = (e: Event) => {
+      handleLinkClick(e);
+    };
+
+    // Handle clicks on empty areas to deselect text
+    const handleContainerClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      // Check if clicking on empty page area (not on text elements, comments, etc.)
+      if (
+        target.closest('.text-element') || // Don't deselect if clicking on text elements
+        target.closest('.comment-marker') || // Don't deselect if clicking on comments
+        target.closest('a') || // Don't deselect if clicking on links
+        target.closest('button') || // Don't deselect if clicking on buttons
+        target.closest('select') || // Don't deselect if clicking on selects
+        target.closest('input') // Don't deselect if clicking on inputs
+      ) {
+        return;
+      }
+
+      // Deselect text when clicking on empty areas
+      if (selectedTextId) {
+        setSelectedTextId(null);
+        setSelectedTextElement(null);
+      }
+    };
+
+    // Handle text selection for highlighting and Ask Readly (from old implementation)
+    let timeoutId: NodeJS.Timeout;
+
+    const showSelectionDialog = (forceShow = false) => {
+      try {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
+          return;
+        }
+
+        const selectedText = selection.toString().trim();
+        if (!selectedText || selectedText.length < 2) {
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+
+        // Check if selection is within PDF text content
+        const startContainer = range.startContainer;
+        const endContainer = range.endContainer;
+
+        const startPage =
+          startContainer.nodeType === Node.TEXT_NODE
+            ? startContainer.parentElement?.closest(
+                '.react-pdf__Page__textContent'
+              )
+            : (startContainer as Element)?.closest(
+                '.react-pdf__Page__textContent'
+              );
+
+        const endPage =
+          endContainer.nodeType === Node.TEXT_NODE
+            ? endContainer.parentElement?.closest(
+                '.react-pdf__Page__textContent'
+              )
+            : (endContainer as Element)?.closest(
+                '.react-pdf__Page__textContent'
+              );
+
+        if (
+          startPage &&
+          endPage &&
+          startPage === endPage &&
+          containerRef.current &&
+          containerRef.current.contains(range.commonAncestorContainer)
+        ) {
+          // Show dialog if mouse is not pressed OR if forced (after mouseup)
+          if (!isMousePressed || forceShow) {
+            const rects = range.getClientRects();
+            if (rects.length > 0) {
+              const firstRect = rects[0];
+              const lastRect = rects[rects.length - 1];
+
+              // Store selection data for use when highlighting
+              setCurrentSelectionData({
+                text: selectedText,
+                range: range.cloneRange(), // Clone the range to preserve it
+                pageContainer: startPage,
+                pageRect: startPage.getBoundingClientRect(),
+                rects: range.getClientRects(),
+              });
+
+              setSelectionDialog({
+                x: firstRect.left + (lastRect.right - firstRect.left) / 2,
+                y: firstRect.top - 10,
+                text: selectedText,
+                visible: true,
+              });
+            }
+          }
+        } else {
+          setSelectionDialog((prev) =>
+            prev.visible ? { ...prev, visible: false } : prev
+          );
+        }
+      } catch (error) {
+        console.error('Selection error:', error);
+        setSelectionDialog((prev) =>
+          prev.visible ? { ...prev, visible: false } : prev
+        );
+      }
+    };
+
+    // Handle mouse events for text selection (from old implementation)
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Element;
+
+      // Don't interfere with dialog clicks - check for any dialog-related elements
+      if (
+        target.closest('.highlight-color-picker') ||
+        target.closest('button[title*="Highlight"]') ||
+        target.closest('button[class*="bg-yellow"]') ||
+        target.closest('button[class*="bg-green"]') ||
+        target.closest('button[class*="bg-blue"]') ||
+        target.closest('button[class*="bg-pink"]') ||
+        target.closest('button[class*="bg-purple"]')
+      ) {
+        return;
+      }
+
+      if (containerRef.current && containerRef.current.contains(target)) {
+        setIsMousePressed(true);
+        setSelectionDialog((prev) =>
+          prev.visible ? { ...prev, visible: false } : prev
+        );
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMousePressed) {
+        setIsMousePressed(false);
+        // Force show dialog after mouse up regardless of state
+        setTimeout(() => {
+          showSelectionDialog(true); // Force show
+        }, 100);
+      }
+    };
+
+    const handleSelection = () => {
+      clearTimeout(timeoutId);
+      // Don't show dialog immediately on selection change, wait for mouse up
+      if (!isMousePressed) {
+        timeoutId = setTimeout(showSelectionDialog, 100);
+      }
+    };
+
+    // Add PDF-specific event listeners
+    container.addEventListener('click', handlePDFLinkClick);
+    container.addEventListener('click', handleContainerClick);
+
+    // Add document-level event listeners for text selection
+    document.addEventListener('selectionchange', handleSelection);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      clearTimeout(timeoutId);
+      container.removeEventListener('click', handlePDFLinkClick);
+      container.removeEventListener('click', handleContainerClick);
+      document.removeEventListener('selectionchange', handleSelection);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleLinkClick, pdfFile, isMousePressed, selectedTextId]); // Re-attach when PDF changes
+
+  // Clear selection when clicking elsewhere (from old implementation)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+
+      // Don't close dialog if clicking on the dialog itself or color buttons
+      if (
+        selectionDialog.visible &&
+        !target.closest('.highlight-color-picker') &&
+        !target.closest('button[title*="Highlight"]')
+      ) {
+        setSelectionDialog((prev) => ({ ...prev, visible: false }));
+        setCurrentSelectionData(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectionDialog.visible]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -356,8 +595,6 @@ export default function PDFViewer({
       pageRefs.current.clear();
     };
   }, []);
-
-  const [isMousePressed, setIsMousePressed] = useState(false);
 
   // Optimized intersection observer for page visibility
   useEffect(() => {
@@ -611,6 +848,94 @@ export default function PDFViewer({
                 className='w-8 h-8 border border-[var(--border)] rounded cursor-pointer'
                 title='Text Color'
               />
+
+              {/* Text Alignment Options */}
+              <div className='flex gap-1'>
+                <button
+                  onClick={() => handleTextFormat({ textAlign: 'left' })}
+                  className={`p-1 rounded ${
+                    selectedTextElement.textAlign === 'left'
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--faded-white)] hover:bg-[var(--border)]'
+                  } transition-colors`}
+                  title='Align Left'
+                >
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <line x1='17' y1='6' x2='3' y2='6'></line>
+                    <line x1='21' y1='12' x2='3' y2='12'></line>
+                    <line x1='17' y1='18' x2='3' y2='18'></line>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleTextFormat({ textAlign: 'center' })}
+                  className={`p-1 rounded ${
+                    selectedTextElement.textAlign === 'center'
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--faded-white)] hover:bg-[var(--border)]'
+                  } transition-colors`}
+                  title='Align Center'
+                >
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <line x1='18' y1='6' x2='6' y2='6'></line>
+                    <line x1='21' y1='12' x2='3' y2='12'></line>
+                    <line x1='18' y1='18' x2='6' y2='18'></line>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleTextFormat({ textAlign: 'right' })}
+                  className={`p-1 rounded ${
+                    selectedTextElement.textAlign === 'right'
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--faded-white)] hover:bg-[var(--border)]'
+                  } transition-colors`}
+                  title='Align Right'
+                >
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <line x1='21' y1='6' x2='7' y2='6'></line>
+                    <line x1='21' y1='12' x2='3' y2='12'></line>
+                    <line x1='21' y1='18' x2='7' y2='18'></line>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Deselect Button */}
+              <button
+                onClick={() => {
+                  setSelectedTextId(null);
+                  setSelectedTextElement(null);
+                }}
+                className='p-1 rounded bg-red-100 text-red-600 hover:bg-red-200 transition-colors'
+                title='Deselect Text'
+              >
+                <svg
+                  className='w-4 h-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <line x1='18' y1='6' x2='6' y2='18'></line>
+                  <line x1='6' y1='6' x2='18' y2='18'></line>
+                </svg>
+              </button>
             </div>
           )}
 
@@ -685,6 +1010,25 @@ export default function PDFViewer({
                 file={pdfFile}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
+                onItemClick={({ pageNumber, dest }) => {
+                  // Handle internal page navigation
+                  if (pageNumber) {
+                    handleCitationClick(pageNumber);
+                    return;
+                  }
+
+                  // Handle destination-based navigation (some PDFs use destinations instead of page numbers)
+                  if (
+                    dest &&
+                    typeof dest === 'object' &&
+                    'pageNumber' in dest
+                  ) {
+                    const pageNum = dest.pageNumber;
+                    if (typeof pageNum === 'number') {
+                      handleCitationClick(pageNum);
+                    }
+                  }
+                }}
                 loading={
                   <div className='text-center py-8'>
                     <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
