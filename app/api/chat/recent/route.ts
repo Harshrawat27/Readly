@@ -1,4 +1,3 @@
-// app/api/chat/recent/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -16,6 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const pdfId = searchParams.get('pdfId');
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     if (!pdfId) {
       return NextResponse.json(
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Single optimized query to get the most recent chat with all messages
+    // Get the chat first
     const chat = await prisma.chat.findFirst({
       where: {
         userId: session.user.id,
@@ -33,18 +33,8 @@ export async function GET(request: NextRequest) {
       orderBy: {
         updatedAt: 'desc',
       },
-      include: {
-        messages: {
-          orderBy: {
-            createdAt: 'asc', // Important: ASC for proper message order
-          },
-          select: {
-            id: true,
-            role: true,
-            content: true,
-            createdAt: true,
-          },
-        },
+      select: {
+        id: true,
       },
     });
 
@@ -55,11 +45,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return optimized response
+    // Get recent messages with limit
+    const messages = await prisma.message.findMany({
+      where: {
+        chatId: chat.id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+
+    // Check if there are more messages
+    const totalCount = await prisma.message.count({
+      where: {
+        chatId: chat.id,
+      },
+    });
+
+    // Reverse to get chronological order
+    messages.reverse();
+
+    // Get the oldest message ID from this batch for pagination
+    const oldestMessageId = messages.length > 0 ? messages[0].id : null;
+
     return NextResponse.json({
       chat: {
         id: chat.id,
-        messages: chat.messages,
+        messages: messages,
+        hasMore: totalCount > limit,
+        totalCount: totalCount,
+        oldestMessageId: oldestMessageId,
       },
     });
   } catch (error) {

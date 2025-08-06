@@ -5,6 +5,7 @@ import {
   useRef,
   useEffect,
   useCallback,
+  useLayoutEffect,
 } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 
@@ -22,6 +23,13 @@ interface Message {
   isStreaming?: boolean;
 }
 
+interface ChatData {
+  id: string;
+  messages: Message[];
+  hasMore: boolean;
+  oldestMessageId?: string;
+}
+
 export default function ChatPanel({
   pdfId,
   selectedText,
@@ -31,18 +39,26 @@ export default function ChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [oldestMessageId, setOldestMessageId] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeightRef = useRef<number>(0);
+  const isLoadingMoreRef = useRef(false);
 
-  // Use useLayoutEffect for immediate scroll after DOM update
+  // Scroll to bottom function
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
-    // Use requestAnimationFrame to ensure DOM has been painted
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
@@ -50,20 +66,120 @@ export default function ChatPanel({
     });
   }, []);
 
-  // Scroll when messages change (for new messages during chat)
+  // Maintain scroll position after loading more messages
+  const maintainScrollPosition = useCallback(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const newScrollHeight = container.scrollHeight;
+      const heightDifference =
+        newScrollHeight - previousScrollHeightRef.current;
+      container.scrollTop += heightDifference;
+    }
+  }, []);
+
+  // Load more messages when scrolling up
+  const loadMoreMessages = useCallback(async () => {
+    if (
+      !currentChatId ||
+      !hasMoreMessages ||
+      isLoadingMoreRef.current ||
+      !oldestMessageId
+    ) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `/api/chat/messages?chatId=${currentChatId}&before=${oldestMessageId}&limit=10`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to load more messages');
+      }
+
+      const data = await response.json();
+
+      if (data.messages && data.messages.length > 0) {
+        // Store current scroll height before adding new messages
+        if (messagesContainerRef.current) {
+          previousScrollHeightRef.current =
+            messagesContainerRef.current.scrollHeight;
+        }
+
+        const newMessages = data.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+        }));
+
+        // Prepend new messages to the beginning
+        setMessages((prev) => [...newMessages, ...prev]);
+        setHasMoreMessages(data.hasMore);
+        setOldestMessageId(data.oldestMessageId || null);
+
+        // Maintain scroll position after DOM update
+        setTimeout(() => {
+          maintainScrollPosition();
+        }, 0);
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  }, [currentChatId, hasMoreMessages, oldestMessageId, maintainScrollPosition]);
+
+  // Intersection Observer for infinite scroll
   useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          hasMoreMessages &&
+          !isLoadingMoreRef.current
+        ) {
+          loadMoreMessages();
+        }
+      },
+      {
+        root: messagesContainerRef.current,
+        rootMargin: '100px',
+        threshold: 0.1,
+      }
+    );
+
+    const trigger = loadMoreTriggerRef.current;
+    if (trigger && hasMoreMessages) {
+      observer.observe(trigger);
+    }
+
+    return () => {
+      if (trigger) {
+        observer.unobserve(trigger);
+      }
+    };
+  }, [hasMoreMessages, loadMoreMessages]);
+
+  // Scroll to bottom for new messages (not during initial load or loading more)
+  useEffect(() => {
+    if (!isInitialLoad && !isLoadingMore && messages.length > 0) {
       scrollToBottom('smooth');
     }
-  }, [messages.length, scrollToBottom, isInitialLoad]);
+  }, [messages.length, scrollToBottom, isInitialLoad, isLoadingMore]);
 
-  // Optimized chat history loading with single API call
+  // Initial load - fetch only recent messages
   useEffect(() => {
-    const loadChatHistory = async () => {
+    const loadInitialMessages = async () => {
       if (!pdfId) {
         setMessages([]);
         setCurrentChatId(null);
         setIsInitialLoad(true);
+        setHasMoreMessages(false);
         return;
       }
 
@@ -71,14 +187,16 @@ export default function ChatPanel({
       setIsInitialLoad(true);
 
       try {
-        // Single optimized API call to get the most recent chat with messages
-        const response = await fetch(`/api/chat/recent?pdfId=${pdfId}`);
+        // Fetch only the most recent messages (last 30)
+        const response = await fetch(
+          `/api/chat/recent?pdfId=${pdfId}&limit=10`
+        );
 
         if (!response.ok) {
           if (response.status === 404) {
-            // No chat exists yet for this PDF
             setMessages([]);
             setCurrentChatId(null);
+            setHasMoreMessages(false);
             return;
           }
           throw new Error(`API failed: ${response.status}`);
@@ -87,7 +205,7 @@ export default function ChatPanel({
         const data = await response.json();
 
         if (data.chat && data.chat.messages) {
-          const allMessages = data.chat.messages.map((msg: { id: string; role: string; content: string; createdAt: string }) => ({
+          const allMessages = data.chat.messages.map((msg: any) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
@@ -96,9 +214,10 @@ export default function ChatPanel({
 
           setMessages(allMessages);
           setCurrentChatId(data.chat.id);
+          setHasMoreMessages(data.chat.hasMore);
+          setOldestMessageId(data.chat.oldestMessageId || null);
 
-          // Immediate scroll to bottom after setting messages
-          // Use setTimeout to ensure state update has been processed
+          // Scroll to bottom after initial load
           setTimeout(() => {
             scrollToBottom('instant');
             setIsInitialLoad(false);
@@ -108,12 +227,13 @@ export default function ChatPanel({
         console.error('Failed to load chat history:', error);
         setMessages([]);
         setCurrentChatId(null);
+        setHasMoreMessages(false);
       } finally {
         setIsLoadingHistory(false);
       }
     };
 
-    loadChatHistory();
+    loadInitialMessages();
   }, [pdfId, scrollToBottom]);
 
   // Auto-resize textarea
@@ -174,6 +294,7 @@ export default function ChatPanel({
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
+    setStreamingMessageId(assistantMessageId);
 
     try {
       const response = await fetch('/api/chat', {
@@ -236,6 +357,7 @@ export default function ChatPanel({
                           : msg
                       )
                     );
+                    setStreamingMessageId(null);
                   }
                 } catch (e) {
                   console.error('Error parsing SSE data:', e);
@@ -261,6 +383,7 @@ export default function ChatPanel({
             : msg
         )
       );
+      setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
       onTextSubmit();
@@ -281,6 +404,8 @@ export default function ChatPanel({
     setMessages([]);
     setCurrentChatId(null);
     setIsInitialLoad(true);
+    setHasMoreMessages(false);
+    setOldestMessageId(null);
   }, []);
 
   const formatTime = (date: Date) => {
@@ -289,6 +414,13 @@ export default function ChatPanel({
       minute: '2-digit',
     });
   };
+
+  // Loading spinner component
+  const LoadingSpinner = () => (
+    <div className='flex justify-center py-2'>
+      <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--accent)]'></div>
+    </div>
+  );
 
   // Skeleton loader component
   const MessageSkeleton = () => (
@@ -307,15 +439,15 @@ export default function ChatPanel({
           >
             <div className='space-y-2'>
               <div
-                className='h-4 bg-gray-300/20 rounded animate-pulse'
+                className='h-8 bg-gray-300/20 rounded animate-pulse'
                 style={{ width: `${Math.random() * 200 + 100}px` }}
               />
               <div
-                className='h-4 bg-gray-300/20 rounded animate-pulse'
+                className='h-8 bg-gray-300/20 rounded animate-pulse'
                 style={{ width: `${Math.random() * 150 + 80}px` }}
               />
             </div>
-            <div className='h-3 w-12 bg-gray-300/20 rounded animate-pulse mt-2' />
+            <div className='h-6 w-12 bg-gray-300/20 rounded animate-pulse mt-2' />
           </div>
         </div>
       ))}
@@ -354,6 +486,14 @@ export default function ChatPanel({
         className='flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 min-h-0'
         style={{ maxHeight: 'calc(100vh - 12rem)' }}
       >
+        {/* Load more trigger and spinner */}
+        {hasMoreMessages && (
+          <>
+            <div ref={loadMoreTriggerRef} className='h-1' />
+            {isLoadingMore && <LoadingSpinner />}
+          </>
+        )}
+
         {isLoadingHistory ? (
           <MessageSkeleton />
         ) : messages.length === 0 ? (
