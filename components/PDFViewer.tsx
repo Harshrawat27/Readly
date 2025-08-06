@@ -79,10 +79,15 @@ export default function PDFViewer({
 
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-  const [selectedTextElement, setSelectedTextElement] = useState<Record<string, unknown> | null>(null);
+  const [selectedTextElement, setSelectedTextElement] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
   // Highlight state
-  const [highlights, setHighlights] = useState<Array<Record<string, unknown>>>([]);
+  const [highlights, setHighlights] = useState<Array<Record<string, unknown>>>(
+    []
+  );
 
   // Load highlights when PDF changes
   useEffect(() => {
@@ -138,7 +143,7 @@ export default function PDFViewer({
         text,
         pdfId,
         currentPage,
-        hasStoredData: !!currentSelectionData
+        hasStoredData: !!currentSelectionData,
       });
 
       if (!pdfId || !currentSelectionData) {
@@ -222,7 +227,8 @@ export default function PDFViewer({
     [pdfId, currentPage, currentSelectionData]
   );
 
-  const handleAskReadly = useCallback( // eslint-disable-line @typescript-eslint/no-unused-vars
+  const handleAskReadly = useCallback(
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     (text: string) => {
       onTextSelect(text);
     },
@@ -434,18 +440,20 @@ export default function PDFViewer({
 
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as Element;
-      
+
       // Don't interfere with dialog clicks - check for any dialog-related elements
-      if (target.closest('.highlight-color-picker') || 
-          target.closest('button[title*="Highlight"]') ||
-          target.closest('button[class*="bg-yellow"]') ||
-          target.closest('button[class*="bg-green"]') ||
-          target.closest('button[class*="bg-blue"]') ||
-          target.closest('button[class*="bg-pink"]') ||
-          target.closest('button[class*="bg-purple"]')) {
+      if (
+        target.closest('.highlight-color-picker') ||
+        target.closest('button[title*="Highlight"]') ||
+        target.closest('button[class*="bg-yellow"]') ||
+        target.closest('button[class*="bg-green"]') ||
+        target.closest('button[class*="bg-blue"]') ||
+        target.closest('button[class*="bg-pink"]') ||
+        target.closest('button[class*="bg-purple"]')
+      ) {
         return;
       }
-      
+
       if (containerRef.current && containerRef.current.contains(target)) {
         setIsMousePressed(true);
         setSelectionDialog((prev) =>
@@ -488,11 +496,13 @@ export default function PDFViewer({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      
+
       // Don't close dialog if clicking on the dialog itself or color buttons
-      if (selectionDialog.visible && 
-          !target.closest('.highlight-color-picker') &&
-          !target.closest('button[title*="Highlight"]')) {
+      if (
+        selectionDialog.visible &&
+        !target.closest('.highlight-color-picker') &&
+        !target.closest('button[title*="Highlight"]')
+      ) {
         setSelectionDialog((prev) => ({ ...prev, visible: false }));
         setCurrentSelectionData(null);
       }
@@ -617,7 +627,8 @@ export default function PDFViewer({
 
   // Handle text selection
   const handleTextSelect = useCallback(
-    (textId: string | null, textElement?: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    (textId: string | null, textElement?: any) => {
+      // eslint-disable-line @typescript-eslint/no-explicit-any
       setSelectedTextId(textId);
       setSelectedTextElement(textElement || null);
     },
@@ -779,48 +790,52 @@ export default function PDFViewer({
                   { align: 'left', icon: '⬅' },
                   { align: 'center', icon: '↔' },
                   { align: 'right', icon: '➡' },
-                ].map(({ align, icon }) => ( // eslint-disable-line @typescript-eslint/no-unused-vars
-                  <button
-                    key={align}
-                    onClick={() => handleTextFormat({ textAlign: align })}
-                    className={`px-3 py-1 text-sm transition-colors ${
-                      selectedTextElement.textAlign === align
-                        ? 'bg-[var(--accent)] text-white'
-                        : 'bg-[var(--card-background)] hover:bg-[var(--faded-white)]'
-                    }`}
-                    title={`Align ${align}`}
-                  >
-                    <svg
-                      className='w-4 h-4'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      strokeWidth='2'
+                ].map(
+                  (
+                    { align, icon } // eslint-disable-line @typescript-eslint/no-unused-vars
+                  ) => (
+                    <button
+                      key={align}
+                      onClick={() => handleTextFormat({ textAlign: align })}
+                      className={`px-3 py-1 text-sm transition-colors ${
+                        selectedTextElement.textAlign === align
+                          ? 'bg-[var(--accent)] text-white'
+                          : 'bg-[var(--card-background)] hover:bg-[var(--faded-white)]'
+                      }`}
+                      title={`Align ${align}`}
                     >
-                      {align === 'left' && (
-                        <>
-                          <line x1='3' y1='6' x2='21' y2='6' />
-                          <line x1='3' y1='12' x2='15' y2='12' />
-                          <line x1='3' y1='18' x2='18' y2='18' />
-                        </>
-                      )}
-                      {align === 'center' && (
-                        <>
-                          <line x1='3' y1='6' x2='21' y2='6' />
-                          <line x1='6' y1='12' x2='18' y2='12' />
-                          <line x1='3' y1='18' x2='21' y2='18' />
-                        </>
-                      )}
-                      {align === 'right' && (
-                        <>
-                          <line x1='3' y1='6' x2='21' y2='6' />
-                          <line x1='9' y1='12' x2='21' y2='12' />
-                          <line x1='6' y1='18' x2='21' y2='18' />
-                        </>
-                      )}
-                    </svg>
-                  </button>
-                ))}
+                      <svg
+                        className='w-4 h-4'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                      >
+                        {align === 'left' && (
+                          <>
+                            <line x1='3' y1='6' x2='21' y2='6' />
+                            <line x1='3' y1='12' x2='15' y2='12' />
+                            <line x1='3' y1='18' x2='18' y2='18' />
+                          </>
+                        )}
+                        {align === 'center' && (
+                          <>
+                            <line x1='3' y1='6' x2='21' y2='6' />
+                            <line x1='6' y1='12' x2='18' y2='12' />
+                            <line x1='3' y1='18' x2='21' y2='18' />
+                          </>
+                        )}
+                        {align === 'right' && (
+                          <>
+                            <line x1='3' y1='6' x2='21' y2='6' />
+                            <line x1='9' y1='12' x2='21' y2='12' />
+                            <line x1='6' y1='18' x2='21' y2='18' />
+                          </>
+                        )}
+                      </svg>
+                    </button>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -998,7 +1013,15 @@ export default function PDFViewer({
                             {/* Handle new multi-rect highlights */}
                             {Array.isArray(highlight.rects) ? (
                               highlight.rects.map(
-                                (rect: { x: number; y: number; width: number; height: number }, rectIndex: number) => (
+                                (
+                                  rect: {
+                                    x: number;
+                                    y: number;
+                                    width: number;
+                                    height: number;
+                                  },
+                                  rectIndex: number
+                                ) => (
                                   <div
                                     key={`${highlight.id}-${rectIndex}`}
                                     className='absolute pointer-events-none'

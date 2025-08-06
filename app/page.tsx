@@ -4,6 +4,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
+import Loading from '@/components/Loading';
 
 export default function Home() {
   const { data: session, isPending } = useSession();
@@ -36,26 +37,9 @@ export default function Home() {
     }
   }, [session, isPending, router]);
 
-  if (isPending) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
-        <div className='text-center space-y-4'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
-          <p className='text-[var(--text-muted)] text-sm'>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-[var(--background)]'>
-        <div className='text-center space-y-4'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto'></div>
-          <p className='text-[var(--text-muted)] text-sm'>Redirecting...</p>
-        </div>
-      </div>
-    );
+  if (isPending || !session) {
+    // if (true) {
+    return <Loading />;
   }
 
   return (
