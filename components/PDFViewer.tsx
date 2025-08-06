@@ -53,7 +53,7 @@ const PLACEHOLDER_HEIGHT = 1000; // Estimated height for unrendered pages
 export default function PDFViewer({
   pdfId,
   onTextSelect,
-  selectedText,
+  selectedText: _selectedText,
   scale: externalScale,
   onScaleChange,
   currentUser,
@@ -76,11 +76,11 @@ export default function PDFViewer({
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [_isInitialLoad, setIsInitialLoad] = useState(true);
   const [isMousePressed, setIsMousePressed] = useState(false);
 
   // PDF document reference for programmatic navigation
-  const pdfDocumentRef = useRef<any>(null);
+  const pdfDocumentRef = useRef<boolean>(null);
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
@@ -138,7 +138,7 @@ export default function PDFViewer({
   } | null>(null);
 
   const handleHighlight = useCallback(
-    async (color: string, text: string) => {
+    async (color: string, _text: string) => {
       if (!pdfId || !currentSelectionData) return;
 
       const selectionData = currentSelectionData;
@@ -589,10 +589,11 @@ export default function PDFViewer({
 
   // Cleanup on unmount
   useEffect(() => {
+    const pageRefsMap = pageRefs.current;
     return () => {
       setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
       setError(null);
-      pageRefs.current.clear();
+      pageRefsMap.clear();
     };
   }, []);
 
@@ -699,17 +700,29 @@ export default function PDFViewer({
 
   const handleZoomIn = useCallback(() => {
     const newScale = Math.min(3.0, scale + 0.1);
-    onScaleChange ? onScaleChange(newScale) : setInternalScale(newScale);
+    if (onScaleChange) {
+      onScaleChange(newScale);
+    } else {
+      setInternalScale(newScale);
+    }
   }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
     const newScale = Math.max(0.5, scale - 0.1);
-    onScaleChange ? onScaleChange(newScale) : setInternalScale(newScale);
+    if (onScaleChange) {
+      onScaleChange(newScale);
+    } else {
+      setInternalScale(newScale);
+    }
   }, [scale, onScaleChange]);
 
   const handleZoomReset = useCallback(() => {
     const resetScale = 1.0;
-    onScaleChange ? onScaleChange(resetScale) : setInternalScale(resetScale);
+    if (onScaleChange) {
+      onScaleChange(resetScale);
+    } else {
+      setInternalScale(resetScale);
+    }
   }, [onScaleChange]);
 
   const handleTextSelect = useCallback(
@@ -1104,7 +1117,7 @@ export default function PDFViewer({
                                 <div key={String(highlight.id)}>
                                   {Array.isArray(highlight.rects) &&
                                     highlight.rects.map(
-                                      (rect: any, rectIndex: number) => (
+                                      (rect: { x: number; y: number; width: number; height: number }, rectIndex: number) => (
                                         <div
                                           key={`${highlight.id}-${rectIndex}`}
                                           className='absolute pointer-events-none'

@@ -26,7 +26,7 @@ export async function GET(
     const { id } = await params;
 
     // Check if we have a cached response
-    const cacheKey = `pdf_${id}_${session.user.id}`;
+    // const cacheKey = `pdf_${id}_${session.user.id}`;
 
     const pdf = await prisma.pDF.findFirst({
       where: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import PDFSidebar from '@/components/PDFSidebar';
