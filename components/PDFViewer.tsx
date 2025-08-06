@@ -619,8 +619,8 @@ export default function PDFViewer({
 
   // Handle text selection
   const handleTextSelect = useCallback(
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     (textId: string | null, textElement?: any) => {
-      // eslint-disable-line @typescript-eslint/no-explicit-any
       setSelectedTextId(textId);
       setSelectedTextElement(textElement || null);
     },
