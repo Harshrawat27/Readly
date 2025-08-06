@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+} from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 
 interface ChatPanelProps {
@@ -26,130 +32,100 @@ export default function ChatPanel({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive - instant, no animation
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
-    }
+  // Use useLayoutEffect for immediate scroll after DOM update
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
+    // Use requestAnimationFrame to ensure DOM has been painted
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+      }
+    });
   }, []);
 
+  // Scroll when messages change (for new messages during chat)
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (!isInitialLoad && messages.length > 0) {
+      scrollToBottom('smooth');
+    }
+  }, [messages.length, scrollToBottom, isInitialLoad]);
 
-  // Debug useEffect to track message changes
-  useEffect(() => {
-    console.log('Messages state changed:', {
-      length: messages.length,
-      messages: messages,
-      pdfId: pdfId,
-      isLoadingHistory: isLoadingHistory,
-    });
-  }, [messages, pdfId, isLoadingHistory]);
-
-  // Load existing chat history when pdfId changes
+  // Optimized chat history loading with single API call
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!pdfId) {
         setMessages([]);
         setCurrentChatId(null);
+        setIsInitialLoad(true);
         return;
       }
 
       setIsLoadingHistory(true);
+      setIsInitialLoad(true);
+
       try {
-        console.log('Loading chat history for PDF:', pdfId);
+        // Single optimized API call to get the most recent chat with messages
+        const response = await fetch(`/api/chat/recent?pdfId=${pdfId}`);
 
-        // Fetch existing chats for this PDF
-        const chatsResponse = await fetch(`/api/chat/list?pdfId=${pdfId}`);
-        if (!chatsResponse.ok) {
-          console.log(
-            'Chat list response not ok:',
-            chatsResponse.status,
-            chatsResponse.statusText
-          );
-          throw new Error(`Chat list API failed: ${chatsResponse.status}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            // No chat exists yet for this PDF
+            setMessages([]);
+            setCurrentChatId(null);
+            return;
+          }
+          throw new Error(`API failed: ${response.status}`);
         }
 
-        const chats = await chatsResponse.json();
-        console.log('Fetched chats:', chats);
+        const data = await response.json();
 
-        if (!chats || chats.length === 0) {
-          console.log('No chats found for this PDF');
-          setMessages([]);
-          setCurrentChatId(null);
-          setIsLoadingHistory(false);
-          return;
-        }
+        if (data.chat && data.chat.messages) {
+          const allMessages = data.chat.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+          }));
 
-        // Load messages from the most recent chat
-        const mostRecentChat = chats[0];
-        console.log('Loading messages from chat:', mostRecentChat.id);
-
-        const messagesResponse = await fetch(`/api/chat/${mostRecentChat.id}`);
-        if (!messagesResponse.ok) {
-          console.log(
-            'Messages response not ok:',
-            messagesResponse.status,
-            messagesResponse.statusText
-          );
-          throw new Error(`Messages API failed: ${messagesResponse.status}`);
-        }
-
-        const chat = await messagesResponse.json();
-        console.log('Fetched chat with messages:', chat);
-
-        if (chat && chat.messages) {
-          const allMessages = chat.messages.map(
-            (msg: {
-              role: string;
-              content: string;
-              createdAt: string;
-              id: string;
-            }) => ({
-              id: msg.id,
-              role: msg.role,
-              content: msg.content,
-              timestamp: new Date(msg.createdAt),
-            })
-          );
-
-          // Load all messages at once - no progressive loading to avoid scroll animation
           setMessages(allMessages);
-          setCurrentChatId(mostRecentChat.id);
+          setCurrentChatId(data.chat.id);
 
-          console.log('Loaded all messages at once:', allMessages.length);
+          // Immediate scroll to bottom after setting messages
+          // Use setTimeout to ensure state update has been processed
+          setTimeout(() => {
+            scrollToBottom('instant');
+            setIsInitialLoad(false);
+          }, 0);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
-        console.log('ERROR - Setting messages to empty array due to error');
         setMessages([]);
+        setCurrentChatId(null);
       } finally {
         setIsLoadingHistory(false);
       }
     };
 
     loadChatHistory();
-  }, [pdfId]);
+  }, [pdfId, scrollToBottom]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      const newHeight = Math.min(textareaRef.current.scrollHeight, 200); // Max 200px to match maxHeight
-      const minHeight = 48; // Match minHeight
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
+      const minHeight = 48;
       textareaRef.current.style.height = `${Math.max(newHeight, minHeight)}px`;
     }
   }, []);
@@ -167,7 +143,6 @@ export default function ChatPanel({
       });
       adjustTextareaHeight();
 
-      // Focus the textarea
       if (textareaRef.current) {
         textareaRef.current.focus();
         textareaRef.current.setSelectionRange(
@@ -191,8 +166,8 @@ export default function ChatPanel({
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
+    setIsInitialLoad(false);
 
-    // Create assistant message for streaming
     const assistantMessageId = (Date.now() + 1).toString();
     const assistantMessage: Message = {
       id: assistantMessageId,
@@ -206,7 +181,6 @@ export default function ChatPanel({
     setStreamingMessageId(assistantMessageId);
 
     try {
-      console.log('Sending message with chatId:', currentChatId);
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -243,16 +217,13 @@ export default function ChatPanel({
               if (line.startsWith('data: ')) {
                 try {
                   const data = JSON.parse(line.slice(6));
-                  // Update chatId if it's provided (for new chats)
+
                   if (data.chatId && !currentChatId) {
-                    console.log('Received new chat ID:', data.chatId);
                     setCurrentChatId(data.chatId);
                   }
 
                   if (data.content) {
                     accumulatedContent += data.content;
-
-                    // Update the streaming message
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessageId
@@ -263,7 +234,6 @@ export default function ChatPanel({
                   }
 
                   if (data.done) {
-                    // Finalize the message
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessageId
@@ -280,14 +250,11 @@ export default function ChatPanel({
             }
           }
         } finally {
-          // Ensure reader is properly closed
           reader.releaseLock();
         }
       }
     } catch (error) {
       console.error('Error sending message:', error);
-
-      // Update with error message
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
@@ -303,7 +270,7 @@ export default function ChatPanel({
       setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
-      onTextSubmit(); // Clear selected text
+      onTextSubmit();
     }
   }, [inputValue, isLoading, messages, pdfId, currentChatId, onTextSubmit]);
 
@@ -319,6 +286,8 @@ export default function ChatPanel({
 
   const clearChat = useCallback(() => {
     setMessages([]);
+    setCurrentChatId(null);
+    setIsInitialLoad(true);
   }, []);
 
   const formatTime = (date: Date) => {
@@ -328,13 +297,45 @@ export default function ChatPanel({
     });
   };
 
+  // Skeleton loader component
+  const MessageSkeleton = () => (
+    <div className='space-y-4'>
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}
+        >
+          <div
+            className={`max-w-[80%] rounded-lg p-3 ${
+              i % 2 === 0
+                ? 'bg-[#0F0F0E]'
+                : 'bg-[var(--card-background)] border border-[var(--border)]'
+            }`}
+          >
+            <div className='space-y-2'>
+              <div
+                className='h-4 bg-gray-300/20 rounded animate-pulse'
+                style={{ width: `${Math.random() * 200 + 100}px` }}
+              />
+              <div
+                className='h-4 bg-gray-300/20 rounded animate-pulse'
+                style={{ width: `${Math.random() * 150 + 80}px` }}
+              />
+            </div>
+            <div className='h-3 w-12 bg-gray-300/20 rounded animate-pulse mt-2' />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className='h-full flex flex-col max-h-[calc(100vh-0rem)] overflow-hidden'>
       {/* Header */}
       <div className='p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0'>
         <div className='flex items-center justify-between'>
           <h2 className='text-lg font-semibold text-[var(--text-primary)]'>
-            No need to cheat{' '}
+            No need to cheat
           </h2>
 
           {messages.length > 0 && (
@@ -361,12 +362,7 @@ export default function ChatPanel({
         style={{ maxHeight: 'calc(100vh - 12rem)' }}
       >
         {isLoadingHistory ? (
-          <div className='text-center py-8'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-3'></div>
-            <p className='text-sm text-[var(--text-muted)]'>
-              Loading chat history...
-            </p>
-          </div>
+          <MessageSkeleton />
         ) : messages.length === 0 ? (
           <div className='text-center py-8'>
             <div className='w-12 h-12 bg-[var(--faded-white)] rounded-full mx-auto mb-3 flex items-center justify-center'>
@@ -448,7 +444,7 @@ export default function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input section remains the same */}
       <div className='p-4 border-t border-[var(--border)] bg-[var(--card-background)] flex-shrink-0'>
         {selectedText && (
           <div className='mb-3 p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg'>
@@ -469,9 +465,7 @@ export default function ChatPanel({
         )}
 
         <div className='relative'>
-          {/* Unified input container */}
           <div className='border border-[var(--border)] rounded-xl bg-[var(--input-background)] focus-within:border-[var(--accent)] transition-colors'>
-            {/* Text input area */}
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -487,9 +481,7 @@ export default function ChatPanel({
               }}
             />
 
-            {/* Bottom row with controls */}
             <div className='flex items-center justify-between px-4 pb-3'>
-              {/* Left buttons */}
               <div className='flex items-center gap-2'>
                 <button
                   className='flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--faded-white)] transition-colors'
@@ -525,9 +517,7 @@ export default function ChatPanel({
                 </button>
               </div>
 
-              {/* Right side - Model dropdown and send button */}
               <div className='flex items-center gap-2'>
-                {/* Model dropdown */}
                 <div className='relative'>
                   <button
                     onClick={() => setShowModelDropdown(!showModelDropdown)}
@@ -545,7 +535,6 @@ export default function ChatPanel({
                     </svg>
                   </button>
 
-                  {/* Dropdown menu */}
                   {showModelDropdown && (
                     <div className='absolute right-0 bottom-full mb-2 w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg z-50'>
                       <div className='p-3'>
@@ -611,7 +600,6 @@ export default function ChatPanel({
                   )}
                 </div>
 
-                {/* Send button */}
                 <button
                   onClick={sendMessage}
                   disabled={!inputValue.trim() || !pdfId || isLoading}
@@ -636,7 +624,6 @@ export default function ChatPanel({
             </div>
           </div>
 
-          {/* Click outside to close dropdown */}
           {showModelDropdown && (
             <div
               className='fixed inset-0 z-40'

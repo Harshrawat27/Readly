@@ -10,10 +10,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -60,7 +57,6 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(chats);
-
   } catch (error) {
     console.error('Chat list error:', error);
     return NextResponse.json(
