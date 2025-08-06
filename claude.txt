@@ -38,3 +38,5 @@ Warning: AbortException: TextLayer task cancelled.
 - 'virtual-scrolling-chat' branch has good progress
 
 - Aug 6 morning build with comment "fixed build errors" was working fine before pdf optimisation
+
+- page count is showing 1 page in DB. 

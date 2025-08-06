@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Skip PDF page count for now due to pdfjs-dist server-side issues
     // We'll set a default page count and let the client-side PDF viewer handle the actual count
-    let pageCount = 1; // Default fallback
+    const pageCount = 1; // Default fallback
 
     // Check subscription limits
     const canUpload = await canUserPerformAction(userId, 'upload_pdf', {
