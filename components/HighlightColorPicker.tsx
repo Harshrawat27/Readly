@@ -91,12 +91,16 @@ export default function HighlightColorPicker({
           {highlightColors.map((color) => (
             <button
               key={color.name}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('Color button clicked:', color.name, color.color);
-                // Call highlight first, then close immediately
-                onHighlight(color.color, selectedText);
+                // Call highlight first, wait for it to complete, then close
+                try {
+                  await onHighlight(color.color, selectedText);
+                } catch (error) {
+                  console.error('Highlight error:', error);
+                }
                 onClose();
               }}
               className={`w-8 h-8 rounded-full border-2 border-gray-300 ${color.bg} ${color.hover} transition-all hover:scale-110 hover:shadow-md`}
