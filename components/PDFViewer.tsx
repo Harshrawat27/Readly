@@ -53,7 +53,7 @@ const PLACEHOLDER_HEIGHT = 1000; // Estimated height for unrendered pages
 export default function PDFViewer({
   pdfId,
   onTextSelect,
-  selectedText: _selectedText,
+  selectedText, // eslint-disable-line @typescript-eslint/no-unused-vars
   scale: externalScale,
   onScaleChange,
   currentUser,
@@ -76,7 +76,7 @@ export default function PDFViewer({
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
-  const [_isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
 
   // PDF document reference for programmatic navigation
@@ -138,7 +138,7 @@ export default function PDFViewer({
   } | null>(null);
 
   const handleHighlight = useCallback(
-    async (color: string, _text: string) => {
+    async (color: string, text: string) => { // eslint-disable-line @typescript-eslint/no-unused-vars
       if (!pdfId || !currentSelectionData) return;
 
       const selectionData = currentSelectionData;
