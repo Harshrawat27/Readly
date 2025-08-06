@@ -27,7 +27,9 @@ export default function ChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
@@ -110,12 +112,19 @@ export default function ChatPanel({
         console.log('Fetched chat with messages:', chat);
 
         if (chat && chat.messages) {
-          const allMessages = chat.messages.map((msg: { role: string; content: string; createdAt: string; id: string }) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.createdAt),
-          }));
+          const allMessages = chat.messages.map(
+            (msg: {
+              role: string;
+              content: string;
+              createdAt: string;
+              id: string;
+            }) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: new Date(msg.createdAt),
+            })
+          );
 
           // Load all messages at once - no progressive loading to avoid scroll animation
           setMessages(allMessages);
