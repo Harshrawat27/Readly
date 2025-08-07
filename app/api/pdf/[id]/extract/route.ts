@@ -79,8 +79,42 @@ function createTextChunks(
   const chunks = [];
   let chunkIndex = startChunkIndex;
 
-  // Split content into sentences for better chunk boundaries
-  const sentences = content.match(/[^\.!?]+[\.!?]+/g) || [content];
+  // Split content into sentences for better chunk boundaries while preserving math
+  // First, protect mathematical expressions by temporarily replacing them
+  const mathExpressions: string[] = [];
+  let protectedContent = content;
+  
+  // Protect various mathematical expression formats
+  
+  // Protect display math ($$...$$)
+  protectedContent = protectedContent.replace(/\$\$[^$]+\$\$/g, (match) => {
+    const index = mathExpressions.length;
+    mathExpressions.push(match);
+    return `__MATH_${index}__`;
+  });
+  
+  // Protect inline math ($...$)
+  protectedContent = protectedContent.replace(/\$[^$]+\$/g, (match) => {
+    const index = mathExpressions.length;
+    mathExpressions.push(match);
+    return `__MATH_${index}__`;
+  });
+  
+  // Protect expressions in square brackets that contain LaTeX commands
+  protectedContent = protectedContent.replace(/\[[^\]]*\\[a-zA-Z]+[^\]]*\]/g, (match) => {
+    const index = mathExpressions.length;
+    mathExpressions.push(match);
+    return `__MATH_${index}__`;
+  });
+  
+  // Protect expressions in parentheses that contain LaTeX commands
+  protectedContent = protectedContent.replace(/\([^)]*\\[a-zA-Z]+[^)]*\)/g, (match) => {
+    const index = mathExpressions.length;
+    mathExpressions.push(match);
+    return `__MATH_${index}__`;
+  });
+
+  const sentences = protectedContent.match(/[^\.!?]+[\.!?]+/g) || [protectedContent];
   
   let currentChunk = '';
   let chunkStartIndex = 0;
@@ -90,15 +124,20 @@ function createTextChunks(
     
     // If adding this sentence would exceed chunk size and we have content
     if (currentChunk.length + trimmedSentence.length > CHUNK_SIZE && currentChunk.length > 0) {
-      // Save current chunk
-      chunks.push({
-        content: currentChunk.trim(),
-        pageNumber: pageNumber,
-        startIndex: chunkStartIndex,
-        endIndex: chunkStartIndex + currentChunk.length,
-        chunkIndex: chunkIndex++,
-        pdfId: pdfId,
-      });
+      // Restore mathematical expressions before saving
+    let restoredChunk = currentChunk.trim();
+    mathExpressions.forEach((mathExpr, index) => {
+      restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+    });
+
+    chunks.push({
+      content: restoredChunk,
+      pageNumber: pageNumber,
+      startIndex: chunkStartIndex,
+      endIndex: chunkStartIndex + currentChunk.length,
+      chunkIndex: chunkIndex++,
+      pdfId: pdfId,
+    });
 
       // Start new chunk with overlap
       const overlapStart = Math.max(0, currentChunk.length - CHUNK_OVERLAP);
@@ -117,8 +156,14 @@ function createTextChunks(
 
   // Save the last chunk if it has content
   if (currentChunk.trim().length > 0) {
+    // Restore mathematical expressions before saving
+    let restoredChunk = currentChunk.trim();
+    mathExpressions.forEach((mathExpr, index) => {
+      restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+    });
+
     chunks.push({
-      content: currentChunk.trim(),
+      content: restoredChunk,
       pageNumber: pageNumber,
       startIndex: chunkStartIndex,
       endIndex: chunkStartIndex + currentChunk.length,
@@ -142,10 +187,14 @@ async function processPages(pages: Array<{pageNumber: number; content: string}>,
       continue;
     }
 
-    // Clean the content
+    // Clean the content while preserving mathematical formatting
     const cleanContent = content
       .replace(/\s+/g, ' ')
       .replace(/\n+/g, '\n')
+      // Preserve common mathematical notation patterns
+      .replace(/\$\s+/g, '$')  // Remove spaces after opening $
+      .replace(/\s+\$/g, '$')  // Remove spaces before closing $
+      .replace(/\\\s+/g, '\\') // Remove spaces after backslashes
       .trim();
 
     if (cleanContent.length === 0) {

@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-} from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 
 interface ChatPanelProps {
@@ -50,7 +45,6 @@ export default function ChatPanel({
     });
   }, []);
 
-
   // Scroll when messages change (for new messages during chat)
   useEffect(() => {
     if (!isInitialLoad && messages.length > 0) {
@@ -88,12 +82,19 @@ export default function ChatPanel({
         const data = await response.json();
 
         if (data.chat && data.chat.messages) {
-          const allMessages = data.chat.messages.map((msg: { id: string; role: string; content: string; createdAt: string }) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.createdAt),
-          }));
+          const allMessages = data.chat.messages.map(
+            (msg: {
+              id: string;
+              role: string;
+              content: string;
+              createdAt: string;
+            }) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: new Date(msg.createdAt),
+            })
+          );
 
           setMessages(allMessages);
           setCurrentChatId(data.chat.id);
@@ -348,7 +349,6 @@ export default function ChatPanel({
           </p>
         )}
       </div>
-
 
       {/* Messages */}
       <div

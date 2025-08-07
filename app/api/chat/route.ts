@@ -105,34 +105,49 @@ export async function POST(request: NextRequest) {
     // Get relevant PDF context
     const userMessage = messages[messages.length - 1]?.content || '';
     const relevantChunks = getRelevantChunks(pdf.chunks, userMessage, 5);
-    
-    const pdfContext = relevantChunks.length > 0 
-      ? `\n\nRelevant content from "${pdf.title}":\n\n${relevantChunks.map((chunk, index) => 
-          `[Page ${chunk.pageNumber}, Section ${index + 1}]\n${chunk.content}`
-        ).join('\n\n---\n\n')}\n\n`
-      : '';
+
+    const pdfContext =
+      relevantChunks.length > 0
+        ? `\n\nRelevant content from "${pdf.title}":\n\n${relevantChunks
+            .map(
+              (chunk, index) =>
+                `[Page ${chunk.pageNumber}, Section ${index + 1}]\n${
+                  chunk.content
+                }`
+            )
+            .join('\n\n---\n\n')}\n\n`
+        : '';
 
     // System prompt for PDF chat assistant
-    const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation.
+    const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation. it's very important to use  LaTeX markdown notation for math formulas (wrap in $ for inline or $$ for display)
 
-Key capabilities:
-- Answer questions about PDF content with precision and clarity
-- Explain complex concepts in simple terms
-- Provide summaries and insights
-- Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
-- Support markdown formatting for better readability
-- Reference specific page numbers when citing content
+    Key capabilities:
+    - Answer questions about PDF content with precision and clarity
+    - Explain complex concepts in simple terms
+    - Provide summaries and insights
+    - Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
+    - Support markdown formatting for better readability
+    - Reference specific page numbers when citing content
+    - don't add in math formulas starting and ending \`( and \`) instead add $$ and $$ if iniline then single $ start and end if separete line $$ start and end
 
-Guidelines:
-- Always be helpful, accurate, and concise
-- Use LaTeX for mathematical expressions: $\\int_0^\\infty e^{-x} dx = 1$
-- Format responses with markdown for better readability
-- When referencing content, include page numbers: "On page X, the document states..."
-- If you're unsure about something, be honest about limitations
-- Focus on the specific PDF context when available
-- Add space after every paragraph for better readability
+    Guidelines:
+    - Use **markdown formatting** in your responses
+    - For mathematical expressions, use LaTeX syntax:
+      - Inline math: $x = y + z$
+      - Display math: $E = mc^2$
+      - if there is any formula on separet line it should come between this $$ x = y + z $$
+    - Format your responses with proper headings, lists, and emphasis
+    - Use code blocks for code examples: \`\`\`language\n...\`\`\`
+    - Use > for quotes and important notes
+    - When referencing content, include page numbers: "On page X, the document states..."
+    - If you're unsure about something, be honest about limitations
+    - Focus on the specific PDF context when available
 
-${pdfContext ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. Always cite page numbers when referencing specific information.${pdfContext}` : 'When users select text from the PDF, help them understand or elaborate on that specific content.'}`;
+    ${
+      pdfContext
+        ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. Always cite page numbers when referencing specific information.${pdfContext}`
+        : 'When users select text from the PDF, help them understand or elaborate on that specific content.'
+    }`;
 
     // Prepare messages with system prompt
     const chatMessages = [
@@ -142,12 +157,12 @@ ${pdfContext ? `You have access to relevant sections from the PDF document. Use 
 
     // Create streaming response
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4.1-nano',
+      model: 'gpt-4o',
       messages:
         chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,
       temperature: 0.7,
-      max_tokens: 1500,
+      max_tokens: 2000,
     });
 
     // Create a readable stream
@@ -159,14 +174,21 @@ ${pdfContext ? `You have access to relevant sections from the PDF document. Use 
         try {
           for await (const chunk of stream) {
             // Log the raw chunk from OpenAI
-            // console.log('OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
+            console.log('🔍 OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
 
             const content = chunk.choices[0]?.delta?.content || '';
 
             if (content) {
+              // Log original content before processing
+              console.log(
+                '📝 Original content chunk:',
+                JSON.stringify(content)
+              );
+
+              // Pass through content as-is (GPT is sending everything perfectly)
               assistantResponse += content;
               const data = JSON.stringify({
-                content,
+                content: content,
                 done: false,
                 chatId: currentChatId,
               });
@@ -175,7 +197,12 @@ ${pdfContext ? `You have access to relevant sections from the PDF document. Use 
           }
 
           // Log complete response before saving
-          // console.log('Complete OpenAI response:', assistantResponse);
+          console.log('📄 Complete OpenAI response:', assistantResponse);
+          console.log(
+            '📊 Response length:',
+            assistantResponse.length,
+            'characters'
+          );
 
           // Save assistant response to database
           if (assistantResponse.trim()) {
@@ -235,21 +262,31 @@ export async function GET() {
 }
 
 // Simple text similarity function for finding relevant chunks
-function getRelevantChunks(chunks: Array<{id: string; content: string; pageNumber: number; chunkIndex: number}>, query: string, limit: number = 5) {
+function getRelevantChunks(
+  chunks: Array<{
+    id: string;
+    content: string;
+    pageNumber: number;
+    chunkIndex: number;
+  }>,
+  query: string,
+  limit: number = 5
+) {
   if (!chunks || chunks.length === 0 || !query.trim()) {
     return chunks?.slice(0, limit) || [];
   }
 
-  const queryWords = query.toLowerCase()
+  const queryWords = query
+    .toLowerCase()
     .split(/\s+/)
-    .filter(word => word.length > 2); // Only consider words longer than 2 characters
+    .filter((word) => word.length > 2); // Only consider words longer than 2 characters
 
   if (queryWords.length === 0) {
     return chunks.slice(0, limit);
   }
 
   // Score each chunk based on keyword matches
-  const scoredChunks = chunks.map(chunk => {
+  const scoredChunks = chunks.map((chunk) => {
     const content = chunk.content.toLowerCase();
     let score = 0;
     let matchedWords = 0;
@@ -274,7 +311,7 @@ function getRelevantChunks(chunks: Array<{id: string; content: string; pageNumbe
 
   // Sort by relevance score and return top chunks
   return scoredChunks
-    .filter(chunk => chunk.relevanceScore > 0)
+    .filter((chunk) => chunk.relevanceScore > 0)
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, limit);
 }
