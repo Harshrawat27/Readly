@@ -50,6 +50,7 @@ export default function ChatPanel({
     });
   }, []);
 
+
   // Scroll when messages change (for new messages during chat)
   useEffect(() => {
     if (!isInitialLoad && messages.length > 0) {
@@ -347,6 +348,7 @@ export default function ChatPanel({
           </p>
         )}
       </div>
+
 
       {/* Messages */}
       <div

@@ -22,7 +22,7 @@ const Page = dynamic(
 // Configure PDF.js worker
 if (typeof window !== 'undefined') {
   import('react-pdf').then((pdfjs) => {
-    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs`;
   });
 }
 
@@ -395,6 +395,71 @@ export default function PDFViewer({
     },
     [highlights]
   );
+
+  // Auto-extract text in background
+  const autoExtractTextInBackground = useCallback(async (pdfId: string, numPages: number) => {
+    try {
+      // First check if already extracted
+      const checkResponse = await fetch(`/api/pdf/${pdfId}/extract`);
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json();
+        if (checkData.textExtracted) {
+          return; // Already extracted
+        }
+      }
+
+      // Get PDF document for text extraction
+      const reactPdf = await import('react-pdf');
+      const pdfjs = reactPdf.pdfjs;
+      
+      if (!pdfFile) return;
+
+      const loadingTask = pdfjs.getDocument(pdfFile);
+      const pdfDocument = await loadingTask.promise;
+
+      // Extract text from all pages
+      const pages: Array<{pageNumber: number; content: string}> = [];
+      
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        try {
+          const page = await pdfDocument.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          
+          const pageText = textContent.items
+            .map((item) => ('str' in item ? item.str : '') || '')
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          if (pageText) {
+            pages.push({
+              pageNumber: pageNum,
+              content: pageText,
+            });
+          }
+        } catch (pageError) {
+          console.error(`Error extracting text from page ${pageNum}:`, pageError);
+        }
+      }
+
+      // Send to extraction API
+      if (pages.length > 0) {
+        const response = await fetch(`/api/pdf/${pdfId}/extract`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ pages }),
+        });
+
+        if (response.ok) {
+          console.log('PDF text extracted successfully in background');
+        }
+      }
+    } catch (error) {
+      console.error('Background text extraction failed:', error);
+    }
+  }, [pdfFile]);
 
   // Handle citation clicks - navigate to specific page
   const handleCitationClick = useCallback(
@@ -872,8 +937,13 @@ export default function PDFViewer({
         initialPages.add(i);
       }
       setVisiblePages(initialPages);
+
+      // Auto-extract text in background if not already done
+      if (pdfId) {
+        autoExtractTextInBackground(pdfId, numPages);
+      }
     },
-    []
+    [pdfId, autoExtractTextInBackground]
   );
 
   const onDocumentLoadError = useCallback((error: Error) => {

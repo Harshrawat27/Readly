@@ -53,6 +53,11 @@ export async function POST(request: NextRequest) {
         id: pdfId,
         userId: userId,
       },
+      include: {
+        chunks: {
+          orderBy: { chunkIndex: 'asc' },
+        },
+      },
     });
 
     if (!pdf) {
@@ -97,6 +102,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Get relevant PDF context
+    const userMessage = messages[messages.length - 1]?.content || '';
+    const relevantChunks = getRelevantChunks(pdf.chunks, userMessage, 5);
+    
+    const pdfContext = relevantChunks.length > 0 
+      ? `\n\nRelevant content from "${pdf.title}":\n\n${relevantChunks.map((chunk, index) => 
+          `[Page ${chunk.pageNumber}, Section ${index + 1}]\n${chunk.content}`
+        ).join('\n\n---\n\n')}\n\n`
+      : '';
+
     // System prompt for PDF chat assistant
     const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation.
 
@@ -106,16 +121,18 @@ Key capabilities:
 - Provide summaries and insights
 - Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
 - Support markdown formatting for better readability
+- Reference specific page numbers when citing content
 
 Guidelines:
 - Always be helpful, accurate, and concise
 - Use LaTeX for mathematical expressions: $\\int_0^\\infty e^{-x} dx = 1$
 - Format responses with markdown for better readability
+- When referencing content, include page numbers: "On page X, the document states..."
 - If you're unsure about something, be honest about limitations
 - Focus on the specific PDF context when available
-- add space after every para
+- Add space after every paragraph for better readability
 
-When users select text from the PDF, help them understand or elaborate on that specific content.`;
+${pdfContext ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. Always cite page numbers when referencing specific information.${pdfContext}` : 'When users select text from the PDF, help them understand or elaborate on that specific content.'}`;
 
     // Prepare messages with system prompt
     const chatMessages = [
@@ -215,4 +232,49 @@ When users select text from the PDF, help them understand or elaborate on that s
 
 export async function GET() {
   return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+}
+
+// Simple text similarity function for finding relevant chunks
+function getRelevantChunks(chunks: Array<{id: string; content: string; pageNumber: number; chunkIndex: number}>, query: string, limit: number = 5) {
+  if (!chunks || chunks.length === 0 || !query.trim()) {
+    return chunks?.slice(0, limit) || [];
+  }
+
+  const queryWords = query.toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2); // Only consider words longer than 2 characters
+
+  if (queryWords.length === 0) {
+    return chunks.slice(0, limit);
+  }
+
+  // Score each chunk based on keyword matches
+  const scoredChunks = chunks.map(chunk => {
+    const content = chunk.content.toLowerCase();
+    let score = 0;
+    let matchedWords = 0;
+
+    for (const word of queryWords) {
+      const matches = (content.match(new RegExp(word, 'g')) || []).length;
+      if (matches > 0) {
+        score += matches;
+        matchedWords++;
+      }
+    }
+
+    // Bonus for chunks that match more different query words
+    const wordCoverageBonus = matchedWords / queryWords.length;
+    score += wordCoverageBonus * 10;
+
+    return {
+      ...chunk,
+      relevanceScore: score,
+    };
+  });
+
+  // Sort by relevance score and return top chunks
+  return scoredChunks
+    .filter(chunk => chunk.relevanceScore > 0)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, limit);
 }

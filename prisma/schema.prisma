@@ -98,13 +98,32 @@ model PDF {
   uploadedAt     DateTime      @default(now())
   lastAccessedAt DateTime      @default(now())
   userId         String
+  textExtracted  Boolean       @default(false)
   chats          Chat[]
   comments       Comment[]
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   textElements   TextElement[]
   highlights     Highlight[]
+  chunks         PDFChunk[]
 
   @@map("pdf")
+}
+
+model PDFChunk {
+  id         String   @id @default(cuid())
+  content    String   // The text content of the chunk
+  pageNumber Int      // Page number this chunk belongs to
+  startIndex Int      // Starting character index on the page
+  endIndex   Int      // Ending character index on the page
+  chunkIndex Int      // Sequential chunk number within the PDF
+  embedding  String?  // Optional: Vector embedding for semantic search
+  createdAt  DateTime @default(now())
+  pdfId      String
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  
+  @@index([pdfId, pageNumber])
+  @@index([pdfId, chunkIndex])
+  @@map("pdf_chunk")
 }
 
 model Chat {

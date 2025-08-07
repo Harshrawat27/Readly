@@ -40,3 +40,7 @@ Warning: AbortException: TextLayer task cancelled.
 - Aug 6 morning build with comment "fixed build errors" was working fine before pdf optimisation
 
 - page count is showing 1 page in DB. 
+
+- left side bar list is not updating because of cache and many times it start loading. it shouldn't load
+
+- if one user is access another user pdf we'll show some other message.
