@@ -174,16 +174,16 @@ export async function POST(request: NextRequest) {
         try {
           for await (const chunk of stream) {
             // Log the raw chunk from OpenAI
-            console.log('🔍 OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
+            // console.log('🔍 OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
 
             const content = chunk.choices[0]?.delta?.content || '';
 
             if (content) {
               // Log original content before processing
-              console.log(
-                '📝 Original content chunk:',
-                JSON.stringify(content)
-              );
+              // console.log(
+              //   '📝 Original content chunk:',
+              //   JSON.stringify(content)
+              // );
 
               // Pass through content as-is (GPT is sending everything perfectly)
               assistantResponse += content;
@@ -197,12 +197,12 @@ export async function POST(request: NextRequest) {
           }
 
           // Log complete response before saving
-          console.log('📄 Complete OpenAI response:', assistantResponse);
-          console.log(
-            '📊 Response length:',
-            assistantResponse.length,
-            'characters'
-          );
+          // console.log('📄 Complete OpenAI response:', assistantResponse);
+          // console.log(
+          //   '📊 Response length:',
+          //   assistantResponse.length,
+          //   'characters'
+          // );
 
           // Save assistant response to database
           if (assistantResponse.trim()) {

@@ -449,6 +449,9 @@ export default function MarkdownRenderer({
         .rendered-content .katex-display {
           margin: 1.5rem 0;
           text-align: center;
+          overflow-x: auto;
+          overflow-y: visible;
+          max-width: 100%;
         }
 
         /* Blockquotes */
@@ -652,6 +655,9 @@ export default function MarkdownRenderer({
           .rendered-content
           .katex-display {
           margin: 1rem 0;
+          overflow-x: auto;
+          overflow-y: visible;
+          max-width: 100%;
         }
         .rendered-content a:focus,
         .rendered-content button:focus {

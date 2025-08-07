@@ -108,14 +108,14 @@ const EnhancedMarkdownRenderer = memo(
             '--text-color': 'var(--text-primary)',
             '--heading-color': 'var(--text-primary)',
             '--accent-color': '#8975EA',
-            '--highlight-bg': 'rgba(137, 117, 234, 0.2)',
+            '--highlight-bg': 'rgba(201, 99, 66, 0.30)',
             '--border-color': 'var(--border)',
             fontSize: `${fontSize}px`,
             color: 'var(--text-primary)',
             lineHeight: 1.7,
             wordWrap: 'break-word',
             minWidth: 0,
-            overflow: 'hidden',
+            overflow: 'auto',
             maxWidth: '100%',
             position: 'relative',
           } as React.CSSProperties
@@ -400,6 +400,10 @@ const EnhancedMarkdownRenderer = memo(
           .rendered-content .katex-display {
             margin: 1.5rem 0;
             text-align: center;
+            display: flex;
+            // overflow-x: auto;
+            // overflow-y: visible;
+            // max-width: 100%;
           }
 
           /* Blockquotes */
@@ -483,7 +487,7 @@ const EnhancedMarkdownRenderer = memo(
           .rendered-content .hljs-type,
           .rendered-content .hljs-name,
           .rendered-content .hljs-strong {
-            color: #8975ea !important;
+            color: #c96342 !important;
             font-weight: bold;
           }
 
@@ -604,6 +608,10 @@ const EnhancedMarkdownRenderer = memo(
             .rendered-content
             .katex-display {
             margin: 1rem 0;
+            width: auto;
+            // overflow-x: auto;
+            // overflow-y: visible;
+            // max-width: 100%;
           }
           .rendered-content a:focus,
           .rendered-content button:focus {
