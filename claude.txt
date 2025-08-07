@@ -44,3 +44,5 @@ Warning: AbortException: TextLayer task cancelled.
 - left side bar list is not updating because of cache and many times it start loading. it shouldn't load
 
 - if one user is access another user pdf we'll show some other message.
+
+- no message before summary first we'll send summary otherwise sometimes user asking about summary before DB saved all the chunks and this is creating trouble! 
