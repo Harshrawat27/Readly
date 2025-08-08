@@ -290,8 +290,38 @@ export default function ChatPanel({
     };
   }, [pdfId]);
 
-  // rest of your existing logic (sendMessage, handlers, etc.) -- unchanged
-  // I kept your original sendMessage implementation intact below.
+  // Auto-resize textarea
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
+      const minHeight = 48;
+      textareaRef.current.style.height = `${Math.max(newHeight, minHeight)}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputValue, adjustTextareaHeight]);
+
+  // Handle selected text from PDF
+  useEffect(() => {
+    if (selectedText && selectedText.trim()) {
+      setInputValue((prev) => {
+        const prefix = prev ? prev + '\n\n' : '';
+        return `${prefix}Regarding this text from the PDF:\n"${selectedText}"\n\n`;
+      });
+      adjustTextareaHeight();
+
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(
+          textareaRef.current.value.length,
+          textareaRef.current.value.length
+        );
+      }
+    }
+  }, [selectedText, adjustTextareaHeight]);
 
   // Send message. Use messagesRef to ensure we send latest messages and avoid stale state.
   const sendMessage = useCallback(async () => {

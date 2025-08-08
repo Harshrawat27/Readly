@@ -54,3 +54,5 @@ Warning: AbortException: TextLayer task cancelled.
 - highlights sometimes working only on top and bottom line!
 
 - difference between message gone! and 1st message shouldn't run any animation, opacity animation is running while sending message also. infact it's running that time only not on load. 
+
+- on deleting text it's working but also showing some error need to fix that. 
