@@ -45,6 +45,7 @@ export default function ChatPanel({
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [showChatContent, setShowChatContent] = useState(true);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -112,8 +113,9 @@ export default function ChatPanel({
       if (progress < 1) {
         requestAnimationFrame(animateScroll);
       } else {
-        // Animation complete - re-enable auto-scroll after a brief delay
+        // Animation complete - start opacity fade-in and re-enable auto-scroll
         setTimeout(() => {
+          setShowChatContent(true);
           isScrollAnimatingRef.current = false;
         }, 100);
       }
@@ -322,10 +324,13 @@ export default function ChatPanel({
     });
     setStreamingMessageId(assistantMessageId);
 
-    // Scroll down 200px to create space after question and show start of answer
+    // Hide chat content before scroll animation
+    setShowChatContent(false);
+
+    // Scroll down 800px to create space after question and show start of answer
     setTimeout(() => {
       scrollDownForNewMessage();
-    }, 100);
+    }, 50);
 
     try {
       // create the payload from the freshest messages
@@ -549,59 +554,67 @@ export default function ChatPanel({
             </p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
+          <div
+            className={`transition-opacity duration-1000 ease-out ${
+              showChatContent ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {messages.map((message) => (
               <div
-                className={`max-w-[80%] min-w-0 rounded-lg p-3 break-words overflow-hidden ${
-                  message.role === 'user'
-                    ? 'bg-[#0F0F0E] text-white'
-                    : 'bg-[var(--card-background)] border border-[var(--border)]'
+                key={message.id}
+                className={`flex ${
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
                 <div
-                  className={`text-sm break-words overflow-wrap-break-word ${
+                  className={`max-w-[80%] min-w-0 rounded-lg p-3 break-words overflow-hidden ${
                     message.role === 'user'
-                      ? 'text-white'
-                      : 'text-[var(--text-primary)]'
-                  }`}
-                  style={{
-                    wordBreak: 'break-word',
-                    overflowWrap: 'break-word',
-                  }}
-                >
-                  {message.role === 'assistant' ? (
-                    <EnhancedMarkdownRenderer
-                      markdownText={message.content}
-                      compact={true}
-                      className='chat-message'
-                      fontSize={15}
-                    />
-                  ) : (
-                    <div className='whitespace-pre-wrap'>{message.content}</div>
-                  )}
-
-                  {message.isStreaming && (
-                    <span className='inline-block w-2 h-4 bg-current animate-pulse ml-1' />
-                  )}
-                </div>
-
-                <div
-                  className={`text-xs mt-2 ${
-                    message.role === 'user'
-                      ? 'text-white/70'
-                      : 'text-[var(--text-muted)]'
+                      ? 'bg-[#0F0F0E] text-white'
+                      : 'bg-[var(--card-background)] border border-[var(--border)]'
                   }`}
                 >
-                  {formatTime(message.timestamp)}
+                  <div
+                    className={`text-sm break-words overflow-wrap-break-word ${
+                      message.role === 'user'
+                        ? 'text-white'
+                        : 'text-[var(--text-primary)]'
+                    }`}
+                    style={{
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                    }}
+                  >
+                    {message.role === 'assistant' ? (
+                      <EnhancedMarkdownRenderer
+                        markdownText={message.content}
+                        compact={true}
+                        className='chat-message'
+                        fontSize={15}
+                      />
+                    ) : (
+                      <div className='whitespace-pre-wrap'>
+                        {message.content}
+                      </div>
+                    )}
+
+                    {message.isStreaming && (
+                      <span className='inline-block w-2 h-4 bg-current animate-pulse ml-1' />
+                    )}
+                  </div>
+
+                  <div
+                    className={`text-xs mt-2 ${
+                      message.role === 'user'
+                        ? 'text-white/70'
+                        : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {formatTime(message.timestamp)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
 
         <div ref={messagesEndRef} />
