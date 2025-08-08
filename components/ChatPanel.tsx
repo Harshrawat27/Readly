@@ -45,7 +45,7 @@ export default function ChatPanel({
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [showChatContent, setShowChatContent] = useState(true);
+  const [showChatContent, setShowChatContent] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -113,9 +113,8 @@ export default function ChatPanel({
       if (progress < 1) {
         requestAnimationFrame(animateScroll);
       } else {
-        // Animation complete - start opacity fade-in and re-enable auto-scroll
+        // Animation complete - re-enable auto-scroll
         setTimeout(() => {
-          setShowChatContent(true);
           isScrollAnimatingRef.current = false;
         }, 100);
       }
@@ -216,11 +215,13 @@ export default function ChatPanel({
         setMessages([]);
         setCurrentChatId(null);
         setIsInitialLoad(true);
+        setShowChatContent(true);
         return;
       }
 
       setIsLoadingHistory(true);
       setIsInitialLoad(true);
+      setShowChatContent(false);
 
       try {
         // backend returns last N messages
@@ -260,17 +261,23 @@ export default function ChatPanel({
           // mark initial load finished in next tick to allow scroll effects to run first
           requestAnimationFrame(() => {
             setIsInitialLoad(false);
+            // Show content with opacity animation after scroll is complete
+            setTimeout(() => {
+              setShowChatContent(true);
+            }, 300);
           });
         } else {
           setMessages([]);
           setCurrentChatId(null);
           setIsInitialLoad(false);
+          setShowChatContent(true);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
         setMessages([]);
         setCurrentChatId(null);
         setIsInitialLoad(false);
+        setShowChatContent(true);
       } finally {
         if (mounted) setIsLoadingHistory(false);
       }
@@ -324,13 +331,13 @@ export default function ChatPanel({
     });
     setStreamingMessageId(assistantMessageId);
 
-    // Hide chat content before scroll animation
-    setShowChatContent(false);
-
     // Scroll down 800px to create space after question and show start of answer
-    setTimeout(() => {
-      scrollDownForNewMessage();
-    }, 50);
+    // Only do this if there are existing messages (not the first message)
+    if (messages.length > 1) {
+      setTimeout(() => {
+        scrollDownForNewMessage();
+      }, 100);
+    }
 
     try {
       // create the payload from the freshest messages
@@ -555,8 +562,8 @@ export default function ChatPanel({
           </div>
         ) : (
           <div
-            className={`transition-opacity duration-1000 ease-out ${
-              showChatContent ? 'opacity-100' : 'opacity-0'
+            className={`space-y-4 transition-opacity duration-1000 ease-out ${
+              isInitialLoad && !showChatContent ? 'opacity-0' : 'opacity-100'
             }`}
           >
             {messages.map((message) => (
