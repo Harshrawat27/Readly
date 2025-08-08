@@ -55,6 +55,9 @@ export default function ChatPanel({
   // track whether user is already scrolled to bottom (so we don't yank them)
   const isUserAtBottomRef = useRef(true);
 
+  // Flag to temporarily disable auto-scroll during scroll-up animation
+  const isScrollAnimatingRef = useRef(false);
+
   // robust scroll function (prefers container.scrollTo)
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = messagesContainerRef.current;
@@ -70,6 +73,53 @@ export default function ChatPanel({
       // fallback to messagesEndRef (scrolls nearest scrollable ancestor)
       messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
     }
+  }, []);
+
+  // New function to scroll DOWN 200px with cubic-bezier ease-out animation when user sends message
+  const scrollDownForNewMessage = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const currentScrollTop = el.scrollTop;
+    const maxScrollTop = el.scrollHeight - el.clientHeight;
+    const targetScrollTop = Math.min(maxScrollTop, currentScrollTop + 800);
+    const distance = targetScrollTop - currentScrollTop;
+
+    if (distance <= 0) return; // Already at bottom or no need to scroll
+
+    // Set flag to disable auto-scroll during animation
+    isScrollAnimatingRef.current = true;
+
+    // Custom cubic-bezier ease-out animation
+    const duration = 600; // 600ms
+    const startTime = performance.now();
+    const startScrollTop = currentScrollTop;
+
+    // cubic-bezier(0.25, 0.46, 0.45, 0.94) - ease-out
+    const easeOutCubic = (t: number) => {
+      return 1 - Math.pow(1 - t, 2);
+    };
+
+    const animateScroll = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      const easedProgress = easeOutCubic(progress);
+      const currentPosition = startScrollTop + distance * easedProgress;
+
+      el.scrollTop = currentPosition;
+
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      } else {
+        // Animation complete - re-enable auto-scroll after a brief delay
+        setTimeout(() => {
+          isScrollAnimatingRef.current = false;
+        }, 100);
+      }
+    };
+
+    requestAnimationFrame(animateScroll);
   }, []);
 
   // monitor user scroll to decide whether to auto-scroll on new messages
@@ -98,11 +148,16 @@ export default function ChatPanel({
   useLayoutEffect(() => {
     if (messages.length === 0) return;
 
+    // Don't auto-scroll during scroll animation
+    if (isScrollAnimatingRef.current) {
+      return;
+    }
+
     // only auto-scroll if user is at bottom (or it's the initial load) AND not during streaming
     if (!isUserAtBottomRef.current && !isInitialLoad) {
       return;
     }
-    
+
     // Don't auto-scroll during streaming unless it's initial load
     if (streamingMessageId && !isInitialLoad) {
       return;
@@ -127,6 +182,11 @@ export default function ChatPanel({
     const el = messagesContainerRef.current;
     if (!el) return;
     const mo = new MutationObserver(() => {
+      // Don't auto-scroll during scroll animation
+      if (isScrollAnimatingRef.current) {
+        return;
+      }
+
       // Only auto-scroll if user is at bottom AND not streaming (to allow free scrolling during streaming)
       if (isUserAtBottomRef.current && !streamingMessageId) {
         // schedule quick scroll to follow layout change
@@ -261,6 +321,11 @@ export default function ChatPanel({
       return updated;
     });
     setStreamingMessageId(assistantMessageId);
+
+    // Scroll down 200px to create space after question and show start of answer
+    setTimeout(() => {
+      scrollDownForNewMessage();
+    }, 100);
 
     try {
       // create the payload from the freshest messages
