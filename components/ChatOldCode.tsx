@@ -1,4 +1,79 @@
-'use client';
+// app/api/chat/recent/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const pdfId = searchParams.get('pdfId');
+
+    if (!pdfId) {
+      return NextResponse.json(
+        { error: 'PDF ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Single optimized query to get the most recent chat with all messages
+    const chat = await prisma.chat.findFirst({
+      where: {
+        userId: session.user.id,
+        pdfId: pdfId,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      include: {
+        messages: {
+          orderBy: {
+            createdAt: 'asc', // Important: ASC for proper message order
+          },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!chat) {
+      return NextResponse.json(
+        { error: 'No chat found for this PDF' },
+        { status: 404 }
+      );
+    }
+
+    // Return optimized response
+    return NextResponse.json({
+      chat: {
+        id: chat.id,
+        messages: chat.messages,
+      },
+    });
+  } catch (error) {
+    console.error('Chat recent error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch recent chat' },
+      { status: 500 }
+    );
+  }
+}
+
+// ChatPanel.tsx
+
+('use client');
 
 import {
   useState,
@@ -29,12 +104,6 @@ export default function ChatPanel({
   onTextSubmit,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const messagesRef = useRef<Message[]>([]);
-  // keep messagesRef synced
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -52,23 +121,25 @@ export default function ChatPanel({
 
   // Use useLayoutEffect for immediate scroll after DOM update
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'instant') => {
+    // Use requestAnimationFrame to ensure DOM has been painted
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
-      } else if (messagesContainerRef.current) {
-        // fallback
-        messagesContainerRef.current.scrollTop =
-          messagesContainerRef.current.scrollHeight;
       }
     });
   }, []);
 
-  // Load chat history (optimized single call). Scroll to bottom after setMessages.
+  // Scroll when messages change (for new messages during chat)
   useEffect(() => {
-    let mounted = true;
+    if (!isInitialLoad && messages.length > 0) {
+      scrollToBottom('smooth');
+    }
+  }, [messages.length, scrollToBottom, isInitialLoad]);
+
+  // Optimized chat history loading with single API call
+  useEffect(() => {
     const loadChatHistory = async () => {
       if (!pdfId) {
-        if (!mounted) return;
         setMessages([]);
         setCurrentChatId(null);
         setIsInitialLoad(true);
@@ -79,13 +150,12 @@ export default function ChatPanel({
       setIsInitialLoad(true);
 
       try {
-        // backend returns last N messages (already optimized server-side)
+        // Single optimized API call to get the most recent chat with messages
         const response = await fetch(`/api/chat/recent?pdfId=${pdfId}`);
-
-        if (!mounted) return;
 
         if (!response.ok) {
           if (response.status === 404) {
+            // No chat exists yet for this PDF
             setMessages([]);
             setCurrentChatId(null);
             return;
@@ -96,58 +166,34 @@ export default function ChatPanel({
         const data = await response.json();
 
         if (data.chat && data.chat.messages) {
-          const allMessages = data.chat.messages.map(
-            (msg: {
-              id: string;
-              role: 'user' | 'assistant';
-              content: string;
-              createdAt: string;
-            }) => ({
-              id: msg.id,
-              role: msg.role,
-              content: msg.content,
-              timestamp: new Date(msg.createdAt),
-            })
-          );
+          const allMessages = data.chat.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+          }));
 
           setMessages(allMessages);
           setCurrentChatId(data.chat.id);
 
-          // Immediately scroll to bottom on initial load
-          // Use a tiny timeout to ensure DOM rendered
-          requestAnimationFrame(() => {
+          // Immediate scroll to bottom after setting messages
+          // Use setTimeout to ensure state update has been processed
+          setTimeout(() => {
             scrollToBottom('instant');
-            // mark initial load finished
             setIsInitialLoad(false);
-          });
-        } else {
-          setMessages([]);
-          setCurrentChatId(null);
-          setIsInitialLoad(false);
+          }, 0);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
         setMessages([]);
         setCurrentChatId(null);
-        setIsInitialLoad(false);
       } finally {
-        if (mounted) setIsLoadingHistory(false);
+        setIsLoadingHistory(false);
       }
     };
 
     loadChatHistory();
-
-    return () => {
-      mounted = false;
-    };
   }, [pdfId, scrollToBottom]);
-
-  // After new messages arrive (not initial load), smooth scroll down
-  useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
-      scrollToBottom('smooth');
-    }
-  }, [messages.length, isInitialLoad, scrollToBottom]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -182,7 +228,6 @@ export default function ChatPanel({
     }
   }, [selectedText, adjustTextareaHeight]);
 
-  // Send message. Use messagesRef to ensure we send latest messages and avoid stale state.
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isLoading) return;
 
@@ -193,13 +238,7 @@ export default function ChatPanel({
       timestamp: new Date(),
     };
 
-    // Update UI first using functional setState
-    setMessages((prev) => {
-      const updated = [...prev, userMessage];
-      messagesRef.current = updated;
-      return updated;
-    });
-
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
     setIsInitialLoad(false);
@@ -213,36 +252,20 @@ export default function ChatPanel({
       isStreaming: true,
     };
 
-    setMessages((prev) => {
-      const updated = [...prev, assistantMessage];
-      messagesRef.current = updated;
-      return updated;
-    });
+    setMessages((prev) => [...prev, assistantMessage]);
     setStreamingMessageId(assistantMessageId);
 
     try {
-      // create the payload from the freshest messages
-      const messagesToSend = messagesRef.current.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      // Ensure the last item is the user's message (defensive)
-      if (
-        messagesToSend.length === 0 ||
-        messagesToSend[messagesToSend.length - 1].content !==
-          userMessage.content
-      ) {
-        messagesToSend.push({ role: 'user', content: userMessage.content });
-      }
-
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: messagesToSend,
+          messages: [...messages, userMessage].map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
           pdfId,
           chatId: currentChatId,
         }),
@@ -262,8 +285,7 @@ export default function ChatPanel({
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            // split by newlines (SSE style)
+            const chunk = decoder.decode(value);
             const lines = chunk.split('\n');
 
             for (const line of lines) {
@@ -271,9 +293,8 @@ export default function ChatPanel({
                 try {
                   const data = JSON.parse(line.slice(6));
 
-                  if (data.chatId) {
-                    // always set chat id if provided
-                    setCurrentChatId((prev) => prev || data.chatId);
+                  if (data.chatId && !currentChatId) {
+                    setCurrentChatId(data.chatId);
                   }
 
                   if (data.content) {
@@ -326,7 +347,7 @@ export default function ChatPanel({
       setIsLoading(false);
       onTextSubmit();
     }
-  }, [inputValue, isLoading, pdfId, currentChatId, onTextSubmit]);
+  }, [inputValue, isLoading, messages, pdfId, currentChatId, onTextSubmit]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -340,7 +361,6 @@ export default function ChatPanel({
 
   const clearChat = useCallback(() => {
     setMessages([]);
-    messagesRef.current = [];
     setCurrentChatId(null);
     setIsInitialLoad(true);
   }, []);
@@ -499,7 +519,7 @@ export default function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input section */}
+      {/* Input section remains the same */}
       <div className='p-4 border-t border-[var(--border)] bg-[var(--card-background)] flex-shrink-0'>
         {selectedText && (
           <div className='mb-3 p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg'>

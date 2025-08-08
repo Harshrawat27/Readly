@@ -24,7 +24,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Single optimized query to get the most recent chat with all messages
+    // Limit how many messages are returned for speed.
+    // Fetch the last 200 messages (descending) and then reverse to ascending.
+    const MESSAGE_FETCH_LIMIT = 200;
+
     const chat = await prisma.chat.findFirst({
       where: {
         userId: session.user.id,
@@ -36,8 +39,9 @@ export async function GET(request: NextRequest) {
       include: {
         messages: {
           orderBy: {
-            createdAt: 'asc', // Important: ASC for proper message order
+            createdAt: 'desc', // get newest first so we can `take` last N quickly
           },
+          take: MESSAGE_FETCH_LIMIT,
           select: {
             id: true,
             role: true,
@@ -55,11 +59,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return optimized response
+    // messages currently newest -> oldest; reverse to oldest -> newest
+    const messagesAsc = [...chat.messages].reverse();
+
     return NextResponse.json({
       chat: {
         id: chat.id,
-        messages: chat.messages,
+        messages: messagesAsc,
       },
     });
   } catch (error) {

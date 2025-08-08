@@ -1,3 +1,4 @@
+// api/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import prisma from '@/lib/prisma';
@@ -89,9 +90,10 @@ export async function POST(request: NextRequest) {
       currentChatId = newChat.id;
     }
 
-    // Save user message to database
+    // Save user message to database (last user message)
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage && lastUserMessage.role === 'user') {
+      // create message record
       await prisma.message.create({
         data: {
           chatId: currentChatId,
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get relevant PDF context
+    // Build relevant PDF context
     const userMessage = messages[messages.length - 1]?.content || '';
     const relevantChunks = getRelevantChunks(pdf.chunks, userMessage, 5);
 
@@ -155,7 +157,7 @@ export async function POST(request: NextRequest) {
       ...messages,
     ];
 
-    // Create streaming response
+    // Create streaming response from OpenAI
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages:
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
     });
 
-    // Create a readable stream
+    // Create a readable stream to pipe SSE to client
     const encoder = new TextEncoder();
     let assistantResponse = '';
 
@@ -173,19 +175,9 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           for await (const chunk of stream) {
-            // Log the raw chunk from OpenAI
-            // console.log('🔍 OpenAI raw chunk:', JSON.stringify(chunk, null, 2));
-
             const content = chunk.choices[0]?.delta?.content || '';
 
             if (content) {
-              // Log original content before processing
-              // console.log(
-              //   '📝 Original content chunk:',
-              //   JSON.stringify(content)
-              // );
-
-              // Pass through content as-is (GPT is sending everything perfectly)
               assistantResponse += content;
               const data = JSON.stringify({
                 content: content,
@@ -195,14 +187,6 @@ export async function POST(request: NextRequest) {
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             }
           }
-
-          // Log complete response before saving
-          // console.log('📄 Complete OpenAI response:', assistantResponse);
-          // console.log(
-          //   '📊 Response length:',
-          //   assistantResponse.length,
-          //   'characters'
-          // );
 
           // Save assistant response to database
           if (assistantResponse.trim()) {
@@ -261,7 +245,7 @@ export async function GET() {
   return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }
 
-// Simple text similarity function for finding relevant chunks
+// Simple text similarity function for finding relevant chunks (kept as you had it)
 function getRelevantChunks(
   chunks: Array<{
     id: string;
