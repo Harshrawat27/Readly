@@ -50,3 +50,5 @@ Warning: AbortException: TextLayer task cancelled.
 - chat again loading from start and scrolling to down!
 
 - pdf is not uploading from live website if not there in local webiste. 
+
+- highlights sometimes working only on top and bottom line!
