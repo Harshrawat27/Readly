@@ -41,7 +41,7 @@ Warning: AbortException: TextLayer task cancelled.
 
 - page count is showing 1 page in DB. 
 
-- left side bar list is not updating because of cache and many times it start loading. it shouldn't load
+- left side bar list is not updating because of cache and many times it start loading. it shouldn't load after few change between pdf. 
 
 - if one user is access another user pdf we'll show some other message.
 
@@ -53,6 +53,24 @@ Warning: AbortException: TextLayer task cancelled.
 
 - highlights sometimes working only on top and bottom line!
 
-- difference between message gone! and 1st message shouldn't run any animation, opacity animation is running while sending message also. infact it's running that time only not on load. 
+- difference between message gone! and 1st message shouldn't run any animation, opacity animation is running while sending message also. infact it's running that time only not on load. >> DONE
 
 - on deleting text it's working but also showing some error need to fix that. 
+
+- when i asked this question using readly "Regarding this text from the PDF:
+"Meal 1 – Breakfast (~400 kcal | ~50g protein"" it showes me this error and didn't reply. 
+
+Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated group
+    at new RegExp (<anonymous>)
+    at eval (app/api/chat/route.ts:279:37)
+    at Array.map (<anonymous>)
+    at getRelevantChunks (app/api/chat/route.ts:273:30)
+    at POST (app/api/chat/route.ts:109:27)
+  277 |
+  278 |     for (const word of queryWords) {
+> 279 |       const matches = (content.match(new RegExp(word, 'g')) || []).length;
+      |                                     ^
+  280 |       if (matches > 0) {
+  281 |         score += matches;
+  282 |         matchedWords++;
+ POST /api/chat 500 in 4847ms
