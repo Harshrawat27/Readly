@@ -47,7 +47,7 @@ Warning: AbortException: TextLayer task cancelled.
 
 - no message before summary first we'll send summary otherwise sometimes user asking about summary before DB saved all the chunks and this is creating trouble! 
 
-- chat again loading from start and scrolling to down!
+- chat again loading from start and scrolling to down!  >> DONE
 
 - pdf is not uploading from live website if not there in local webiste. 
 
