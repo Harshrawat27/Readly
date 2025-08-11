@@ -24,6 +24,8 @@ export type ToolGroup = 'move' | 'shapes' | 'creation' | 'text' | 'comment';
 interface FigmaToolbarProps {
   activeTool: ToolType;
   onToolChange: (tool: ToolType) => void;
+  onFullscreenToggle?: () => void;
+  isFullscreen?: boolean;
 }
 
 interface DropdownItem {
@@ -36,6 +38,8 @@ interface DropdownItem {
 export default function FigmaToolbar({
   activeTool,
   onToolChange,
+  onFullscreenToggle,
+  isFullscreen = false,
 }: FigmaToolbarProps) {
   const [openDropdown, setOpenDropdown] = useState<ToolGroup | null>(null);
   const [hoveredTool, setHoveredTool] = useState<string | null>(null);
@@ -402,6 +406,28 @@ export default function FigmaToolbar({
             </div>
           )}
         </div>
+
+        {/* Fullscreen Tool (standalone) */}
+        <button
+          onClick={onFullscreenToggle || (() => {})}
+          onMouseEnter={() => setHoveredTool('fullscreen')}
+          onMouseLeave={() => setHoveredTool(null)}
+          className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${
+            isFullscreen
+              ? 'bg-[var(--accent)] text-white'
+              : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
+          } ${!onFullscreenToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={!onFullscreenToggle}
+        >
+          <div className='w-5 h-5 flex items-center justify-center'>
+            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+          </div>
+          {hoveredTool === 'fullscreen' && (
+            <div className='absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </div>
+          )}
+        </button>
       </div>
     </div>
   );
@@ -579,5 +605,29 @@ const ChevronIcon = () => (
     className='w-3 h-3'
   >
     <polyline points='6,9 12,15 18,9' />
+  </svg>
+);
+
+const FullscreenIcon = () => (
+  <svg
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    className='w-full h-full'
+  >
+    <path d='M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3' />
+  </svg>
+);
+
+const FullscreenExitIcon = () => (
+  <svg
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    className='w-full h-full'
+  >
+    <path d='M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3' />
   </svg>
 );

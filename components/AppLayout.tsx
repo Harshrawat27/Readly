@@ -101,6 +101,11 @@ export default function AppLayout({
               pdfId={selectedPdfId}
               onTextSelect={onTextSelect}
               selectedText={selectedText}
+              currentUser={{
+                id: session.user.id,
+                name: session.user.name,
+                image: session.user.email, // Using email as placeholder since no image field
+              }}
             />
           </ErrorBoundary>
         </div>

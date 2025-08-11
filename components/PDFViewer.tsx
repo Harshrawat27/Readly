@@ -84,6 +84,9 @@ export default function PDFViewer({
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Text formatting state
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
@@ -195,7 +198,7 @@ export default function PDFViewer({
   };
 
   const handleHighlight = useCallback(
-    async (color: string, text: string) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+    async (color: string, text: string) => {
       console.log('handleHighlight called with:', { color, text, pdfId, hasSelectionData: !!currentSelectionData });
       
       if (!pdfId || !currentSelectionData) {
@@ -846,6 +849,37 @@ export default function PDFViewer({
     }
   }, [pdfId]);
 
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const documentWithFullscreen = document as Document & {
+        webkitFullscreenElement?: Element;
+        mozFullScreenElement?: Element;
+        msFullscreenElement?: Element;
+      };
+      
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        documentWithFullscreen.webkitFullscreenElement ||
+        documentWithFullscreen.mozFullScreenElement ||
+        documentWithFullscreen.msFullscreenElement
+      );
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     const pageRefsMap = pageRefs.current;
@@ -996,6 +1030,48 @@ export default function PDFViewer({
     },
     []
   );
+
+  const handleFullscreenToggle = useCallback(async () => {
+    try {
+      if (!isFullscreen) {
+        // Enter fullscreen on the entire document
+        const documentElement = document.documentElement as HTMLElement & {
+          webkitRequestFullscreen?: () => Promise<void>;
+          mozRequestFullScreen?: () => Promise<void>;
+          msRequestFullscreen?: () => Promise<void>;
+        };
+        
+        if (documentElement.requestFullscreen) {
+          await documentElement.requestFullscreen();
+        } else if (documentElement.webkitRequestFullscreen) {
+          await documentElement.webkitRequestFullscreen();
+        } else if (documentElement.mozRequestFullScreen) {
+          await documentElement.mozRequestFullScreen();
+        } else if (documentElement.msRequestFullscreen) {
+          await documentElement.msRequestFullscreen();
+        }
+      } else {
+        // Exit fullscreen
+        const documentWithFullscreen = document as Document & {
+          webkitExitFullscreen?: () => Promise<void>;
+          mozCancelFullScreen?: () => Promise<void>;
+          msExitFullscreen?: () => Promise<void>;
+        };
+        
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (documentWithFullscreen.webkitExitFullscreen) {
+          await documentWithFullscreen.webkitExitFullscreen();
+        } else if (documentWithFullscreen.mozCancelFullScreen) {
+          await documentWithFullscreen.mozCancelFullScreen();
+        } else if (documentWithFullscreen.msExitFullscreen) {
+          await documentWithFullscreen.msExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+    }
+  }, [isFullscreen]);
 
   const handleTextFormat = useCallback(
     (updates: Partial<TextElement>) => {
@@ -1425,7 +1501,12 @@ export default function PDFViewer({
         </div>
       </div>
 
-      <FigmaToolbar activeTool={activeTool} onToolChange={setActiveTool} />
+      <FigmaToolbar 
+        activeTool={activeTool} 
+        onToolChange={setActiveTool}
+        onFullscreenToggle={handleFullscreenToggle}
+        isFullscreen={isFullscreen}
+      />
 
       <HighlightColorPicker
         x={selectionDialog.x}
