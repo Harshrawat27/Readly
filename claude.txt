@@ -78,3 +78,16 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
 
 
  - make refresh button on pdf error to get the link directly from aws
+
+
+ - pdf not loading 
+
+ "This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<Error>
+<Code>AccessDenied</Code>
+<Message>Request has expired</Message>
+<X-Amz-Expires>3600</X-Amz-Expires>
+<Expires>2025-08-12T13:40:17Z</Expires>
+<ServerTime>2025-08-12T13:43:55Z</ServerTime>
+<RequestId>5E82AFD40QFSGFTD</RequestId>
+<HostId>ZRyke9PS3uewefb5aH4kvisIez7+RNEm0JxyhrZ58l8XJxvzWT/Nz1YPKQ9x8vly3jLBS2Cy9Gg=</HostId>"
