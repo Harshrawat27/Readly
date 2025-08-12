@@ -9,11 +9,11 @@ interface ResizableDividerProps {
   defaultWidth?: number;
 }
 
-export default function ResizableDivider({ 
-  onResize, 
-  minWidth = 300, 
-  maxWidth = 600, 
-  defaultWidth = 384 
+export default function ResizableDivider({
+  onResize,
+  minWidth = 300,
+  maxWidth = 600,
+  defaultWidth = 384,
 }: ResizableDividerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [width, setWidth] = useState(defaultWidth); // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -26,23 +26,26 @@ export default function ResizableDivider({
     document.body.style.userSelect = 'none';
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
 
-    const container = document.querySelector('.main-layout') as HTMLElement;
-    if (!container) return;
+      const container = document.querySelector('.main-layout') as HTMLElement;
+      if (!container) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const mouseX = e.clientX;
-    const newWidth = containerRect.right - mouseX;
-    
-    const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-    
-    setWidth(clampedWidth);
-    if (onResize) {
-      onResize(clampedWidth);
-    }
-  }, [isDragging, onResize, minWidth, maxWidth]);
+      const containerRect = container.getBoundingClientRect();
+      const mouseX = e.clientX;
+      const newWidth = containerRect.right - mouseX;
+
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+
+      setWidth(clampedWidth);
+      if (onResize) {
+        onResize(clampedWidth);
+      }
+    },
+    [isDragging, onResize, minWidth, maxWidth]
+  );
 
   const handleMouseUp = useCallback(() => {
     if (isDragging) {
@@ -65,25 +68,31 @@ export default function ResizableDivider({
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
-    <div 
+    <div
       ref={dividerRef}
-      className="relative group cursor-col-resize"
+      className='relative group cursor-col-resize'
       onMouseDown={handleMouseDown}
     >
-      <div className={`w-1 h-full bg-[var(--border)] transition-all duration-200 group-hover:w-1.5 group-hover:bg-[var(--accent)] ${
-        isDragging ? 'w-1.5 bg-[var(--accent)]' : ''
-      }`}>
-        <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-8 bg-[var(--card-background)] border border-[var(--border)] rounded-full transition-all duration-200 ${
-          isDragging || 'group-hover:opacity-100 group-hover:border-[var(--accent)] group-hover:bg-[var(--accent)]'
-        } ${
-          isDragging ? 'opacity-100 border-[var(--accent)] bg-[var(--accent)]' : 'opacity-0'
-        }`}>
-          <div className="w-full h-full flex items-center justify-center">
-            <div className={`w-0.5 h-4 rounded transition-colors duration-200 ${
-              isDragging || 'group-hover:bg-white'
-            } ${
-              isDragging ? 'bg-white' : 'bg-[var(--text-muted)]'
-            }`}></div>
+      <div
+        className={`w-px h-full bg-[var(--border)] transition-colors duration-200 group-hover:bg-[var(--accent)] ${
+          isDragging ? 'bg-[var(--accent)]' : ''
+        }`}
+      >
+        <div
+          className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-8 bg-[var(--card-background)] border border-[var(--border)] rounded-full transition-colors duration-200 ${
+            isDragging
+              ? 'border-[var(--accent)] bg-[var(--accent)]'
+              : 'group-hover:border-[var(--accent)] group-hover:bg-[var(--accent)]'
+          }`}
+        >
+          <div className='w-full h-full flex items-center justify-center'>
+            <div
+              className={`w-0.5 h-4 rounded transition-colors duration-200 ${
+                isDragging || 'group-hover:bg-[var(--accent)]'
+              } ${
+                isDragging ? 'bg-[var(--accent)]' : 'bg-[var(--text-muted)]'
+              }`}
+            ></div>
           </div>
         </div>
       </div>

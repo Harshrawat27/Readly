@@ -72,11 +72,19 @@ export default function PDFSidebar({
         ) {
           const cachedPdfs = JSON.parse(cached);
           setPdfHistory(
-            cachedPdfs.map((pdf: { id: string; title: string; fileName: string; uploadedAt: string; lastAccessedAt: string }) => ({
-              ...pdf,
-              uploadedAt: new Date(pdf.uploadedAt),
-              lastAccessedAt: new Date(pdf.lastAccessedAt),
-            }))
+            cachedPdfs.map(
+              (pdf: {
+                id: string;
+                title: string;
+                fileName: string;
+                uploadedAt: string;
+                lastAccessedAt: string;
+              }) => ({
+                ...pdf,
+                uploadedAt: new Date(pdf.uploadedAt),
+                lastAccessedAt: new Date(pdf.lastAccessedAt),
+              })
+            )
           );
           setIsLoadingPdfs(false);
           return;
@@ -90,11 +98,19 @@ export default function PDFSidebar({
           localStorage.setItem(cacheTimeKey, now.toString());
 
           setPdfHistory(
-            pdfs.map((pdf: { id: string; title: string; fileName: string; uploadedAt: string; lastAccessedAt: string }) => ({
-              ...pdf,
-              uploadedAt: new Date(pdf.uploadedAt),
-              lastAccessedAt: new Date(pdf.lastAccessedAt),
-            }))
+            pdfs.map(
+              (pdf: {
+                id: string;
+                title: string;
+                fileName: string;
+                uploadedAt: string;
+                lastAccessedAt: string;
+              }) => ({
+                ...pdf,
+                uploadedAt: new Date(pdf.uploadedAt),
+                lastAccessedAt: new Date(pdf.lastAccessedAt),
+              })
+            )
           );
         }
       } catch (error) {
@@ -145,7 +161,6 @@ export default function PDFSidebar({
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
 
   // Listen for page focus to refresh PDF list when returning from upload
   useEffect(() => {
@@ -308,7 +323,8 @@ export default function PDFSidebar({
     [processPdfFile]
   );
 
-  const formatDate = (date: Date) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+  const formatDate = (date: Date) => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -374,38 +390,56 @@ export default function PDFSidebar({
       {/* Icon Sidebar - Only when collapsed */}
       {isCollapsed && (
         <div className='h-full w-16 bg-[var(--sidebar-bg)] border-r border-[var(--border)] flex flex-col relative z-20'>
-        {/* Header with Logo */}
-        <div className='p-3 border-b border-[var(--border)]'>
-          <button
-            onClick={onToggleSidebar}
-            className='w-8 h-8 bg-[var(--accent)] rounded-md flex items-center justify-center mx-auto hover:opacity-90 transition-opacity'
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <svg
-              className='w-5 h-5 text-white'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
+          {/* Header with Logo */}
+          <div className='p-3 border-b border-[var(--border)]'>
+            <button
+              onClick={onToggleSidebar}
+              className='w-8 h-8 bg-[var(--accent)] rounded-md flex items-center justify-center mx-auto hover:opacity-90 transition-opacity'
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-              <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-            </svg>
-          </button>
-        </div>
+              <svg
+                className='w-5 h-5 text-white'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+              </svg>
+            </button>
+          </div>
 
-        {/* Navigation Icons */}
-        <div className='flex-1 flex flex-col py-4'>
-          {/* New Chat */}
-          <button
-            onClick={handleFileSelect}
-            disabled={isUploading}
-            className='w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-50'
-            title='New PDF'
-          >
-            {isUploading ? (
-              <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
-            ) : (
+          {/* Navigation Icons */}
+          <div className='flex-1 flex flex-col py-4'>
+            {/* New Chat */}
+            <button
+              onClick={handleFileSelect}
+              disabled={isUploading}
+              className='w-10 h-10 mx-3 mb-2 bg-[var(--accent)] text-white rounded-full flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-50'
+              title='New PDF'
+            >
+              {isUploading ? (
+                <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+              ) : (
+                <svg
+                  className='w-5 h-5'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M12 5v14' />
+                  <path d='M5 12h14' />
+                </svg>
+              )}
+            </button>
+
+            {/* PDFs Icon */}
+            <button
+              className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
+              title='PDFs'
+            >
               <svg
                 className='w-5 h-5'
                 viewBox='0 0 24 24'
@@ -413,81 +447,493 @@ export default function PDFSidebar({
                 stroke='currentColor'
                 strokeWidth='2'
               >
-                <path d='M12 5v14' />
-                <path d='M5 12h14' />
+                <path d='M22 11.08V12a10 10 0 1 1-5.93-9.14' />
+                <polyline points='22,4 12,14.01 9,11.01' />
               </svg>
+            </button>
+
+            {/* Projects Icon */}
+            <button
+              className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
+              title='Projects'
+            >
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z' />
+                <path d='M8 5v6' />
+                <path d='M16 5v6' />
+              </svg>
+            </button>
+
+            {/* Artifacts/Settings Icon */}
+            <button
+              className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
+              title='Settings'
+            >
+              <svg
+                className='w-5 h-5'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='12' cy='12' r='3' />
+                <path d='m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0' />
+              </svg>
+            </button>
+          </div>
+
+          {/* User Avatar */}
+          <div
+            className='p-3 border-t border-[var(--border)] relative'
+            ref={dropdownRef}
+          >
+            <button
+              onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+              className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center mx-auto text-white text-sm font-medium hover:opacity-90 transition-opacity'
+              title={userName}
+            >
+              {userName.charAt(0).toUpperCase()}
+            </button>
+
+            {/* User Dropdown for Icon State */}
+            {isUserDropdownOpen && (
+              <div className='absolute bottom-full left-16 mb-2 w-64 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
+                <div className='px-4 py-2 border-b border-[var(--border)]'>
+                  <p className='text-xs text-[var(--text-muted)]'>
+                    user@example.com
+                  </p>
+                  <div className='flex items-center gap-2 mt-1'>
+                    <div className='w-6 h-6 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-xs'>
+                      {userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className='text-sm font-medium text-[var(--text-primary)]'>
+                        Personal
+                      </p>
+                      <p className='text-xs text-[var(--text-muted)]'>
+                        Pro plan
+                      </p>
+                    </div>
+                    <svg
+                      className='w-4 h-4 ml-auto text-blue-500'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
+                      <polyline points='20,6 9,17 4,12' />
+                    </svg>
+                  </div>
+                </div>
+
+                <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
+                  Settings
+                </button>
+
+                <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors flex items-center justify-between'>
+                  Language
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M9 18l6-6-6-6' />
+                  </svg>
+                </button>
+
+                <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
+                  Get help
+                </button>
+
+                <div className='border-t border-[var(--border)] mt-2 pt-2'>
+                  <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
+                    Upgrade plan
+                  </button>
+
+                  <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors flex items-center justify-between'>
+                    Learn more
+                    <svg
+                      className='w-4 h-4'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
+                      <path d='M9 18l6-6-6-6' />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className='border-t border-[var(--border)] mt-2 pt-2'>
+                  <button
+                    onClick={() => {
+                      setIsUserDropdownOpen(false);
+                      onSignOut();
+                    }}
+                    disabled={isSigningOut}
+                    className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors disabled:opacity-50'
+                  >
+                    {isSigningOut ? 'Signing out...' : 'Log out'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Panel - Slides In/Out */}
+      <div
+        className={`h-full w-80 bg-[var(--sidebar-bg)] flex flex-col border-r border-[var(--border)] transform transition-transform duration-300 ${
+          isCollapsed ? '-translate-x-full' : 'translate-x-0'
+        } ${isDragOver ? 'bg-[var(--accent)]/10 border-[var(--accent)]' : ''} ${
+          isUploading ? 'pointer-events-none opacity-75' : ''
+        }`}
+        style={{
+          transitionTimingFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Header with Logo and Title */}
+        <div className='p-4 border-b border-[var(--border)]'>
+          <div className='flex items-center justify-between mb-6'>
+            <div className='flex items-center gap-3'>
+              <div className='w-6 h-6 bg-[var(--accent)] rounded-md flex items-center justify-center'>
+                <svg
+                  className='w-4 h-4 text-white'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+                </svg>
+              </div>
+              <h1 className='text-lg font-medium text-[var(--text-primary)]'>
+                Readly
+              </h1>
+            </div>
+
+            <button
+              onClick={onToggleSidebar}
+              className='p-1 hover:bg-[var(--faded-white)] rounded transition-colors'
+            >
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M15 18l-6-6 6-6' />
+              </svg>
+            </button>
+          </div>
+
+          {/* New Chat Button */}
+          <button
+            onClick={handleFileSelect}
+            disabled={isUploading}
+            className='flex items-center gap-3 mb-4 mt-10 text-accent disabled:opacity-50'
+          >
+            {isUploading ? (
+              <>
+                <div className='rounded-full text-white bg-accent p-1'>
+                  <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+                </div>
+                <strong>{uploadProgress}</strong>
+              </>
+            ) : (
+              <>
+                <div className='rounded-full text-white bg-accent p-1'>
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M12 5v14' />
+                    <path d='M5 12h14' />
+                  </svg>
+                </div>
+                <strong>New PDF</strong>
+              </>
             )}
           </button>
 
-          {/* PDFs Icon */}
-          <button
-            className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
-            title='PDFs'
-          >
-            <svg
-              className='w-5 h-5'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M22 11.08V12a10 10 0 1 1-5.93-9.14' />
-              <polyline points='22,4 12,14.01 9,11.01' />
-            </svg>
-          </button>
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type='file'
+            accept='.pdf'
+            onChange={handleFileChange}
+            className='hidden'
+          />
 
-          {/* Projects Icon */}
-          <button
-            className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
-            title='Projects'
-          >
-            <svg
-              className='w-5 h-5'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z' />
-              <path d='M8 5v6' />
-              <path d='M16 5v6' />
-            </svg>
-          </button>
+          {/* Navigation Sections */}
+          <div className='space-y-1'>
+            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M22 11.08V12a10 10 0 1 1-5.93-9.14' />
+                <polyline points='22,4 12,14.01 9,11.01' />
+              </svg>
+              <span className='text-sm'>Chats</span>
+            </button>
 
-          {/* Artifacts/Settings Icon */}
-          <button
-            className='w-10 h-10 mx-3 mb-2 rounded-lg flex items-center justify-center hover:bg-[var(--faded-white)] transition-colors text-[var(--text-muted)]'
-            title='Settings'
-          >
-            <svg
-              className='w-5 h-5'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <circle cx='12' cy='12' r='3' />
-              <path d='m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0' />
-            </svg>
-          </button>
+            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z' />
+                <path d='M8 5v6' />
+                <path d='M16 5v6' />
+              </svg>
+              <span className='text-sm'>Projects</span>
+            </button>
+
+            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='12' cy='12' r='3' />
+                <path d='m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0' />
+              </svg>
+              <span className='text-sm'>Artifacts</span>
+            </button>
+          </div>
         </div>
 
-        {/* User Avatar */}
+        {/* Recents Section */}
+        <div className='flex-1 overflow-hidden flex flex-col'>
+          <div className='px-4 py-3 border-b border-[var(--border)]'>
+            <h3 className='text-sm font-medium text-[var(--text-muted)]'>
+              Recents
+            </h3>
+          </div>
+
+          <div className='flex-1 overflow-y-auto'>
+            {pdfHistory.length === 0 && !isLoadingPdfs ? (
+              <div className='p-4 text-center'>
+                <p className='text-xs text-[var(--text-muted)]'>No PDFs yet</p>
+              </div>
+            ) : pdfHistory.length > 0 ? (
+              <div className='px-2 py-2'>
+                {pdfHistory.map((pdf) => (
+                  <div
+                    key={pdf.id}
+                    onClick={() => onPdfSelect(pdf.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative cursor-pointer ${
+                      selectedPdfId === pdf.id
+                        ? 'bg-[#0F0F0E] text-white'
+                        : 'hover:bg-[#0F0F0E] text-[var(--text-primary)]'
+                    }`}
+                    onMouseEnter={(e) => {
+                      if (selectedPdfId !== pdf.id) {
+                        const gradientDiv = e.currentTarget.querySelector(
+                          '.gradient-overlay'
+                        ) as HTMLElement;
+                        if (gradientDiv) {
+                          gradientDiv.style.background =
+                            'linear-gradient(to left, #0F0F0E 80%, transparent 100%)';
+                        }
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedPdfId !== pdf.id) {
+                        const gradientDiv = e.currentTarget.querySelector(
+                          '.gradient-overlay'
+                        ) as HTMLElement;
+                        if (gradientDiv) {
+                          gradientDiv.style.background = '';
+                        }
+                      }
+                    }}
+                  >
+                    <div className='flex items-center gap-2'>
+                      <svg
+                        className={`w-3 h-3 flex-shrink-0 ${
+                          selectedPdfId === pdf.id
+                            ? 'text-white'
+                            : 'text-[var(--text-muted)]'
+                        }`}
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                      >
+                        <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
+                        <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
+                      </svg>
+                      <span className='text-sm truncate'>{pdf.title}</span>
+                    </div>
+
+                    {/* Gradient overlay with 3 dots */}
+                    <div
+                      className={`gradient-overlay absolute right-1 top-0 h-full w-16 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
+                        selectedPdfId === pdf.id
+                          ? ''
+                          : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                      style={{
+                        background:
+                          selectedPdfId === pdf.id
+                            ? 'linear-gradient(to left, #0F0F0E 80%, transparent 100%)'
+                            : undefined,
+                      }}
+                    >
+                      <div
+                        className='three-dots p-2 hover:bg-white/10 rounded transition-colors relative cursor-pointer'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDropdownId(
+                            activeDropdownId === pdf.id ? null : pdf.id
+                          );
+                        }}
+                      >
+                        <div className='flex flex-row gap-0.5'>
+                          <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                          <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                          <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
+                        </div>
+
+                        {/* Dropdown Menu */}
+                        {activeDropdownId === pdf.id && (
+                          <div className='pdf-action-dropdown absolute right-0 top-full mt-1 w-48 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(null);
+                                // TODO: Implement star functionality
+                              }}
+                              className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
+                            >
+                              <svg
+                                className='w-4 h-4'
+                                viewBox='0 0 24 24'
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='2'
+                              >
+                                <polygon points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26' />
+                              </svg>
+                              Star
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(null);
+                                setRenameId(pdf.id);
+                                setRenameValue(pdf.title);
+                              }}
+                              className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
+                            >
+                              <svg
+                                className='w-4 h-4'
+                                viewBox='0 0 24 24'
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='2'
+                              >
+                                <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' />
+                                <path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' />
+                              </svg>
+                              Rename
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDropdownId(null);
+                                setDeleteConfirmId(pdf.id);
+                              }}
+                              className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[#E86B6B] hover:bg-[#311E1F] transition-colors flex items-center gap-3'
+                            >
+                              <svg
+                                className='w-4 h-4'
+                                viewBox='0 0 24 24'
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='2'
+                              >
+                                <polyline points='3,6 5,6 21,6' />
+                                <path d='M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2' />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* User Section with Dropdown */}
         <div
-          className='p-3 border-t border-[var(--border)] relative'
+          className='border-t border-[var(--border)] relative'
           ref={dropdownRef}
         >
           <button
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-            className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center mx-auto text-white text-sm font-medium hover:opacity-90 transition-opacity'
-            title={userName}
+            className='w-full p-4 hover:bg-[var(--faded-white)] transition-colors'
           >
-            {userName.charAt(0).toUpperCase()}
+            <div className='flex items-center gap-3'>
+              <div className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-sm font-medium'>
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div className='flex-1 text-left'>
+                <p className='text-sm font-medium text-[var(--text-primary)] truncate'>
+                  {userName}
+                </p>
+                <p className='text-xs text-[var(--text-muted)]'>Pro plan</p>
+              </div>
+              <svg
+                className={`w-4 h-4 transition-transform ${
+                  isUserDropdownOpen ? 'rotate-180' : ''
+                }`}
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <path d='M6 9l6 6 6-6' />
+              </svg>
+            </div>
           </button>
 
-          {/* User Dropdown for Icon State */}
+          {/* User Dropdown */}
           {isUserDropdownOpen && (
-            <div className='absolute bottom-full left-16 mb-2 w-64 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
+            <div className='absolute bottom-full left-4 right-4 mb-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
               <div className='px-4 py-2 border-b border-[var(--border)]'>
                 <p className='text-xs text-[var(--text-muted)]'>
                   user@example.com
@@ -569,443 +1015,15 @@ export default function PDFSidebar({
             </div>
           )}
         </div>
-        </div>
-      )}
-
-      {/* Main Content Panel - Slides In/Out */}
-      <div
-        className={`h-full w-80 bg-[var(--sidebar-bg)] flex flex-col border-r border-[var(--border)] transform transition-transform duration-300 ${
-          isCollapsed ? '-translate-x-full' : 'translate-x-0'
-        } ${isDragOver ? 'bg-[var(--accent)]/10 border-[var(--accent)]' : ''} ${
-          isUploading ? 'pointer-events-none opacity-75' : ''
-        }`}
-        style={{
-          transitionTimingFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-        }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-      {/* Header with Logo and Title */}
-      <div className='p-4 border-b border-[var(--border)]'>
-        <div className='flex items-center justify-between mb-6'>
-          <div className='flex items-center gap-3'>
-            <div className='w-6 h-6 bg-[var(--accent)] rounded-md flex items-center justify-center'>
-              <svg
-                className='w-4 h-4 text-white'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-              </svg>
-            </div>
-            <h1 className='text-lg font-medium text-[var(--text-primary)]'>
-              Readly
-            </h1>
-          </div>
-
-          <button
-            onClick={onToggleSidebar}
-            className='p-1 hover:bg-[var(--faded-white)] rounded transition-colors'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M15 18l-6-6 6-6' />
-            </svg>
-          </button>
-        </div>
-
-        {/* New Chat Button */}
-        <button
-          onClick={handleFileSelect}
-          disabled={isUploading}
-          className='flex items-center gap-3 mb-4 mt-10g text-accent disabled:opacity-50'
-        >
-          {isUploading ? (
-            <>
-              <div className='rounded-full text-white bg-accent p-1'>
-                <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
-              </div>
-              <strong>{uploadProgress}</strong>
-            </>
-          ) : (
-            <>
-              <div className='rounded-full text-white bg-accent p-1'>
-                <svg
-                  className='w-4 h-4'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                >
-                  <path d='M12 5v14' />
-                  <path d='M5 12h14' />
-                </svg>
-              </div>
-              <strong>New PDF</strong>
-            </>
-          )}
-        </button>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type='file'
-          accept='.pdf'
-          onChange={handleFileChange}
-          className='hidden'
-        />
-
-        {/* Navigation Sections */}
-        <div className='space-y-1'>
-          <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M22 11.08V12a10 10 0 1 1-5.93-9.14' />
-              <polyline points='22,4 12,14.01 9,11.01' />
-            </svg>
-            <span className='text-sm'>Chats</span>
-          </button>
-
-          <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z' />
-              <path d='M8 5v6' />
-              <path d='M16 5v6' />
-            </svg>
-            <span className='text-sm'>Projects</span>
-          </button>
-
-          <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <circle cx='12' cy='12' r='3' />
-              <path d='m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0' />
-            </svg>
-            <span className='text-sm'>Artifacts</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Recents Section */}
-      <div className='flex-1 overflow-hidden flex flex-col'>
-        <div className='px-4 py-3 border-b border-[var(--border)]'>
-          <h3 className='text-sm font-medium text-[var(--text-muted)]'>
-            Recents
-          </h3>
-        </div>
-
-        <div className='flex-1 overflow-y-auto'>
-          {pdfHistory.length === 0 && !isLoadingPdfs ? (
-            <div className='p-4 text-center'>
-              <p className='text-xs text-[var(--text-muted)]'>No PDFs yet</p>
-            </div>
-          ) : pdfHistory.length > 0 ? (
-            <div className='px-2 py-2'>
-              {pdfHistory.map((pdf) => (
-                <div
-                  key={pdf.id}
-                  onClick={() => onPdfSelect(pdf.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors group relative cursor-pointer ${
-                    selectedPdfId === pdf.id
-                      ? 'bg-[#0F0F0E] text-white'
-                      : 'hover:bg-[#0F0F0E] text-[var(--text-primary)]'
-                  }`}
-                  onMouseEnter={(e) => {
-                    if (selectedPdfId !== pdf.id) {
-                      const gradientDiv = e.currentTarget.querySelector(
-                        '.gradient-overlay'
-                      ) as HTMLElement;
-                      if (gradientDiv) {
-                        gradientDiv.style.background =
-                          'linear-gradient(to left, #0F0F0E 80%, transparent 100%)';
-                      }
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedPdfId !== pdf.id) {
-                      const gradientDiv = e.currentTarget.querySelector(
-                        '.gradient-overlay'
-                      ) as HTMLElement;
-                      if (gradientDiv) {
-                        gradientDiv.style.background = '';
-                      }
-                    }
-                  }}
-                >
-                  <div className='flex items-center gap-2'>
-                    <svg
-                      className={`w-3 h-3 flex-shrink-0 ${
-                        selectedPdfId === pdf.id
-                          ? 'text-white'
-                          : 'text-[var(--text-muted)]'
-                      }`}
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                    >
-                      <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                      <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-                    </svg>
-                    <span className='text-sm truncate'>{pdf.title}</span>
-                  </div>
-
-                  {/* Gradient overlay with 3 dots */}
-                  <div
-                    className={`gradient-overlay absolute right-1 top-0 h-full w-16 flex flex-row items-center justify-end pr-2 transition-all duration-200 ${
-                      selectedPdfId === pdf.id
-                        ? ''
-                        : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                    style={{
-                      background:
-                        selectedPdfId === pdf.id
-                          ? 'linear-gradient(to left, #0F0F0E 80%, transparent 100%)'
-                          : undefined,
-                    }}
-                  >
-                    <div
-                      className='three-dots p-2 hover:bg-white/10 rounded transition-colors relative cursor-pointer'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveDropdownId(
-                          activeDropdownId === pdf.id ? null : pdf.id
-                        );
-                      }}
-                    >
-                      <div className='flex flex-row gap-0.5'>
-                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                        <div className='w-0.5 h-0.5 bg-white rounded-full'></div>
-                      </div>
-
-                      {/* Dropdown Menu */}
-                      {activeDropdownId === pdf.id && (
-                        <div className='pdf-action-dropdown absolute right-0 top-full mt-1 w-48 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(null);
-                              // TODO: Implement star functionality
-                            }}
-                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
-                          >
-                            <svg
-                              className='w-4 h-4'
-                              viewBox='0 0 24 24'
-                              fill='none'
-                              stroke='currentColor'
-                              strokeWidth='2'
-                            >
-                              <polygon points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26' />
-                            </svg>
-                            Star
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(null);
-                              setRenameId(pdf.id);
-                              setRenameValue(pdf.title);
-                            }}
-                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[#0F0F0E] transition-colors flex items-center gap-3'
-                          >
-                            <svg
-                              className='w-4 h-4'
-                              viewBox='0 0 24 24'
-                              fill='none'
-                              stroke='currentColor'
-                              strokeWidth='2'
-                            >
-                              <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' />
-                              <path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' />
-                            </svg>
-                            Rename
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(null);
-                              setDeleteConfirmId(pdf.id);
-                            }}
-                            className='w-[95%] mx-auto rounded-md px-3 py-2 text-left text-sm text-[#E86B6B] hover:bg-[#311E1F] transition-colors flex items-center gap-3'
-                          >
-                            <svg
-                              className='w-4 h-4'
-                              viewBox='0 0 24 24'
-                              fill='none'
-                              stroke='currentColor'
-                              strokeWidth='2'
-                            >
-                              <polyline points='3,6 5,6 21,6' />
-                              <path d='M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2' />
-                            </svg>
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* User Section with Dropdown */}
-      <div
-        className='border-t border-[var(--border)] relative'
-        ref={dropdownRef}
-      >
-        <button
-          onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-          className='w-full p-4 hover:bg-[var(--faded-white)] transition-colors'
-        >
-          <div className='flex items-center gap-3'>
-            <div className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-sm font-medium'>
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <div className='flex-1 text-left'>
-              <p className='text-sm font-medium text-[var(--text-primary)] truncate'>
-                {userName}
-              </p>
-              <p className='text-xs text-[var(--text-muted)]'>Pro plan</p>
-            </div>
-            <svg
-              className={`w-4 h-4 transition-transform ${
-                isUserDropdownOpen ? 'rotate-180' : ''
-              }`}
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
-            >
-              <path d='M6 9l6 6 6-6' />
-            </svg>
-          </div>
-        </button>
-
-        {/* User Dropdown */}
-        {isUserDropdownOpen && (
-          <div className='absolute bottom-full left-4 right-4 mb-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
-            <div className='px-4 py-2 border-b border-[var(--border)]'>
-              <p className='text-xs text-[var(--text-muted)]'>
-                user@example.com
-              </p>
-              <div className='flex items-center gap-2 mt-1'>
-                <div className='w-6 h-6 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-xs'>
-                  {userName.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className='text-sm font-medium text-[var(--text-primary)]'>
-                    Personal
-                  </p>
-                  <p className='text-xs text-[var(--text-muted)]'>Pro plan</p>
-                </div>
-                <svg
-                  className='w-4 h-4 ml-auto text-blue-500'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                >
-                  <polyline points='20,6 9,17 4,12' />
-                </svg>
-              </div>
-            </div>
-
-            <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
-              Settings
-            </button>
-
-            <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors flex items-center justify-between'>
-              Language
-              <svg
-                className='w-4 h-4'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M9 18l6-6-6-6' />
-              </svg>
-            </button>
-
-            <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
-              Get help
-            </button>
-
-            <div className='border-t border-[var(--border)] mt-2 pt-2'>
-              <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
-                Upgrade plan
-              </button>
-
-              <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors flex items-center justify-between'>
-                Learn more
-                <svg
-                  className='w-4 h-4'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                >
-                  <path d='M9 18l6-6-6-6' />
-                </svg>
-              </button>
-            </div>
-
-            <div className='border-t border-[var(--border)] mt-2 pt-2'>
-              <button
-                onClick={() => {
-                  setIsUserDropdownOpen(false);
-                  onSignOut();
-                }}
-                disabled={isSigningOut}
-                className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors disabled:opacity-50'
-              >
-                {isSigningOut ? 'Signing out...' : 'Log out'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
       </div>
 
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
-        type="file"
-        accept=".pdf"
+        type='file'
+        accept='.pdf'
         onChange={handleFileChange}
-        className="hidden"
+        className='hidden'
       />
 
       {/* Delete Confirmation Popup */}
