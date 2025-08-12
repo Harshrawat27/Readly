@@ -1,11 +1,22 @@
 // components/EnhancedMarkdownRenderer.tsx
 'use client';
 
-import { memo, useState, useEffect, useCallback } from 'react';
-import {
-  markdownProcessor,
-  type ProcessingResult,
-} from '@/utils/UnifiedMarkdownProcessor';
+import { memo, useMemo, useState, createContext, useContext } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import { marked } from 'marked';
+import ShikiHighlighter from 'react-shiki';
+import type { ComponentProps } from 'react';
+import type { ExtraProps } from 'react-markdown';
+import { Check, Copy } from 'lucide-react';
+
+type CodeComponentProps = ComponentProps<'code'> & ExtraProps;
+type MarkdownSize = 'default' | 'small';
+
+// Context to pass size down to components
+const MarkdownSizeContext = createContext<MarkdownSize>('default');
 
 interface EnhancedMarkdownRendererProps {
   markdownText: string;
@@ -18,6 +29,106 @@ interface EnhancedMarkdownRendererProps {
   compact?: boolean;
 }
 
+const components: Components = {
+  code: CodeBlock as Components['code'],
+  pre: ({ children }) => <>{children}</>,
+};
+
+function CodeBlock({ children, className, ...props }: CodeComponentProps) {
+  const size = useContext(MarkdownSizeContext);
+  const match = /language-(\w+)/.exec(className || '');
+
+  if (match) {
+    const lang = match[1];
+    return (
+      <div className='rounded-none my-4'>
+        <Codebar lang={lang} codeString={String(children)} />
+        <div className='max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800'>
+          <ShikiHighlighter
+            language={lang}
+            theme={'material-theme-darker'}
+            className='text-sm font-mono rounded-none'
+            showLanguage={false}
+          >
+            {String(children)}
+          </ShikiHighlighter>
+        </div>
+      </div>
+    );
+  }
+
+  const inlineCodeClasses =
+    size === 'small'
+      ? 'mx-0.5 overflow-auto rounded-md px-1 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-xs'
+      : 'mx-0.5 overflow-auto rounded-md px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono';
+
+  return (
+    <code className={inlineCodeClasses} {...props}>
+      {children}
+    </code>
+  );
+}
+
+function Codebar({ lang, codeString }: { lang: string; codeString: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(codeString);
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy code to clipboard:', error);
+    }
+  };
+
+  return (
+    <div className='flex justify-between items-center px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-t-md border-b border-gray-300 dark:border-gray-600'>
+      <span className='text-sm font-mono font-medium'>{lang}</span>
+      <button
+        onClick={copyToClipboard}
+        className='text-sm cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 p-1 rounded transition-colors'
+        title={copied ? 'Copied!' : 'Copy code'}
+      >
+        {copied ? (
+          <Check className='w-4 h-4 text-green-600 dark:text-green-400' />
+        ) : (
+          <Copy className='w-4 h-4' />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function parseMarkdownIntoBlocks(markdown: string): string[] {
+  const tokens = marked.lexer(markdown);
+  return tokens.map((token) => token.raw);
+}
+
+function PureMarkdownRendererBlock({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, [remarkMath]]}
+      rehypePlugins={[rehypeKatex]}
+      components={components}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+const MarkdownRendererBlock = memo(
+  PureMarkdownRendererBlock,
+  (prevProps, nextProps) => {
+    if (prevProps.content !== nextProps.content) return false;
+    return true;
+  }
+);
+
+MarkdownRendererBlock.displayName = 'MarkdownRendererBlock';
+
 const EnhancedMarkdownRenderer = memo(
   ({
     markdownText,
@@ -26,125 +137,81 @@ const EnhancedMarkdownRenderer = memo(
     className = '',
     compact = false,
   }: EnhancedMarkdownRendererProps) => {
-    const [result, setResult] = useState<ProcessingResult>({
-      html: '',
-      stats: {
-        inlineMath: 0,
-        displayMath: 0,
-        codeBlocks: 0,
-        tables: 0,
-        footnotes: 0,
-        processingTime: 0,
-      },
-      success: true,
-      processor: 'unified',
-    });
-    const [isProcessing, setIsProcessing] = useState(false);
+    const blocks = useMemo(
+      () => parseMarkdownIntoBlocks(markdownText),
+      [markdownText]
+    );
+    const size: MarkdownSize = compact ? 'small' : 'default';
 
-    const processMarkdown = useCallback(async () => {
-      if (!markdownText) {
-        setResult({
-          html: '',
-          stats: {
-            inlineMath: 0,
-            displayMath: 0,
-            codeBlocks: 0,
-            tables: 0,
-            footnotes: 0,
-            processingTime: 0,
-          },
-          success: true,
-          processor: 'unified',
+    // Notify completion
+    useMemo(() => {
+      if (onRenderComplete) {
+        onRenderComplete(true, {
+          codeBlocks: blocks.filter((block) => block.includes('```')).length,
+          processingTime: 0,
         });
-        return;
       }
+    }, [blocks, onRenderComplete]);
 
-      setIsProcessing(true);
-
-      try {
-        const processingResult = await markdownProcessor.processMarkdown(
-          markdownText
-        );
-        setResult(processingResult);
-
-        onRenderComplete?.(processingResult.success, {
-          codeBlocks: processingResult.stats.codeBlocks,
-          processingTime: processingResult.stats.processingTime,
-        });
-      } catch (error) {
-        console.error('Markdown processing failed:', error);
-        setResult({
-          html: markdownText.replace(/\n/g, '<br>'),
-          stats: {
-            inlineMath: 0,
-            displayMath: 0,
-            codeBlocks: 0,
-            tables: 0,
-            footnotes: 0,
-            processingTime: 0,
-          },
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          processor: 'fallback',
-        });
-        onRenderComplete?.(false, { codeBlocks: 0, processingTime: 0 });
-      } finally {
-        setIsProcessing(false);
-      }
-    }, [markdownText, onRenderComplete]);
-
-    useEffect(() => {
-      processMarkdown();
-    }, [processMarkdown]);
+    const proseClasses = compact
+      ? 'prose prose-sm dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none'
+      : 'prose prose-base dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none';
 
     return (
-      <div
-        className={`unified-markdown-content ${className} ${
-          compact ? 'compact-mode' : ''
-        }`}
-        style={
-          {
-            '--font-size': `${fontSize}px`,
-            '--text-color': 'var(--text-primary)',
-            '--heading-color': 'var(--text-primary)',
-            '--accent-color': '#8975EA',
-            '--highlight-bg': 'rgba(201, 99, 66, 0.30)',
-            '--border-color': 'var(--border)',
+      <MarkdownSizeContext.Provider value={size}>
+        <div
+          className={`${proseClasses} ${className}`}
+          style={{
             fontSize: `${fontSize}px`,
-            color: 'var(--text-primary)',
             lineHeight: 1.7,
             wordWrap: 'break-word',
             minWidth: 0,
-            overflow: 'auto',
+            overflow: 'hidden',
             maxWidth: '100%',
             position: 'relative',
-          } as React.CSSProperties
-        }
-      >
-        {/* Processing indicator */}
-        {isProcessing && (
-          <div className='processing-indicator'>
-            <div className='spinner'></div>
-            <span>Processing with unified processor...</span>
-          </div>
-        )}
-
-        {/* Error display */}
-        {result.error && (
-          <div className='error-banner'>
-            <strong>Processing Note:</strong> {result.error}
-          </div>
-        )}
-
-        {/* Rendered content */}
-        <div
-          className='rendered-content'
-          dangerouslySetInnerHTML={{ __html: result.html }}
-        />
+          }}
+        >
+          {blocks.map((block, index) => (
+            <MarkdownRendererBlock
+              content={block}
+              key={`markdown-block-${index}`}
+            />
+          ))}
+        </div>
 
         {/* Enhanced styles for unified processing */}
         <style jsx global>{`
           /* Thin scrollbar for code blocks */
+          .scrollbar-thin::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+
+          .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(156, 163, 175, 0.2);
+            border-radius: 2px;
+          }
+
+          .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.6);
+            border-radius: 2px;
+          }
+
+          .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8);
+          }
+
+          .dark .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(75, 85, 99, 0.3);
+          }
+
+          .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+          }
+
+          .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+          }
 
           .unified-markdown-content {
             font-family: var(--font-geist-sans), -apple-system,
@@ -400,10 +467,6 @@ const EnhancedMarkdownRenderer = memo(
           .rendered-content .katex-display {
             margin: 1.5rem 0;
             text-align: center;
-            display: flex;
-            // overflow-x: auto;
-            // overflow-y: visible;
-            // max-width: 100%;
           }
 
           /* Blockquotes */
@@ -487,7 +550,7 @@ const EnhancedMarkdownRenderer = memo(
           .rendered-content .hljs-type,
           .rendered-content .hljs-name,
           .rendered-content .hljs-strong {
-            color: #c96342 !important;
+            color: #8975ea !important;
             font-weight: bold;
           }
 
@@ -551,8 +614,7 @@ const EnhancedMarkdownRenderer = memo(
 
           /* Compact mode for chat messages */
           .unified-markdown-content.compact-mode .processing-indicator,
-          .unified-markdown-content.compact-mode .processing-stats,
-          .unified-markdown-content.compact-mode .error-banner {
+          .unified-markdown-content.compact-mode .processing-stats {
             display: none; /* Hide processing info in chat */
           }
 
@@ -608,10 +670,6 @@ const EnhancedMarkdownRenderer = memo(
             .rendered-content
             .katex-display {
             margin: 1rem 0;
-            width: auto;
-            // overflow-x: auto;
-            // overflow-y: visible;
-            // max-width: 100%;
           }
           .rendered-content a:focus,
           .rendered-content button:focus {
@@ -684,7 +742,7 @@ const EnhancedMarkdownRenderer = memo(
             color: var(--accent-color, #8975ea) !important;
           }
         `}</style>
-      </div>
+      </MarkdownSizeContext.Provider>
     );
   }
 );
