@@ -538,31 +538,59 @@ export default function PDFViewer({
     [pdfFile]
   );
 
+  // Queue for navigation attempts before PDF is loaded
+  const [pendingNavigation, setPendingNavigation] = useState<number | null>(
+    null
+  );
+
   // Handle citation clicks - navigate to specific page
   const handleCitationClick = useCallback(
     (targetPage: number) => {
-      if (!numPages || targetPage < 1 || targetPage > numPages) return;
+      console.log('handleCitationClick called for page:', targetPage);
+
+      // If PDF isn't loaded yet, queue the navigation
+      if (!numPages) {
+        console.log(
+          'PDF not loaded yet, queuing navigation to page:',
+          targetPage
+        );
+        setPendingNavigation(targetPage);
+        return;
+      }
+
+      if (targetPage < 1 || targetPage > numPages) {
+        console.log('Invalid page range:', { targetPage, numPages });
+        return;
+      }
 
       const scrollContainer = scrollContainerRef.current;
-      if (!scrollContainer) return;
+      if (!scrollContainer) {
+        console.log('No scroll container found');
+        return;
+      }
 
       // Scroll to the target page within the container
       const targetElement = scrollContainer.querySelector(
         `[data-page-number="${targetPage}"]`
       );
 
+      console.log('Target element found:', !!targetElement);
+
       if (targetElement) {
+        console.log('Scrolling to existing element for page:', targetPage);
         // Calculate scroll position relative to container
         const containerRect = scrollContainer.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
         const scrollTop =
           scrollContainer.scrollTop + elementRect.top - containerRect.top - 20; // 20px offset from top
 
+        console.log('Scroll position calculated:', scrollTop);
         scrollContainer.scrollTo({
           top: scrollTop,
           behavior: 'smooth',
         });
       } else {
+        console.log('Page not rendered, adding to visible pages:', targetPage);
         // If page isn't rendered yet, update visible pages and then scroll
         setVisiblePages((prev) => {
           const newSet = new Set(prev);
@@ -574,6 +602,7 @@ export default function PDFViewer({
           ) {
             newSet.add(i);
           }
+          console.log('Updated visible pages:', Array.from(newSet));
           return newSet;
         });
 
@@ -582,6 +611,7 @@ export default function PDFViewer({
           const element = scrollContainer.querySelector(
             `[data-page-number="${targetPage}"]`
           );
+          console.log('After timeout, element found:', !!element);
           if (element) {
             const containerRect = scrollContainer.getBoundingClientRect();
             const elementRect = element.getBoundingClientRect();
@@ -591,10 +621,13 @@ export default function PDFViewer({
               containerRect.top -
               20;
 
+            console.log('Delayed scroll position:', scrollTop);
             scrollContainer.scrollTo({
               top: scrollTop,
               behavior: 'smooth',
             });
+          } else {
+            console.log('Element still not found after timeout');
           }
         }, 200); // Increased timeout to ensure page renders
       }
@@ -603,6 +636,15 @@ export default function PDFViewer({
     },
     [numPages]
   );
+
+  // Handle pending navigation after PDF loads
+  useEffect(() => {
+    if (numPages && pendingNavigation) {
+      console.log('Processing pending navigation to page:', pendingNavigation);
+      handleCitationClick(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  }, [numPages, pendingNavigation, handleCitationClick]);
 
   // Add global citation click handler
   useEffect(() => {
@@ -624,38 +666,67 @@ export default function PDFViewer({
       document.removeEventListener('click', handleGlobalCitationClick);
   }, [handleCitationClick]);
 
-  const handleLinkClick = useCallback((event: Event) => {
-    const target = event.target as HTMLElement;
-    const link = target.closest('a[href]') as HTMLAnchorElement;
+  const handleLinkClick = useCallback(
+    (event: Event) => {
+      const target = event.target as HTMLElement;
+      const link = target.closest('a[href]') as HTMLAnchorElement;
 
-    if (!link) return;
+      if (!link) return;
 
-    const href = link.getAttribute('href');
-    if (!href) return;
+      const href = link.getAttribute('href');
+      if (!href) return;
 
-    // Skip internal PDF citations - let onItemClick handle them
-    // Internal citations often have href like "#page=12" or similar
-    if (
-      href.startsWith('#') ||
-      href.startsWith('javascript:') ||
-      href.includes('page=')
-    ) {
-      return; // Let onItemClick handle internal navigation
-    }
-
-    try {
-      const currentDomain = window.location.hostname;
-      const url = new URL(href, window.location.origin);
-
-      if (url.hostname !== currentDomain) {
-        event.preventDefault();
-        window.open(href, '_blank', 'noopener,noreferrer');
+      // Completely ignore hash links - let PDF.js handle them
+      if (href.startsWith('#')) {
+        return;
       }
-    } catch (error) {
-      // If URL parsing fails, it might be an internal link - don't handle it
-      console.log('Link parsing error (likely internal link):', error);
-    }
-  }, []);
+
+      // Handle javascript: links for internal navigation
+      if (href.startsWith('javascript:')) {
+        event.preventDefault();
+
+        // Extract page number from javascript calls like "javascript:this.print({bUI:true,bSilent:false,bShrinkToFit:true}); gotoPage(12);"
+        const pageMatch =
+          href.match(/gotoPage\s*\(\s*(\d+)\s*\)/i) ||
+          href.match(/page[=\s]*(\d+)/i) ||
+          href.match(/(\d+)/);
+
+        if (pageMatch) {
+          const pageNumber = parseInt(pageMatch[1]);
+          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+            handleCitationClick(pageNumber);
+          }
+        }
+        return;
+      }
+
+      // Handle external links
+      try {
+        const currentDomain = window.location.hostname;
+        const url = new URL(href, window.location.origin);
+
+        if (url.hostname !== currentDomain) {
+          event.preventDefault();
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      } catch (error) {
+        // If URL parsing fails, it might be an internal link - try to extract page number
+        console.log(
+          'Link parsing error, attempting internal navigation:',
+          error
+        );
+        const pageMatch = href.match(/(\d+)/);
+        if (pageMatch) {
+          const pageNumber = parseInt(pageMatch[0]);
+          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+            event.preventDefault();
+            handleCitationClick(pageNumber);
+          }
+        }
+      }
+    },
+    [handleCitationClick, numPages]
+  );
 
   // Add PDF text layer link handler
   useEffect(() => {
@@ -664,6 +735,14 @@ export default function PDFViewer({
 
     // Handle clicks on PDF text layer links
     const handlePDFLinkClick = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a[href]') as HTMLAnchorElement;
+
+      // Skip hash links entirely - let PDF.js handle them
+      if (link && link.getAttribute('href')?.startsWith('#')) {
+        return;
+      }
+
       handleLinkClick(e);
     };
 
@@ -1447,8 +1526,11 @@ export default function PDFViewer({
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 onItemClick={({ pageNumber, dest }) => {
+                  console.log('PDF onItemClick called:', { pageNumber, dest });
+
                   // Handle internal page navigation
                   if (pageNumber) {
+                    console.log('Navigating to page:', pageNumber);
                     handleCitationClick(pageNumber);
                     return;
                   }
@@ -1461,9 +1543,12 @@ export default function PDFViewer({
                   ) {
                     const pageNum = dest.pageNumber;
                     if (typeof pageNum === 'number') {
+                      console.log('Navigating to dest page:', pageNum);
                       handleCitationClick(pageNum);
                     }
                   }
+
+                  console.log('onItemClick could not determine page number');
                 }}
                 loading={
                   <div className='text-center py-8'>
