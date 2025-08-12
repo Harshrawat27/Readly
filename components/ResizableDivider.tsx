@@ -16,8 +16,20 @@ export default function ResizableDivider({
   defaultWidth = 384,
 }: ResizableDividerProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [width, setWidth] = useState(defaultWidth); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [width, setWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar-width');
+      return saved ? Math.max(minWidth, Math.min(maxWidth, parseInt(saved))) : defaultWidth;
+    }
+    return defaultWidth;
+  });
   const dividerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (onResize) {
+      onResize(width);
+    }
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,6 +52,7 @@ export default function ResizableDivider({
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
 
       setWidth(clampedWidth);
+      localStorage.setItem('sidebar-width', clampedWidth.toString());
       if (onResize) {
         onResize(clampedWidth);
       }
