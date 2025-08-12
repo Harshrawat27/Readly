@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface PDFSidebarProps {
@@ -22,7 +22,7 @@ interface PDFItem {
   lastAccessedAt: Date;
 }
 
-export default function PDFSidebar({
+const PDFSidebar = ({
   onPdfSelect,
   selectedPdfId,
   userId,
@@ -31,7 +31,7 @@ export default function PDFSidebar({
   userName,
   onToggleSidebar,
   isCollapsed,
-}: PDFSidebarProps) {
+}: PDFSidebarProps) => {
   const router = useRouter();
   const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([]);
   const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
@@ -50,81 +50,40 @@ export default function PDFSidebar({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load PDFs from API with caching
-  const loadPdfs = useCallback(
-    async (forceRefresh = false) => {
+  // Load PDFs only once on mount - no caching, no refreshing
+  useEffect(() => {
+    const loadInitialPdfs = async () => {
       try {
         setIsLoadingPdfs(true);
-
-        // Check cache first (cache for 5 minutes)
-        const cacheKey = `pdf-list-${userId}`;
-        const cacheTimeKey = `pdf-list-time-${userId}`;
-        const cached = localStorage.getItem(cacheKey);
-        const cacheTime = localStorage.getItem(cacheTimeKey);
-        const now = Date.now();
-        const cacheMaxAge = 5 * 60 * 1000; // 5 minutes
-
-        if (
-          !forceRefresh &&
-          cached &&
-          cacheTime &&
-          now - parseInt(cacheTime) < cacheMaxAge
-        ) {
-          const cachedPdfs = JSON.parse(cached);
-          setPdfHistory(
-            cachedPdfs.map(
-              (pdf: {
-                id: string;
-                title: string;
-                fileName: string;
-                uploadedAt: string;
-                lastAccessedAt: string;
-              }) => ({
-                ...pdf,
-                uploadedAt: new Date(pdf.uploadedAt),
-                lastAccessedAt: new Date(pdf.lastAccessedAt),
-              })
-            )
-          );
-          setIsLoadingPdfs(false);
-          return;
-        }
-
         const response = await fetch('/api/pdf/list');
         if (response.ok) {
           const pdfs = await response.json();
-          // Cache the response
-          localStorage.setItem(cacheKey, JSON.stringify(pdfs));
-          localStorage.setItem(cacheTimeKey, now.toString());
-
-          setPdfHistory(
-            pdfs.map(
-              (pdf: {
-                id: string;
-                title: string;
-                fileName: string;
-                uploadedAt: string;
-                lastAccessedAt: string;
-              }) => ({
-                ...pdf,
-                uploadedAt: new Date(pdf.uploadedAt),
-                lastAccessedAt: new Date(pdf.lastAccessedAt),
-              })
-            )
+          const processedPdfs = pdfs.map(
+            (pdf: {
+              id: string;
+              title: string;
+              fileName: string;
+              uploadedAt: string;
+              lastAccessedAt: string;
+            }) => ({
+              ...pdf,
+              uploadedAt: new Date(pdf.uploadedAt),
+              lastAccessedAt: new Date(pdf.lastAccessedAt),
+            })
           );
+          setPdfHistory(processedPdfs);
         }
       } catch (error) {
         console.error('Error loading PDFs:', error);
       } finally {
         setIsLoadingPdfs(false);
       }
-    },
-    [userId]
-  );
+    };
 
-  useEffect(() => {
-    loadPdfs();
-  }, [loadPdfs]);
+    loadInitialPdfs();
+  }, []); // Only run once on mount, never again
+
+  // No scrolling needed since list doesn't refresh
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -162,37 +121,7 @@ export default function PDFSidebar({
     }
   }, [toast]);
 
-  // Listen for page focus to refresh PDF list when returning from upload
-  useEffect(() => {
-    const handleFocus = () => {
-      // Only refresh if we might have uploaded a new PDF
-      const lastUploadNavigation = localStorage.getItem(
-        'last-upload-navigation'
-      );
-      if (lastUploadNavigation) {
-        const timeSinceUpload = Date.now() - parseInt(lastUploadNavigation);
-        // If less than 30 minutes since upload navigation, refresh the list
-        if (timeSinceUpload < 30 * 60 * 1000) {
-          loadPdfs(true); // Force refresh
-          localStorage.removeItem('last-upload-navigation');
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        handleFocus();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [loadPdfs]);
+  // Removed automatic refresh on focus/visibility change
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -243,14 +172,26 @@ export default function PDFSidebar({
         const result = await response.json();
         setUploadProgress('Upload successful!');
 
-        // Clear cache and refresh PDF list
-        const cacheKey = `pdf-list-${userId}`;
-        const cacheTimeKey = `pdf-list-time-${userId}`;
-        localStorage.removeItem(cacheKey);
-        localStorage.removeItem(cacheTimeKey);
+        // Add the new PDF to the history
+        setPdfHistory((prev) => [
+          ...prev,
+          {
+            id: result.id,
+            title: file.name, // Use file name as title
+            fileName: file.name,
+            uploadedAt: new Date(),
+            lastAccessedAt: new Date(),
+          },
+        ]);
 
-        // Refresh the PDF list
-        await loadPdfs(true);
+        // Sort by last accessed for the sidebar
+        setPdfHistory((prev) =>
+          [...prev].sort(
+            (a, b) =>
+              new Date(b.lastAccessedAt).getTime() -
+              new Date(a.lastAccessedAt).getTime()
+          )
+        );
 
         // Show success toast
         setToast({
@@ -280,7 +221,7 @@ export default function PDFSidebar({
         setIsUploading(false);
       }
     },
-    [userId, loadPdfs, onPdfSelect, router]
+    [userId, onPdfSelect, router]
   );
 
   const handleFileSelect = useCallback(() => {
@@ -361,12 +302,6 @@ export default function PDFSidebar({
       if (!response.ok) {
         throw new Error('Failed to rename');
       }
-
-      // Clear localStorage cache to ensure fresh data on page refresh
-      const cacheKey = `pdf-list-${userId}`;
-      const cacheTimeKey = `pdf-list-time-${userId}`;
-      localStorage.removeItem(cacheKey);
-      localStorage.removeItem(cacheTimeKey);
     } catch (error) {
       console.error('Error renaming PDF:', error);
 
@@ -1070,12 +1005,6 @@ export default function PDFSidebar({
                     if (!response.ok) {
                       throw new Error('Failed to delete');
                     }
-
-                    // Clear localStorage cache to ensure fresh data on page refresh
-                    const cacheKey = `pdf-list-${userId}`;
-                    const cacheTimeKey = `pdf-list-time-${userId}`;
-                    localStorage.removeItem(cacheKey);
-                    localStorage.removeItem(cacheTimeKey);
                   } catch (error) {
                     console.error('Error deleting PDF:', error);
 
@@ -1216,4 +1145,7 @@ export default function PDFSidebar({
       )}
     </div>
   );
-}
+};
+
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(PDFSidebar);

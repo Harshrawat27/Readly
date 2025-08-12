@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import PDFSidebar from '@/components/PDFSidebar';
@@ -48,9 +48,15 @@ const PDFLayout = memo(function PDFLayout({
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
+  const [currentPdfId, setCurrentPdfId] = useState(pdfId);
 
   // Use service worker for PDF caching
   const { clearPDFCache } = usePDFServiceWorker();
+
+  // Sync currentPdfId with pdfId prop when it changes (for direct URL access)
+  useEffect(() => {
+    setCurrentPdfId(pdfId);
+  }, [pdfId]);
 
   // Enhanced sign out with cache clearing
   const handleSignOut = useCallback(async () => {
@@ -58,6 +64,13 @@ const PDFLayout = memo(function PDFLayout({
     sessionStorage.clear();
     await onSignOut();
   }, [onSignOut, clearPDFCache]);
+
+  // Handle PDF selection
+  const handlePdfSelect = useCallback((id: string) => {
+    setCurrentPdfId(id);
+    // Update URL without navigation/remounting
+    window.history.replaceState(null, '', `/pdf/${id}`);
+  }, []);
 
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
@@ -70,8 +83,8 @@ const PDFLayout = memo(function PDFLayout({
           }`}
         >
           <PDFSidebar
-            onPdfSelect={(id) => router.push(`/pdf/${id}`)}
-            selectedPdfId={pdfId}
+            onPdfSelect={handlePdfSelect}
+            selectedPdfId={currentPdfId}
             userId={session.user.id}
             onSignOut={handleSignOut}
             isSigningOut={isSigningOut}
@@ -89,7 +102,7 @@ const PDFLayout = memo(function PDFLayout({
           style={{ minWidth: '400px' }}
         >
           <PDFViewer
-            pdfId={pdfId}
+            pdfId={currentPdfId}
             onTextSelect={onTextSelect}
             selectedText={selectedText}
             currentUser={{
@@ -118,7 +131,7 @@ const PDFLayout = memo(function PDFLayout({
           }}
         >
           <ChatPanel
-            pdfId={pdfId}
+            pdfId={currentPdfId}
             selectedText={selectedText}
             onTextSubmit={onTextSubmit}
           />
