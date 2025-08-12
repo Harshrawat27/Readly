@@ -6,6 +6,8 @@ import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
 import TextSystem, { TextElement } from './TextSystem';
 import HighlightColorPicker from './HighlightColorPicker';
+import PenTool from './PenTool';
+import PenToolbar from './PenToolbar';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components
@@ -1619,6 +1621,22 @@ export default function PDFViewer({
                               />
                             )}
 
+                            {/* Pen Tool Overlay - Always visible */}
+                            <PenTool
+                              isActive={activeTool === 'pen'}
+                              pdfId={pdfId || ''}
+                              pageNumber={pageNumber}
+                              showDrawings={true}
+                              containerRef={
+                                pageRefs.current.get(pageNumber)
+                                  ? {
+                                      current:
+                                        pageRefs.current.get(pageNumber)!,
+                                    }
+                                  : { current: null }
+                              }
+                            />
+
                             {/* Highlight Overlay */}
                             {getHighlightsForPage(pageNumber).map(
                               (highlight) => (
@@ -1683,6 +1701,9 @@ export default function PDFViewer({
         onFullscreenToggle={handleFullscreenToggle}
         isFullscreen={isFullscreen}
       />
+
+      {/* Pen Tool Controls */}
+      {activeTool === 'pen' && <PenToolbar />}
 
       <HighlightColorPicker
         x={selectionDialog.x}

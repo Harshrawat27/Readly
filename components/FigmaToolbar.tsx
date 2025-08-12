@@ -13,13 +13,12 @@ export type ToolType =
   | 'polygon'
   | 'star'
   | 'pen'
-  | 'pencil'
   | 'text'
   | 'comment'
   | 'annotation'
   | 'measurement';
 
-export type ToolGroup = 'move' | 'shapes' | 'creation' | 'text' | 'comment';
+export type ToolGroup = 'move' | 'shapes' | 'text' | 'comment';
 
 interface FigmaToolbarProps {
   activeTool: ToolType;
@@ -81,10 +80,7 @@ export default function FigmaToolbar({
     { id: 'star', name: 'Star', icon: <StarIcon /> },
   ];
 
-  const creationTools: DropdownItem[] = [
-    { id: 'pen', name: 'Pen', icon: <PenIcon />, shortcut: 'P' },
-    { id: 'pencil', name: 'Pencil', icon: <PencilIcon />, shortcut: '↑P' },
-  ];
+  // Remove creation tools dropdown - pen is now standalone
 
   const commentTools: DropdownItem[] = [
     { id: 'comment', name: 'Comment', icon: <CommentIcon />, shortcut: 'C' },
@@ -110,10 +106,6 @@ export default function FigmaToolbar({
         return (
           shapeTools.find((tool) => tool.id === activeTool)?.id || 'rectangle'
         );
-      case 'creation':
-        return (
-          creationTools.find((tool) => tool.id === activeTool)?.id || 'pen'
-        );
       case 'comment':
         return (
           commentTools.find((tool) => tool.id === activeTool)?.id || 'comment'
@@ -128,7 +120,6 @@ export default function FigmaToolbar({
     const allTools = [
       ...moveTools,
       ...shapeTools,
-      ...creationTools,
       ...commentTools,
     ];
     return allTools.find((tool) => tool.id === currentTool)?.icon;
@@ -140,8 +131,6 @@ export default function FigmaToolbar({
         return moveTools.some((tool) => tool.id === activeTool);
       case 'shapes':
         return shapeTools.some((tool) => tool.id === activeTool);
-      case 'creation':
-        return creationTools.some((tool) => tool.id === activeTool);
       case 'comment':
         return commentTools.some((tool) => tool.id === activeTool);
       default:
@@ -292,52 +281,26 @@ export default function FigmaToolbar({
           )}
         </div>
 
-        {/* Creation/Drawing Tools */}
-        <div className='relative flex items-center'>
-          {/* Icon Button - Direct tool use */}
-          <button
-            onClick={() => handleToolClick(getCurrentTool('creation'))}
-            onMouseEnter={() => setHoveredTool('creation-icon')}
-            onMouseLeave={() => setHoveredTool(null)}
-            className={`px-2 py-2 rounded-lg transition-all duration-200 ${
-              isToolInGroup('creation')
-                ? 'bg-[var(--accent)] text-white'
-                : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <div className='w-5 h-5 flex items-center justify-center'>
-              {getCurrentToolIcon('creation')}
-            </div>
-          </button>
-
-          {/* Arrow Button - Dropdown toggle */}
-          <button
-            onClick={() => handleDropdownToggle('creation')}
-            onMouseEnter={() => setHoveredTool('creation-arrow')}
-            onMouseLeave={() => setHoveredTool(null)}
-            className='px-1 py-2 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
-          >
-            <ChevronIcon />
-          </button>
-
-          {renderDropdown(creationTools, 'creation')}
-
-          {/* Tooltips */}
-          {hoveredTool === 'creation-icon' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 left-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
-              {
-                creationTools.find(
-                  (tool) => tool.id === getCurrentTool('creation')
-                )?.name
-              }
+        {/* Pen Tool (standalone) */}
+        <button
+          onClick={() => handleToolClick('pen')}
+          onMouseEnter={() => setHoveredTool('pen')}
+          onMouseLeave={() => setHoveredTool(null)}
+          className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${
+            activeTool === 'pen'
+              ? 'bg-[var(--accent)] text-white'
+              : 'text-[var(--text-primary)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <div className='w-5 h-5 flex items-center justify-center'>
+            <PenIcon />
+          </div>
+          {hoveredTool === 'pen' && (
+            <div className='absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
+              Pen Tool
             </div>
           )}
-          {hoveredTool === 'creation-arrow' && !openDropdown && (
-            <div className='absolute bottom-full mb-2 right-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap shadow-lg'>
-              Drawing tools
-            </div>
-          )}
-        </div>
+        </button>
 
         {/* Text Tool (standalone) */}
         <button
@@ -531,18 +494,6 @@ const PenIcon = () => (
   </svg>
 );
 
-const PencilIcon = () => (
-  <svg
-    viewBox='0 0 24 24'
-    fill='none'
-    stroke='currentColor'
-    strokeWidth='2'
-    className='w-full h-full'
-  >
-    <path d='M12 19l7-7 3 3-7 7-3-3z' />
-    <path d='M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z' />
-  </svg>
-);
 
 const TextIcon = () => (
   <svg

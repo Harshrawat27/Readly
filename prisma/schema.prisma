@@ -105,6 +105,7 @@ model PDF {
   textElements   TextElement[]
   highlights     Highlight[]
   chunks         PDFChunk[]
+  penDrawings    PenDrawing[]
 
   @@map("pdf")
 }
@@ -220,6 +221,19 @@ model Highlight {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("highlight")
+}
+
+model PenDrawing {
+  id         String   @id @default(cuid())
+  pdfId      String
+  pageNumber Int
+  strokes    Json     // Store array of drawing strokes as JSON
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+
+  @@unique([pdfId, pageNumber], name: "pdfId_pageNumber")
+  @@map("pen_drawing")
 }
 
 model Subscription {
