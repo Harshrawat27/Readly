@@ -74,3 +74,7 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
   281 |         score += matches;
   282 |         matchedWords++;
  POST /api/chat 500 in 4847ms
+
+
+
+ - make refresh button on pdf error to get the link directly from aws
