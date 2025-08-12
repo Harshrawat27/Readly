@@ -43,7 +43,7 @@ function CodeBlock({ children, className, ...props }: CodeComponentProps) {
     return (
       <div className='rounded-none my-4'>
         <Codebar lang={lang} codeString={String(children)} />
-        <div className='max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800'>
+        <div className='overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800'>
           <ShikiHighlighter
             language={lang}
             theme={'material-theme-darker'}

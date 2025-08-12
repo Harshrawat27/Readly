@@ -84,7 +84,7 @@ export default function PDFViewer({
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
-  
+
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -143,119 +143,153 @@ export default function PDFViewer({
   // Helper function to consolidate overlapping rectangles
   const consolidateRects = (rects: DOMRect[]): DOMRect[] => {
     if (rects.length === 0) return [];
-    
+
     // First pass: Filter out obviously invalid rectangles
-    const filteredRects = rects.filter(rect => {
+    const filteredRects = rects.filter((rect) => {
       // Remove zero/negative size rectangles
       if (rect.width <= 0 || rect.height <= 0) return false;
-      
+
       // Remove extremely large rectangles (likely invalid)
-      if (rect.width > window.innerWidth || rect.height > window.innerHeight) return false;
-      
+      if (rect.width > window.innerWidth || rect.height > window.innerHeight)
+        return false;
+
       // Remove rectangles with invalid coordinates
       if (rect.left < -1000 || rect.top < -1000) return false;
-      
+
       return true;
     });
-    
-    console.log(`  Pre-filtered ${rects.length} rects down to ${filteredRects.length} potentially valid rects`);
-    
+
+    console.log(
+      `  Pre-filtered ${rects.length} rects down to ${filteredRects.length} potentially valid rects`
+    );
+
     // Sort rects by position (top-left to bottom-right)
     const sortedRects = [...filteredRects].sort((a, b) => {
-      if (Math.abs(a.top - b.top) < 5) { // Same line
+      if (Math.abs(a.top - b.top) < 5) {
+        // Same line
         return a.left - b.left;
       }
       return a.top - b.top;
     });
-    
+
     const consolidated: DOMRect[] = [];
     let current = sortedRects[0];
-    
+
     for (let i = 1; i < sortedRects.length; i++) {
       const rect = sortedRects[i];
-      
+
       // Check if rectangles are close enough to merge (same line, close horizontally)
       const sameLineThreshold = 5; // pixels
       const horizontalGapThreshold = 10; // pixels
-      
+
       const onSameLine = Math.abs(current.top - rect.top) <= sameLineThreshold;
-      const closeHorizontally = (rect.left - (current.left + current.width)) <= horizontalGapThreshold;
+      const closeHorizontally =
+        rect.left - (current.left + current.width) <= horizontalGapThreshold;
       const similarHeight = Math.abs(current.height - rect.height) <= 5;
-      
+
       if (onSameLine && closeHorizontally && similarHeight) {
         // Merge rectangles
-        const newWidth = (rect.left + rect.width) - current.left;
-        current = new DOMRect(current.left, current.top, newWidth, current.height);
+        const newWidth = rect.left + rect.width - current.left;
+        current = new DOMRect(
+          current.left,
+          current.top,
+          newWidth,
+          current.height
+        );
       } else {
         // Start new rectangle
         consolidated.push(current);
         current = rect;
       }
     }
-    
+
     consolidated.push(current);
     return consolidated;
   };
 
   const handleHighlight = useCallback(
     async (color: string, text: string) => {
-      console.log('handleHighlight called with:', { color, text, pdfId, hasSelectionData: !!currentSelectionData });
-      
+      console.log('handleHighlight called with:', {
+        color,
+        text,
+        pdfId,
+        hasSelectionData: !!currentSelectionData,
+      });
+
       if (!pdfId || !currentSelectionData) {
-        console.log('Early return: missing pdfId or currentSelectionData', { pdfId, currentSelectionData });
+        console.log('Early return: missing pdfId or currentSelectionData', {
+          pdfId,
+          currentSelectionData,
+        });
         return;
       }
 
       const selectionData = currentSelectionData;
-      
+
       console.log('Selection data:', {
         text: selectionData.text,
         rectsLength: selectionData.rects.length,
         hasRange: !!selectionData.range,
-        hasPageContainer: !!selectionData.pageContainer
+        hasPageContainer: !!selectionData.pageContainer,
       });
-      
+
       // Smart cross-page detection: find which page each rectangle belongs to
-      const rectsByPage = new Map<number, { rects: DOMRect[], pageElement: Element }>();
-      
+      const rectsByPage = new Map<
+        number,
+        { rects: DOMRect[]; pageElement: Element }
+      >();
+
       // Get all page elements currently visible
-      const allPageElements = Array.from(document.querySelectorAll('[data-page-number]'));
+      const allPageElements = Array.from(
+        document.querySelectorAll('[data-page-number]')
+      );
       console.log('Found page elements:', allPageElements.length);
-      
+
       for (let i = 0; i < selectionData.rects.length; i++) {
         const rect = selectionData.rects[i];
         if (rect.width > 0 && rect.height > 0) {
           // Find which page this rect belongs to by checking overlap with page boundaries
           let bestMatch = null;
           let bestOverlap = 0;
-          
+
           for (const pageElement of allPageElements) {
             const pageRect = pageElement.getBoundingClientRect();
-            
+
             // Calculate overlap between selection rect and page rect
             const overlapLeft = Math.max(rect.left, pageRect.left);
             const overlapRight = Math.min(rect.right, pageRect.right);
             const overlapTop = Math.max(rect.top, pageRect.top);
             const overlapBottom = Math.min(rect.bottom, pageRect.bottom);
-            
+
             if (overlapLeft < overlapRight && overlapTop < overlapBottom) {
-              const overlapArea = (overlapRight - overlapLeft) * (overlapBottom - overlapTop);
+              const overlapArea =
+                (overlapRight - overlapLeft) * (overlapBottom - overlapTop);
               const rectArea = rect.width * rect.height;
               const overlapPercentage = overlapArea / rectArea;
-              
+
               if (overlapPercentage > bestOverlap) {
                 bestOverlap = overlapPercentage;
                 bestMatch = pageElement;
               }
             }
           }
-          
-          if (bestMatch && bestOverlap > 0.1) { // At least 10% overlap
-            const pageNumber = parseInt(bestMatch.getAttribute('data-page-number') || '1');
-            console.log(`Rect ${i} assigned to page ${pageNumber} (overlap: ${(bestOverlap * 100).toFixed(1)}%)`);
-            
+
+          if (bestMatch && bestOverlap > 0.1) {
+            // At least 10% overlap
+            const pageNumber = parseInt(
+              bestMatch.getAttribute('data-page-number') || '1'
+            );
+            console.log(
+              `Rect ${i} assigned to page ${pageNumber} (overlap: ${(
+                bestOverlap * 100
+              ).toFixed(1)}%)`
+            );
+
             if (!rectsByPage.has(pageNumber)) {
-              rectsByPage.set(pageNumber, { rects: [], pageElement: bestMatch });
+              rectsByPage.set(pageNumber, {
+                rects: [],
+                pageElement: bestMatch,
+              });
             }
             rectsByPage.get(pageNumber)!.rects.push(rect);
           } else {
@@ -264,11 +298,14 @@ export default function PDFViewer({
         }
       }
 
-      console.log('Rects by page:', Array.from(rectsByPage.entries()).map(([pageNum, data]) => ({
-        pageNumber: pageNum,
-        rectsCount: data.rects.length,
-        hasPageElement: !!data.pageElement
-      })));
+      console.log(
+        'Rects by page:',
+        Array.from(rectsByPage.entries()).map(([pageNum, data]) => ({
+          pageNumber: pageNum,
+          rectsCount: data.rects.length,
+          hasPageElement: !!data.pageElement,
+        }))
+      );
 
       // Create highlights for each page
       const highlights: Array<{
@@ -279,9 +316,13 @@ export default function PDFViewer({
         rects: Array<{ x: number; y: number; width: number; height: number }>;
         pageNumber: number;
       }> = [];
-      
-      console.log('About to process', rectsByPage.size, 'pages for highlighting');
-      
+
+      console.log(
+        'About to process',
+        rectsByPage.size,
+        'pages for highlighting'
+      );
+
       for (const [pageNumber, { rects, pageElement }] of rectsByPage) {
         // Try to find the actual PDF canvas within the page element for more accurate coordinates
         const pdfCanvas = pageElement.querySelector('canvas') || pageElement;
@@ -291,47 +332,72 @@ export default function PDFViewer({
         console.log(`Processing page ${pageNumber}:`, {
           pageElementType: pageElement.tagName,
           usingCanvas: pdfCanvas !== pageElement,
-          pageRect: { x: pageRect.left, y: pageRect.top, width: pageRect.width, height: pageRect.height },
-          rectsCount: rects.length
+          pageRect: {
+            x: pageRect.left,
+            y: pageRect.top,
+            width: pageRect.width,
+            height: pageRect.height,
+          },
+          rectsCount: rects.length,
         });
 
         // Consolidate overlapping rectangles to reduce rectangle count and avoid coverage issues
         const consolidatedRects = consolidateRects(rects);
-        console.log(`  Consolidated ${rects.length} rects into ${consolidatedRects.length} rects`);
+        console.log(
+          `  Consolidated ${rects.length} rects into ${consolidatedRects.length} rects`
+        );
 
         // Filter out invalid rectangles that are too large (likely covering entire page)
         const maxReasonableWidth = pageRect.width * 0.8; // Max 80% of page width
         const maxReasonableHeight = pageRect.height * 0.3; // Max 30% of page height
         const minReasonableSize = 5; // Minimum 5px
 
-        const validRects = consolidatedRects.filter(rect => {
+        const validRects = consolidatedRects.filter((rect) => {
           // Check size limits
-          const sizeValid = rect.width > minReasonableSize && 
-                           rect.height > minReasonableSize && 
-                           rect.width < maxReasonableWidth && 
-                           rect.height < maxReasonableHeight;
-          
+          const sizeValid =
+            rect.width > minReasonableSize &&
+            rect.height > minReasonableSize &&
+            rect.width < maxReasonableWidth &&
+            rect.height < maxReasonableHeight;
+
           // Check if rectangle is within page boundaries
-          const boundsValid = rect.left >= pageRect.left - 10 && 
-                             rect.top >= pageRect.top - 10 &&
-                             rect.right <= pageRect.right + 10 && 
-                             rect.bottom <= pageRect.bottom + 10;
-          
+          const boundsValid =
+            rect.left >= pageRect.left - 10 &&
+            rect.top >= pageRect.top - 10 &&
+            rect.right <= pageRect.right + 10 &&
+            rect.bottom <= pageRect.bottom + 10;
+
           return sizeValid && boundsValid;
         });
 
-        console.log(`  Filtered ${consolidatedRects.length} rects down to ${validRects.length} valid rects`);
+        console.log(
+          `  Filtered ${consolidatedRects.length} rects down to ${validRects.length} valid rects`
+        );
 
         for (const rect of validRects) {
-          const relativeX = ((rect.left - pageRect.left) / pageRect.width) * 100;
+          const relativeX =
+            ((rect.left - pageRect.left) / pageRect.width) * 100;
           const relativeY = ((rect.top - pageRect.top) / pageRect.height) * 100;
           const relativeWidth = (rect.width / pageRect.width) * 100;
           const relativeHeight = (rect.height / pageRect.height) * 100;
 
           // Strict validation: reject rectangles with invalid coordinates
-          if (relativeX < -5 || relativeX > 105 || relativeY < -5 || relativeY > 105 || 
-              relativeWidth <= 0 || relativeWidth > 105 || relativeHeight <= 0 || relativeHeight > 105) {
-            console.warn(`  Skipping invalid rect:`, { relativeX, relativeY, relativeWidth, relativeHeight });
+          if (
+            relativeX < -5 ||
+            relativeX > 105 ||
+            relativeY < -5 ||
+            relativeY > 105 ||
+            relativeWidth <= 0 ||
+            relativeWidth > 105 ||
+            relativeHeight <= 0 ||
+            relativeHeight > 105
+          ) {
+            console.warn(`  Skipping invalid rect:`, {
+              relativeX,
+              relativeY,
+              relativeWidth,
+              relativeHeight,
+            });
             continue;
           }
 
@@ -383,8 +449,10 @@ export default function PDFViewer({
       } catch (error) {
         console.error('Failed to save highlight:', error);
         // Remove all highlights if save failed
-        const highlightIds = highlights.map(h => h.id);
-        setHighlights((prev) => prev.filter((h) => !highlightIds.includes(String(h.id))));
+        const highlightIds = highlights.map((h) => h.id);
+        setHighlights((prev) =>
+          prev.filter((h) => !highlightIds.includes(String(h.id)))
+        );
       }
     },
     [pdfId, currentSelectionData]
@@ -400,69 +468,75 @@ export default function PDFViewer({
   );
 
   // Auto-extract text in background
-  const autoExtractTextInBackground = useCallback(async (pdfId: string, numPages: number) => {
-    try {
-      // First check if already extracted
-      const checkResponse = await fetch(`/api/pdf/${pdfId}/extract`);
-      if (checkResponse.ok) {
-        const checkData = await checkResponse.json();
-        if (checkData.textExtracted) {
-          return; // Already extracted
-        }
-      }
-
-      // Get PDF document for text extraction
-      const reactPdf = await import('react-pdf');
-      const pdfjs = reactPdf.pdfjs;
-      
-      if (!pdfFile) return;
-
-      const loadingTask = pdfjs.getDocument(pdfFile);
-      const pdfDocument = await loadingTask.promise;
-
-      // Extract text from all pages
-      const pages: Array<{pageNumber: number; content: string}> = [];
-      
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        try {
-          const page = await pdfDocument.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          
-          const pageText = textContent.items
-            .map((item) => ('str' in item ? item.str : '') || '')
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          if (pageText) {
-            pages.push({
-              pageNumber: pageNum,
-              content: pageText,
-            });
+  const autoExtractTextInBackground = useCallback(
+    async (pdfId: string, numPages: number) => {
+      try {
+        // First check if already extracted
+        const checkResponse = await fetch(`/api/pdf/${pdfId}/extract`);
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.textExtracted) {
+            return; // Already extracted
           }
-        } catch (pageError) {
-          console.error(`Error extracting text from page ${pageNum}:`, pageError);
         }
-      }
 
-      // Send to extraction API
-      if (pages.length > 0) {
-        const response = await fetch(`/api/pdf/${pdfId}/extract`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ pages }),
-        });
+        // Get PDF document for text extraction
+        const reactPdf = await import('react-pdf');
+        const pdfjs = reactPdf.pdfjs;
 
-        if (response.ok) {
-          console.log('PDF text extracted successfully in background');
+        if (!pdfFile) return;
+
+        const loadingTask = pdfjs.getDocument(pdfFile);
+        const pdfDocument = await loadingTask.promise;
+
+        // Extract text from all pages
+        const pages: Array<{ pageNumber: number; content: string }> = [];
+
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          try {
+            const page = await pdfDocument.getPage(pageNum);
+            const textContent = await page.getTextContent();
+
+            const pageText = textContent.items
+              .map((item) => ('str' in item ? item.str : '') || '')
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            if (pageText) {
+              pages.push({
+                pageNumber: pageNum,
+                content: pageText,
+              });
+            }
+          } catch (pageError) {
+            console.error(
+              `Error extracting text from page ${pageNum}:`,
+              pageError
+            );
+          }
         }
+
+        // Send to extraction API
+        if (pages.length > 0) {
+          const response = await fetch(`/api/pdf/${pdfId}/extract`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ pages }),
+          });
+
+          if (response.ok) {
+            console.log('PDF text extracted successfully in background');
+          }
+        }
+      } catch (error) {
+        console.error('Background text extraction failed:', error);
       }
-    } catch (error) {
-      console.error('Background text extraction failed:', error);
-    }
-  }, [pdfFile]);
+    },
+    [pdfFile]
+  );
 
   // Handle citation clicks - navigate to specific page
   const handleCitationClick = useCallback(
@@ -857,7 +931,7 @@ export default function PDFViewer({
         mozFullScreenElement?: Element;
         msFullscreenElement?: Element;
       };
-      
+
       const isCurrentlyFullscreen = !!(
         document.fullscreenElement ||
         documentWithFullscreen.webkitFullscreenElement ||
@@ -874,9 +948,18 @@ export default function PDFViewer({
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        'mozfullscreenchange',
+        handleFullscreenChange
+      );
+      document.removeEventListener(
+        'MSFullscreenChange',
+        handleFullscreenChange
+      );
     };
   }, []);
 
@@ -1040,7 +1123,7 @@ export default function PDFViewer({
           mozRequestFullScreen?: () => Promise<void>;
           msRequestFullscreen?: () => Promise<void>;
         };
-        
+
         if (documentElement.requestFullscreen) {
           await documentElement.requestFullscreen();
         } else if (documentElement.webkitRequestFullscreen) {
@@ -1057,7 +1140,7 @@ export default function PDFViewer({
           mozCancelFullScreen?: () => Promise<void>;
           msExitFullscreen?: () => Promise<void>;
         };
-        
+
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else if (documentWithFullscreen.webkitExitFullscreen) {
@@ -1457,7 +1540,15 @@ export default function PDFViewer({
                                 <div key={String(highlight.id)}>
                                   {Array.isArray(highlight.rects) &&
                                     highlight.rects.map(
-                                      (rect: { x: number; y: number; width: number; height: number }, rectIndex: number) => (
+                                      (
+                                        rect: {
+                                          x: number;
+                                          y: number;
+                                          width: number;
+                                          height: number;
+                                        },
+                                        rectIndex: number
+                                      ) => (
                                         <div
                                           key={`${highlight.id}-${rectIndex}`}
                                           className='absolute pointer-events-none'
@@ -1501,8 +1592,8 @@ export default function PDFViewer({
         </div>
       </div>
 
-      <FigmaToolbar 
-        activeTool={activeTool} 
+      <FigmaToolbar
+        activeTool={activeTool}
         onToolChange={setActiveTool}
         onFullscreenToggle={handleFullscreenToggle}
         isFullscreen={isFullscreen}
