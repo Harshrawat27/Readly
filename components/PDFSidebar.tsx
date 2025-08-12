@@ -323,14 +323,14 @@ export default function PDFSidebar({
     [processPdfFile]
   );
 
-  const formatDate = (date: Date) => {
-    // eslint-disable-line @typescript-eslint/no-unused-vars
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  // const formatDate = (date: Date) => {
+  //   // eslint-disable-line @typescript-eslint/no-unused-vars
+  //   return date.toLocaleDateString('en-US', {
+  //     month: 'short',
+  //     day: 'numeric',
+  //     year: 'numeric',
+  //   });
+  // };
 
   const handleRename = async () => {
     if (!renameId || !renameValue.trim()) return;
