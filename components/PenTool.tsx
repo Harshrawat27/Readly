@@ -16,6 +16,10 @@ interface Point {
   pressure?: number;
 }
 
+interface TouchWithForce extends Touch {
+  force: number;
+}
+
 interface Stroke {
   id: string;
   points: Point[];
@@ -24,27 +28,27 @@ interface Stroke {
   timestamp: number;
 }
 
-interface PenDrawing {
-  id: string;
-  pdfId: string;
-  pageNumber: number;
-  strokes: Stroke[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+// interface PenDrawing {
+//   id: string;
+//   pdfId: string;
+//   pageNumber: number;
+//   strokes: Stroke[];
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
 
 // Global pen settings that persist across all pen tools
 let globalPenSettings = {
   brushWidth: 3,
-  brushColor: '#000000'
+  brushColor: '#000000',
 };
 
-const PenTool: React.FC<PenToolProps> = ({ 
-  isActive, 
+const PenTool: React.FC<PenToolProps> = ({
+  isActive,
   pdfId,
   pageNumber,
   containerRef,
-  showDrawings = true
+  showDrawings = true,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -60,24 +64,30 @@ const PenTool: React.FC<PenToolProps> = ({
   useEffect(() => {
     const handleSettingsChange = (event: CustomEvent) => {
       const { brushWidth, brushColor } = event.detail;
-      setPenSettings(prev => {
+      setPenSettings((prev) => {
         const newSettings = {
           ...prev,
           ...(brushWidth !== undefined && { brushWidth }),
-          ...(brushColor !== undefined && { brushColor })
+          ...(brushColor !== undefined && { brushColor }),
         };
-        
+
         // Update global settings
         globalPenSettings = newSettings;
-        
+
         return newSettings;
       });
     };
 
-    window.addEventListener('penSettingsChange', handleSettingsChange as EventListener);
-    
+    window.addEventListener(
+      'penSettingsChange',
+      handleSettingsChange as EventListener
+    );
+
     return () => {
-      window.removeEventListener('penSettingsChange', handleSettingsChange as EventListener);
+      window.removeEventListener(
+        'penSettingsChange',
+        handleSettingsChange as EventListener
+      );
     };
   }, []);
 
@@ -97,30 +107,30 @@ const PenTool: React.FC<PenToolProps> = ({
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    
+
     if (!canvas || !container) return;
 
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    
+
     // Set actual size in memory (scaled for high DPI)
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    
+
     // Scale the canvas back down using CSS
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
-    
+
     const ctx = getContext();
     if (ctx) {
       // Scale the drawing context so everything draws at high DPI
       ctx.scale(dpr, dpr);
-      
+
       // Enable better line rendering
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
     }
-    
+
     // Redraw all strokes after setup
     redrawCanvas();
   }, [containerRef, getContext]);
@@ -132,23 +142,23 @@ const PenTool: React.FC<PenToolProps> = ({
 
     // Clear canvas
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    
+
     // Draw all strokes
-    strokes.forEach(stroke => {
+    strokes.forEach((stroke) => {
       if (stroke.points.length < 2) return;
-      
+
       ctx.strokeStyle = stroke.color;
       ctx.lineWidth = stroke.width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      
+
       ctx.beginPath();
       ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      
+
       for (let i = 1; i < stroke.points.length; i++) {
         ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
       }
-      
+
       ctx.stroke();
     });
   }, [strokes, getContext]);
@@ -156,10 +166,12 @@ const PenTool: React.FC<PenToolProps> = ({
   // Load drawings from database
   const loadDrawings = useCallback(async () => {
     if (!pdfId || !pageNumber) return;
-    
+
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/pen-drawings?pdfId=${pdfId}&pageNumber=${pageNumber}`);
+      const response = await fetch(
+        `/api/pen-drawings?pdfId=${pdfId}&pageNumber=${pageNumber}`
+      );
       if (response.ok) {
         const drawing = await response.json();
         if (drawing && drawing.strokes) {
@@ -174,31 +186,34 @@ const PenTool: React.FC<PenToolProps> = ({
   }, [pdfId, pageNumber]);
 
   // Save drawings to database with debouncing
-  const saveDrawings = useCallback(async (strokesToSave: Stroke[]) => {
-    if (!pdfId || !pageNumber) return;
-    
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    // Set up debounced save
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await fetch('/api/pen-drawings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pdfId,
-            pageNumber,
-            strokes: strokesToSave
-          })
-        });
-      } catch (error) {
-        console.error('Failed to save pen drawings:', error);
+  const saveDrawings = useCallback(
+    async (strokesToSave: Stroke[]) => {
+      if (!pdfId || !pageNumber) return;
+
+      // Clear existing timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    }, 500); // 500ms debounce
-  }, [pdfId, pageNumber]);
+
+      // Set up debounced save
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await fetch('/api/pen-drawings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pdfId,
+              pageNumber,
+              strokes: strokesToSave,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to save pen drawings:', error);
+        }
+      }, 500); // 500ms debounce
+    },
+    [pdfId, pageNumber]
+  );
 
   // Load drawings when component mounts or page changes
   useEffect(() => {
@@ -215,130 +230,139 @@ const PenTool: React.FC<PenToolProps> = ({
   // Handle window resize
   useEffect(() => {
     if (!showDrawings) return;
-    
+
     const handleResize = () => setupCanvas();
     window.addEventListener('resize', handleResize);
-    
+
     return () => window.removeEventListener('resize', handleResize);
   }, [showDrawings, setupCanvas]);
 
   // Get coordinates relative to canvas
-  const getCanvasCoordinates = useCallback((e: MouseEvent | TouchEvent): Point => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+  const getCanvasCoordinates = useCallback(
+    (e: MouseEvent | TouchEvent): Point => {
+      const canvas = canvasRef.current;
+      if (!canvas) return { x: 0, y: 0 };
 
-    const rect = canvas.getBoundingClientRect();
-    
-    if ('touches' in e) {
-      const touch = e.touches[0] || e.changedTouches[0];
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top,
-        pressure: (touch as any).force || 0.5
-      };
-    } else {
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        pressure: 0.5
-      };
-    }
-  }, []);
+      const rect = canvas.getBoundingClientRect();
+
+      if ('touches' in e) {
+        const touch = e.touches[0] || e.changedTouches[0];
+        return {
+          x: touch.clientX - rect.left,
+          y: touch.clientY - rect.top,
+          pressure: (touch as TouchWithForce).force || 0.5,
+        };
+      } else {
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+          pressure: 0.5,
+        };
+      }
+    },
+    []
+  );
 
   // Start drawing
-  const startDrawing = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isActive || !canvasRef.current) return;
-    
-    e.preventDefault();
-    const point = getCanvasCoordinates(e);
-    
-    setIsDrawing(true);
-    setCurrentStroke([point]);
-  }, [isActive, getCanvasCoordinates]);
+  const startDrawing = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      if (!isActive || !canvasRef.current) return;
+
+      e.preventDefault();
+      const point = getCanvasCoordinates(e);
+
+      setIsDrawing(true);
+      setCurrentStroke([point]);
+    },
+    [isActive, getCanvasCoordinates]
+  );
 
   // Continue drawing
-  const draw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDrawing || !isActive) return;
-    
-    e.preventDefault();
-    const point = getCanvasCoordinates(e);
-    const ctx = getContext();
-    
-    if (!ctx) return;
+  const draw = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      if (!isDrawing || !isActive) return;
 
-    setCurrentStroke(prev => {
-      const newStroke = [...prev, point];
-      
-      // Draw the line segment
-      if (newStroke.length >= 2) {
-        const prevPoint = newStroke[newStroke.length - 2];
-        
-        ctx.strokeStyle = penSettings.brushColor;
-        ctx.lineWidth = penSettings.brushWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(prevPoint.x, prevPoint.y);
-        ctx.lineTo(point.x, point.y);
-        ctx.stroke();
-      }
-      
-      return newStroke;
-    });
-  }, [isDrawing, isActive, getCanvasCoordinates, getContext, penSettings]);
+      e.preventDefault();
+      const point = getCanvasCoordinates(e);
+      const ctx = getContext();
+
+      if (!ctx) return;
+
+      setCurrentStroke((prev) => {
+        const newStroke = [...prev, point];
+
+        // Draw the line segment
+        if (newStroke.length >= 2) {
+          const prevPoint = newStroke[newStroke.length - 2];
+
+          ctx.strokeStyle = penSettings.brushColor;
+          ctx.lineWidth = penSettings.brushWidth;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          ctx.beginPath();
+          ctx.moveTo(prevPoint.x, prevPoint.y);
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+        }
+
+        return newStroke;
+      });
+    },
+    [isDrawing, isActive, getCanvasCoordinates, getContext, penSettings]
+  );
 
   // End drawing
   const endDrawing = useCallback(() => {
     if (!isDrawing) return;
-    
+
     setIsDrawing(false);
-    
+
     if (currentStroke.length > 1) {
       const newStroke: Stroke = {
         id: Date.now().toString(),
         points: currentStroke,
         width: penSettings.brushWidth,
         color: penSettings.brushColor,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
-      
-      setStrokes(prev => {
+
+      setStrokes((prev) => {
         const newStrokes = [...prev, newStroke];
         // Save to database
         saveDrawings(newStrokes);
-        
+
         // Force a redraw after stroke completion to ensure visibility
         setTimeout(() => {
           const ctx = getContext();
           if (ctx) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            
+
             // Redraw all strokes including the new one
-            newStrokes.forEach(stroke => {
+            newStrokes.forEach((stroke) => {
               if (stroke.points.length < 2) return;
-              
+
               ctx.strokeStyle = stroke.color;
               ctx.lineWidth = stroke.width;
               ctx.lineCap = 'round';
               ctx.lineJoin = 'round';
-              
+
               ctx.beginPath();
               ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-              
+
               for (let i = 1; i < stroke.points.length; i++) {
                 ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
               }
-              
+
               ctx.stroke();
             });
           }
         }, 10); // Small delay to ensure state update
-        
+
         return newStrokes;
       });
     }
-    
+
     setCurrentStroke([]);
   }, [isDrawing, currentStroke, penSettings, saveDrawings]);
 
@@ -385,7 +409,7 @@ const PenTool: React.FC<PenToolProps> = ({
     const newStrokes: Stroke[] = [];
     setStrokes(newStrokes);
     saveDrawings(newStrokes);
-    
+
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -394,7 +418,7 @@ const PenTool: React.FC<PenToolProps> = ({
 
   // Undo last stroke
   const undoStroke = useCallback(() => {
-    setStrokes(prev => {
+    setStrokes((prev) => {
       const newStrokes = prev.slice(0, -1);
       saveDrawings(newStrokes);
       return newStrokes;
@@ -408,7 +432,7 @@ const PenTool: React.FC<PenToolProps> = ({
 
     window.addEventListener('penUndo', handleUndo);
     window.addEventListener('penClear', handleClear);
-    
+
     return () => {
       window.removeEventListener('penUndo', handleUndo);
       window.removeEventListener('penClear', handleClear);
@@ -421,7 +445,10 @@ const PenTool: React.FC<PenToolProps> = ({
 
     const handleKeyPress = (e: KeyboardEvent) => {
       // Only handle if pen tool is active and not typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
         return;
       }
 
@@ -429,16 +456,20 @@ const PenTool: React.FC<PenToolProps> = ({
         case '[':
           e.preventDefault();
           const newWidthDown = Math.max(1, penSettings.brushWidth - 1);
-          window.dispatchEvent(new CustomEvent('penSettingsChange', {
-            detail: { brushWidth: newWidthDown }
-          }));
+          window.dispatchEvent(
+            new CustomEvent('penSettingsChange', {
+              detail: { brushWidth: newWidthDown },
+            })
+          );
           break;
         case ']':
           e.preventDefault();
           const newWidthUp = Math.min(50, penSettings.brushWidth + 1);
-          window.dispatchEvent(new CustomEvent('penSettingsChange', {
-            detail: { brushWidth: newWidthUp }
-          }));
+          window.dispatchEvent(
+            new CustomEvent('penSettingsChange', {
+              detail: { brushWidth: newWidthUp },
+            })
+          );
           break;
         case 'z':
           if (e.ctrlKey || e.metaKey) {
@@ -469,13 +500,16 @@ const PenTool: React.FC<PenToolProps> = ({
       {/* Drawing Canvas */}
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 z-10 ${isActive ? 'pointer-events-auto cursor-crosshair' : 'pointer-events-none'}`}
-        style={{ 
+        className={`absolute inset-0 z-10 ${
+          isActive
+            ? 'pointer-events-auto cursor-crosshair'
+            : 'pointer-events-none'
+        }`}
+        style={{
           touchAction: isActive ? 'none' : 'auto',
-          userSelect: 'none'
+          userSelect: 'none',
         }}
       />
-
     </>
   );
 };
