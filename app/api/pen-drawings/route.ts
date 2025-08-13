@@ -72,13 +72,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate strokes structure
-    const validStrokes = strokes.every((stroke: any) =>
-      stroke &&
-      typeof stroke.id === 'string' &&
-      Array.isArray(stroke.points) &&
-      typeof stroke.width === 'number' &&
-      typeof stroke.color === 'string' &&
-      typeof stroke.timestamp === 'number'
+    const validStrokes = strokes.every(
+      (stroke: Stroke) =>
+        stroke &&
+        typeof stroke.id === 'string' &&
+        Array.isArray(stroke.points) &&
+        typeof stroke.width === 'number' &&
+        typeof stroke.color === 'string' &&
+        typeof stroke.timestamp === 'number'
     );
 
     if (!validStrokes) {
