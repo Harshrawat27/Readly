@@ -66,6 +66,7 @@ export default function PDFViewer({
   const scale = externalScale || internalScale;
   const [error, setError] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<string | null>(null);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [selectionDialog, setSelectionDialog] = useState<TextSelectionDialog>({
     x: 0,
     y: 0,
@@ -952,6 +953,7 @@ export default function PDFViewer({
     if (pdfId) {
       const loadPdf = async () => {
         try {
+          setIsLoadingPdf(true);
           setError(null);
           setIsInitialLoad(true);
 
@@ -965,6 +967,7 @@ export default function PDFViewer({
               // 1 hour cache
               setPdfFile(data.url);
               setCurrentPage(1);
+              setIsLoadingPdf(false);
               setIsInitialLoad(false);
               return;
             }
@@ -986,11 +989,13 @@ export default function PDFViewer({
 
           setPdfFile(pdfData.url);
           setCurrentPage(1);
+          setIsLoadingPdf(false);
           setIsInitialLoad(false);
         } catch (error) {
           console.error('Error loading PDF:', error);
           setError('Failed to load PDF file');
           setPdfFile('/sample.pdf');
+          setIsLoadingPdf(false);
           setIsInitialLoad(false);
         }
       };
@@ -1001,6 +1006,7 @@ export default function PDFViewer({
       setNumPages(null);
       setCurrentPage(1);
       setVisiblePages(new Set([1]));
+      setIsLoadingPdf(false);
     }
   }, [pdfId]);
 
@@ -1520,7 +1526,15 @@ export default function PDFViewer({
         className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)] pdf-scroll-container'
       >
         <div className='p-4 min-w-fit'>
-          {pdfFile && (
+          {isLoadingPdf && (
+            <div className='h-full flex items-center justify-center'>
+              <div className='text-center space-y-4'>
+                <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)] mx-auto'></div>
+                <p className='text-[var(--text-muted)] text-lg'>Loading PDF...</p>
+              </div>
+            </div>
+          )}
+          {pdfFile && !isLoadingPdf && (
             <div className='flex flex-col items-center space-y-4'>
               <Document
                 key={`${pdfFile}-${pdfId}`}
