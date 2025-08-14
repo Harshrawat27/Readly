@@ -8,6 +8,7 @@ import TextSystem, { TextElement } from './TextSystem';
 import HighlightColorPicker from './HighlightColorPicker';
 import PenTool from './PenTool';
 import PenToolbar from './PenToolbar';
+import MindMap from './MindMap';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components
@@ -100,6 +101,9 @@ export default function PDFViewer({
   const [highlights, setHighlights] = useState<Array<Record<string, unknown>>>(
     []
   );
+
+  // Mind Map state
+  const [showMindMap, setShowMindMap] = useState(false);
 
   // Load highlights
   useEffect(() => {
@@ -1345,6 +1349,29 @@ export default function PDFViewer({
           <span className='text-sm text-[var(--text-primary)]'>
             {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
           </span>
+          
+          {/* Mind Mapping Button */}
+          <button
+            onClick={() => setShowMindMap(true)}
+            className='px-4 py-2 bg-[var(--accent)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
+            title='Generate Mind Map'
+          >
+            <svg
+              className='w-4 h-4'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <circle cx='12' cy='12' r='3' />
+              <path d='M12 1v6m0 6v6' />
+              <path d='m21 12-6-3v6z' />
+              <path d='m3 12 6-3v6z' />
+              <path d='m12 22-3-6h6z' />
+              <path d='m12 2-3 6h6z' />
+            </svg>
+            Mind Mapping
+          </button>
         </div>
 
         <div className='flex items-center gap-4'>
@@ -1731,6 +1758,14 @@ export default function PDFViewer({
           setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
         }}
       />
+
+      {/* Mind Map Modal */}
+      {showMindMap && pdfId && (
+        <MindMap
+          pdfId={pdfId}
+          onClose={() => setShowMindMap(false)}
+        />
+      )}
     </div>
   );
 }

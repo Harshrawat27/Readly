@@ -30,6 +30,7 @@
     "react-shiki": "^0.7.2",
     "react-virtualized-auto-sizer": "^1.0.26",
     "react-window": "^1.8.11",
+    "reactflow": "^11.11.4",
     "rehype-katex": "^7.0.1",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",
