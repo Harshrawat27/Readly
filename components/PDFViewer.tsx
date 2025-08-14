@@ -10,6 +10,7 @@ import PenTool from './PenTool';
 import PenToolbar from './PenToolbar';
 import MindMap from './MindMap';
 import FlashCards from './FlashCards';
+import MCQs from './MCQs';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components
@@ -108,6 +109,9 @@ export default function PDFViewer({
 
   // Flash Cards state
   const [showFlashCards, setShowFlashCards] = useState(false);
+
+  // MCQs state
+  const [showMCQs, setShowMCQs] = useState(false);
 
   // Load highlights
   useEffect(() => {
@@ -1396,6 +1400,26 @@ export default function PDFViewer({
             </svg>
             Flash Cards
           </button>
+
+          {/* MCQs Button */}
+          <button
+            onClick={() => setShowMCQs(true)}
+            className='px-4 py-2 bg-[var(--secondary)] text-[var(--text-primary)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
+            title='Generate MCQ Quiz'
+          >
+            <svg
+              className='w-4 h-4'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <circle cx='12' cy='12' r='10' />
+              <path d='9,9h6v6h-6z' />
+              <path d='m9,1 l6,0' />
+            </svg>
+            MCQ Quiz
+          </button>
         </div>
 
         <div className='flex items-center gap-4'>
@@ -1796,6 +1820,14 @@ export default function PDFViewer({
         <FlashCards
           pdfId={pdfId}
           onClose={() => setShowFlashCards(false)}
+        />
+      )}
+
+      {/* MCQs Modal */}
+      {showMCQs && pdfId && (
+        <MCQs
+          pdfId={pdfId}
+          onClose={() => setShowMCQs(false)}
         />
       )}
     </div>
