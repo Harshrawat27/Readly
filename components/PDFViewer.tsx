@@ -9,6 +9,7 @@ import HighlightColorPicker from './HighlightColorPicker';
 import PenTool from './PenTool';
 import PenToolbar from './PenToolbar';
 import MindMap from './MindMap';
+import FlashCards from './FlashCards';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components
@@ -104,6 +105,9 @@ export default function PDFViewer({
 
   // Mind Map state
   const [showMindMap, setShowMindMap] = useState(false);
+
+  // Flash Cards state
+  const [showFlashCards, setShowFlashCards] = useState(false);
 
   // Load highlights
   useEffect(() => {
@@ -1372,6 +1376,26 @@ export default function PDFViewer({
             </svg>
             Mind Mapping
           </button>
+
+          {/* Flash Cards Button */}
+          <button
+            onClick={() => setShowFlashCards(true)}
+            className='px-4 py-2 bg-[var(--button-primary)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
+            title='Generate Flash Cards'
+          >
+            <svg
+              className='w-4 h-4'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <rect x='2' y='3' width='20' height='14' rx='2' ry='2'/>
+              <line x1='8' y1='21' x2='16' y2='21'/>
+              <line x1='12' y1='17' x2='12' y2='21'/>
+            </svg>
+            Flash Cards
+          </button>
         </div>
 
         <div className='flex items-center gap-4'>
@@ -1764,6 +1788,14 @@ export default function PDFViewer({
         <MindMap
           pdfId={pdfId}
           onClose={() => setShowMindMap(false)}
+        />
+      )}
+
+      {/* Flash Cards Modal */}
+      {showFlashCards && pdfId && (
+        <FlashCards
+          pdfId={pdfId}
+          onClose={() => setShowFlashCards(false)}
         />
       )}
     </div>
