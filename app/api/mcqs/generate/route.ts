@@ -118,7 +118,7 @@ Generate ${quantity} MCQs now:`;
       mcqs = JSON.parse(jsonString);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', responseText);
-      throw new Error('Invalid response format from AI');
+      throw new Error(`Invalid response format from AI ${parseError}`);
     }
 
     // Validate and format the MCQs

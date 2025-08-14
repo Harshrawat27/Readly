@@ -45,7 +45,9 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
   const [showQuantityModal, setShowQuantityModal] = useState(true);
   const [requestedQuantity, setRequestedQuantity] = useState(10);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(new Set());
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
+    new Set()
+  );
 
   // Generate MCQs from PDF content using AI
   const generateMCQs = useCallback(
@@ -128,11 +130,12 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
   };
 
   const handleSubmitAnswer = () => {
-    if (selectedOption === null || answeredQuestions.has(currentQuestionIndex)) return;
+    if (selectedOption === null || answeredQuestions.has(currentQuestionIndex))
+      return;
 
     const currentMCQ = mcqs[currentQuestionIndex];
     const isCorrect = currentMCQ.options[selectedOption].isCorrect;
-    
+
     const userAnswer: UserAnswer = {
       questionId: currentMCQ.id,
       selectedOption,
@@ -157,7 +160,9 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
   const prevQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-      const prevAnswer = userAnswers.find(a => a.questionId === mcqs[currentQuestionIndex - 1].id);
+      const prevAnswer = userAnswers.find(
+        (a) => a.questionId === mcqs[currentQuestionIndex - 1].id
+      );
       setSelectedOption(prevAnswer ? prevAnswer.selectedOption : null);
       setShowResult(answeredQuestions.has(currentQuestionIndex - 1));
     }
@@ -173,8 +178,8 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
   };
 
   const currentMCQ = mcqs[currentQuestionIndex];
-  const currentAnswer = userAnswers.find(a => a.questionId === currentMCQ?.id);
-  const score = userAnswers.filter(a => a.isCorrect).length;
+  // const currentAnswer = userAnswers.find(a => a.questionId === currentMCQ?.id);
+  const score = userAnswers.filter((a) => a.isCorrect).length;
 
   // Quantity selection modal
   if (showQuantityModal) {
@@ -201,7 +206,8 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
             </h3>
 
             <p className='text-[var(--text-muted)] mb-6'>
-              How many multiple choice questions would you like to generate from this PDF?
+              How many multiple choice questions would you like to generate from
+              this PDF?
             </p>
 
             <div className='mb-6'>
@@ -369,9 +375,13 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                   You scored {score} out of {mcqs.length} questions correctly
                 </div>
                 <div className='text-[var(--text-muted)]'>
-                  {percentage >= 80 ? 'Excellent work!' : 
-                   percentage >= 60 ? 'Good job!' : 
-                   percentage >= 40 ? 'Not bad, keep practicing!' : 'Keep studying!'}
+                  {percentage >= 80
+                    ? 'Excellent work!'
+                    : percentage >= 60
+                    ? 'Good job!'
+                    : percentage >= 40
+                    ? 'Not bad, keep practicing!'
+                    : 'Keep studying!'}
                 </div>
               </div>
 
@@ -398,15 +408,24 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                 </h3>
                 <div className='space-y-4'>
                   {mcqs.map((mcq, index) => {
-                    const userAnswer = userAnswers.find(a => a.questionId === mcq.id);
+                    const userAnswer = userAnswers.find(
+                      (a) => a.questionId === mcq.id
+                    );
                     const isCorrect = userAnswer?.isCorrect || false;
-                    
+
                     return (
-                      <div key={mcq.id} className='text-left p-4 bg-[var(--faded-white)] rounded-lg'>
+                      <div
+                        key={mcq.id}
+                        className='text-left p-4 bg-[var(--faded-white)] rounded-lg'
+                      >
                         <div className='flex items-start gap-3'>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                          }`}>
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              isCorrect
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
                             {isCorrect ? '✓' : '✗'}
                           </div>
                           <div className='flex-1'>
@@ -415,10 +434,15 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                             </div>
                             {userAnswer && (
                               <div className='text-sm text-[var(--text-muted)]'>
-                                Your answer: {mcq.options[userAnswer.selectedOption].text}
+                                Your answer:{' '}
+                                {mcq.options[userAnswer.selectedOption].text}
                                 {!isCorrect && (
                                   <div className='mt-1'>
-                                    Correct answer: {mcq.options.find(opt => opt.isCorrect)?.text}
+                                    Correct answer:{' '}
+                                    {
+                                      mcq.options.find((opt) => opt.isCorrect)
+                                        ?.text
+                                    }
                                   </div>
                                 )}
                               </div>
@@ -505,7 +529,7 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                   </span>
                 )}
               </div>
-              
+
               <h3 className='text-xl font-semibold text-[var(--text-primary)] leading-relaxed mb-6'>
                 {currentMCQ?.question}
               </h3>
@@ -514,11 +538,12 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
               <div className='space-y-3'>
                 {currentMCQ?.options.map((option, index) => {
                   const isSelected = selectedOption === index;
-                  const isAnswered = answeredQuestions.has(currentQuestionIndex);
+                  const isAnswered =
+                    answeredQuestions.has(currentQuestionIndex);
                   const isCorrect = option.isCorrect;
                   const showCorrect = isAnswered && isCorrect;
                   const showIncorrect = isAnswered && isSelected && !isCorrect;
-                  
+
                   return (
                     <button
                       key={index}
@@ -532,37 +557,57 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                           : isSelected
                           ? 'border-[var(--accent)] bg-[var(--accent)]/10'
                           : 'border-[var(--border)] bg-[var(--card-background)] hover:border-[var(--accent)]/50 hover:bg-[var(--faded-white)]'
-                      } ${isAnswered ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      } ${
+                        isAnswered ? 'cursor-not-allowed' : 'cursor-pointer'
+                      }`}
                     >
                       <div className='flex items-center gap-3'>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          showCorrect
-                            ? 'border-green-500 bg-green-500'
-                            : showIncorrect
-                            ? 'border-red-500 bg-red-500'
-                            : isSelected
-                            ? 'border-[var(--accent)] bg-[var(--accent)]'
-                            : 'border-[var(--border)]'
-                        }`}>
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            showCorrect
+                              ? 'border-green-500 bg-green-500'
+                              : showIncorrect
+                              ? 'border-red-500 bg-red-500'
+                              : isSelected
+                              ? 'border-[var(--accent)] bg-[var(--accent)]'
+                              : 'border-[var(--border)]'
+                          }`}
+                        >
                           <span className='text-xs font-bold text-white'>
                             {String.fromCharCode(65 + index)}
                           </span>
                         </div>
-                        <span className={`${
-                          showCorrect || showIncorrect
-                            ? 'font-medium'
-                            : ''
-                        }`}>
+                        <span
+                          className={`${
+                            showCorrect || showIncorrect ? 'font-medium' : ''
+                          }`}
+                        >
                           {option.text}
                         </span>
                         {showCorrect && (
-                          <svg className='w-5 h-5 text-green-500 ml-auto' fill='currentColor' viewBox='0 0 20 20'>
-                            <path fillRule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clipRule='evenodd' />
+                          <svg
+                            className='w-5 h-5 text-green-500 ml-auto'
+                            fill='currentColor'
+                            viewBox='0 0 20 20'
+                          >
+                            <path
+                              fillRule='evenodd'
+                              d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                              clipRule='evenodd'
+                            />
                           </svg>
                         )}
                         {showIncorrect && (
-                          <svg className='w-5 h-5 text-red-500 ml-auto' fill='currentColor' viewBox='0 0 20 20'>
-                            <path fillRule='evenodd' d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z' clipRule='evenodd' />
+                          <svg
+                            className='w-5 h-5 text-red-500 ml-auto'
+                            fill='currentColor'
+                            viewBox='0 0 20 20'
+                          >
+                            <path
+                              fillRule='evenodd'
+                              d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+                              clipRule='evenodd'
+                            />
                           </svg>
                         )}
                       </div>
@@ -586,7 +631,9 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                     onClick={nextQuestion}
                     className='w-full py-3 bg-[var(--accent)] text-[var(--button-primary-text)] rounded-lg font-medium hover:opacity-90 transition-opacity'
                   >
-                    {currentQuestionIndex === mcqs.length - 1 ? 'View Results' : 'Next Question'}
+                    {currentQuestionIndex === mcqs.length - 1
+                      ? 'View Results'
+                      : 'Next Question'}
                   </button>
                 )}
               </div>
@@ -594,8 +641,12 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
               {/* Explanation */}
               {showResult && currentMCQ?.explanation && (
                 <div className='mt-6 p-4 bg-[var(--faded-white)] rounded-lg border-l-4 border-[var(--accent)]'>
-                  <h4 className='font-medium text-[var(--text-primary)] mb-2'>Explanation:</h4>
-                  <p className='text-[var(--text-secondary)]'>{currentMCQ.explanation}</p>
+                  <h4 className='font-medium text-[var(--text-primary)] mb-2'>
+                    Explanation:
+                  </h4>
+                  <p className='text-[var(--text-secondary)]'>
+                    {currentMCQ.explanation}
+                  </p>
                 </div>
               )}
             </div>
@@ -625,7 +676,10 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
 
               <button
                 onClick={nextQuestion}
-                disabled={currentQuestionIndex === mcqs.length - 1 && !answeredQuestions.has(currentQuestionIndex)}
+                disabled={
+                  currentQuestionIndex === mcqs.length - 1 &&
+                  !answeredQuestions.has(currentQuestionIndex)
+                }
                 className='flex items-center gap-2 px-6 py-3 bg-[var(--card-background)] border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 {currentQuestionIndex === mcqs.length - 1 ? 'Finish' : 'Next'}
@@ -649,13 +703,19 @@ const MCQs: React.FC<MCQsProps> = ({ pdfId, onClose }) => {
                     key={index}
                     onClick={() => {
                       setCurrentQuestionIndex(index);
-                      const prevAnswer = userAnswers.find(a => a.questionId === mcqs[index].id);
-                      setSelectedOption(prevAnswer ? prevAnswer.selectedOption : null);
+                      const prevAnswer = userAnswers.find(
+                        (a) => a.questionId === mcqs[index].id
+                      );
+                      setSelectedOption(
+                        prevAnswer ? prevAnswer.selectedOption : null
+                      );
                       setShowResult(answeredQuestions.has(index));
                     }}
                     className={`w-3 h-3 rounded-full transition-colors ${
                       answeredQuestions.has(index)
-                        ? userAnswers.find(a => a.questionId === mcqs[index].id)?.isCorrect
+                        ? userAnswers.find(
+                            (a) => a.questionId === mcqs[index].id
+                          )?.isCorrect
                           ? 'bg-green-500'
                           : 'bg-red-500'
                         : index === currentQuestionIndex
