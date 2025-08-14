@@ -7,6 +7,8 @@ import CommentSystem from './CommentSystem';
 import TextSystem, { TextElement } from './TextSystem';
 import HighlightColorPicker from './HighlightColorPicker';
 import { usePDFData } from '@/hooks/usePDFData';
+import FabricCanvas, { Shape } from './FabricCanvas';
+import ShapePropertyPanel from './ShapePropertyPanel';
 
 // Dynamically import PDF components
 const Document = dynamic(
@@ -85,6 +87,14 @@ export default function PDFViewer({
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
 
+  // Handle shape tool changes
+  useEffect(() => {
+    if (activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'ellipse' || activeTool === 'arrow' || activeTool === 'line') {
+      const shapeType = activeTool === 'ellipse' ? 'circle' : activeTool;
+      setActiveShapeType(shapeType);
+    }
+  }, [activeTool]);
+
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -97,6 +107,11 @@ export default function PDFViewer({
   const [highlights, setHighlights] = useState<Array<Record<string, unknown>>>(
     []
   );
+
+  // Shape state
+  const [shapes, setShapes] = useState<Shape[]>([]);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [activeShapeType, setActiveShapeType] = useState<string>('rectangle');
 
   // Load highlights
   useEffect(() => {
@@ -118,6 +133,50 @@ export default function PDFViewer({
     };
 
     loadHighlights();
+  }, [pdfId]);
+
+  // Load shapes
+  useEffect(() => {
+    const loadShapes = async () => {
+      if (!pdfId) {
+        setShapes([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/shapes?pdfId=${pdfId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setShapes(data.map((shape: {
+            id: string;
+            type: string;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            rotation: number;
+            color: string;
+            strokeWidth: number;
+            fillColor?: string;
+            opacity: number;
+            pageNumber: number;
+            zIndex: number;
+            createdAt: string;
+            updatedAt: string;
+            pdfId: string;
+            userId: string;
+          }) => ({
+            ...shape,
+            createdAt: new Date(shape.createdAt),
+            updatedAt: new Date(shape.updatedAt),
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to load shapes:', error);
+      }
+    };
+
+    loadShapes();
   }, [pdfId]);
 
   const {
@@ -466,6 +525,80 @@ export default function PDFViewer({
     },
     [highlights]
   );
+
+  // Shape manipulation functions
+  const handleShapeCreate = useCallback(async (shapeData: Partial<Shape>) => {
+    if (!pdfId || !currentUser) {
+      console.log('Cannot create shape: missing pdfId or currentUser', { pdfId, currentUser });
+      return;
+    }
+
+    console.log('Creating shape:', shapeData);
+
+    try {
+      const response = await fetch('/api/shapes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...shapeData, pdfId }),
+      });
+
+      if (response.ok) {
+        const newShape = await response.json();
+        console.log('Shape created successfully:', newShape);
+        setShapes(prev => [...prev, {
+          ...newShape,
+          createdAt: new Date(newShape.createdAt),
+          updatedAt: new Date(newShape.updatedAt),
+        }]);
+        setSelectedShapeId(newShape.id);
+      } else {
+        const error = await response.json();
+        console.error('Failed to create shape - server error:', error);
+      }
+    } catch (error) {
+      console.error('Failed to create shape - network error:', error);
+    }
+  }, [pdfId, currentUser]);
+
+  const handleShapeUpdate = useCallback(async (shapeId: string, updates: Partial<Shape>) => {
+    try {
+      const response = await fetch(`/api/shapes/${shapeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        const updatedShape = await response.json();
+        setShapes(prev => prev.map(shape => 
+          shape.id === shapeId 
+            ? { ...updatedShape, createdAt: new Date(updatedShape.createdAt), updatedAt: new Date(updatedShape.updatedAt) }
+            : shape
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to update shape:', error);
+    }
+  }, []);
+
+  const handleShapeDelete = useCallback(async (shapeId: string) => {
+    try {
+      const response = await fetch(`/api/shapes/${shapeId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setShapes(prev => prev.filter(shape => shape.id !== shapeId));
+        setSelectedShapeId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete shape:', error);
+    }
+  }, []);
+
+  const getShapesForPage = useCallback((pageNumber: number) => {
+    return shapes.filter(shape => shape.pageNumber === pageNumber);
+  }, [shapes]);
 
   // Auto-extract text in background
   const autoExtractTextInBackground = useCallback(
@@ -1619,6 +1752,21 @@ export default function PDFViewer({
                               />
                             )}
 
+                            {/* Fabric Canvas Overlay */}
+                            {pdfId && (
+                              <FabricCanvas
+                                pageNumber={pageNumber}
+                                shapes={getShapesForPage(pageNumber)}
+                                isShapeMode={['rectangle', 'circle', 'ellipse', 'arrow', 'line'].includes(activeTool)}
+                                activeShapeType={activeShapeType}
+                                selectedShapeId={selectedShapeId}
+                                onShapeCreate={handleShapeCreate}
+                                onShapeUpdate={handleShapeUpdate}
+                                onShapeDelete={handleShapeDelete}
+                                onShapeSelect={setSelectedShapeId}
+                              />
+                            )}
+
                             {/* Highlight Overlay */}
                             {getHighlightsForPage(pageNumber).map(
                               (highlight) => (
@@ -1683,6 +1831,16 @@ export default function PDFViewer({
         onFullscreenToggle={handleFullscreenToggle}
         isFullscreen={isFullscreen}
       />
+
+      {/* Shape Property Panel */}
+      {selectedShapeId && (
+        <ShapePropertyPanel
+          selectedShape={shapes.find(s => s.id === selectedShapeId) || null}
+          onShapeUpdate={handleShapeUpdate}
+          onDeleteShape={handleShapeDelete}
+          onClose={() => setSelectedShapeId(null)}
+        />
+      )}
 
       <HighlightColorPicker
         x={selectionDialog.x}

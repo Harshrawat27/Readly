@@ -16,6 +16,7 @@
     "aws-sdk": "^2.1692.0",
     "better-auth": "^1.2.12",
     "dodopayments": "^1.44.0",
+    "fabric": "^4.6.0",
     "katex": "^0.16.22",
     "lucide-react": "^0.536.0",
     "marked": "^16.1.2",
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/fabric": "^5.3.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

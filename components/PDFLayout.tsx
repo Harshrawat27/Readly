@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, memo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+// Removed unused import
 import dynamic from 'next/dynamic';
 import PDFSidebar from '@/components/PDFSidebar';
 import ChatPanel from '@/components/ChatPanel';
@@ -45,7 +45,7 @@ const PDFLayout = memo(function PDFLayout({
   onTextSelect,
   onTextSubmit,
 }: PDFLayoutProps) {
-  const router = useRouter();
+  // Removed unused router
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
   const [currentPdfId, setCurrentPdfId] = useState(pdfId);

@@ -10,6 +10,7 @@ export type ToolType =
   | 'line'
   | 'arrow'
   | 'ellipse'
+  | 'circle'
   | 'polygon'
   | 'star'
   | 'pen'
