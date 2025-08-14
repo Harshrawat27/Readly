@@ -73,23 +73,24 @@ QUALITY STANDARDS:
 Generate ${quantity} flashcards now:`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: 'gpt-3.5-turbo',
       messages: [
         {
-          role: "system",
-          content: "You are an expert educator who creates high-quality study materials. Always respond with valid JSON containing educational flashcards."
+          role: 'system',
+          content:
+            'You are an expert educator who creates high-quality study materials. Always respond with valid JSON containing educational flashcards.',
         },
         {
-          role: "user",
-          content: prompt
-        }
+          role: 'user',
+          content: prompt,
+        },
       ],
       max_tokens: 2500,
       temperature: 0.7,
     });
 
     const responseText = completion.choices[0]?.message?.content;
-    
+
     if (!responseText) {
       throw new Error('No response from OpenAI');
     }
@@ -103,43 +104,45 @@ Generate ${quantity} flashcards now:`;
       flashcards = JSON.parse(jsonString);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', responseText);
-      throw new Error('Invalid response format from AI');
+      throw new Error(`Invalid response format from AI ${parseError}`);
     }
 
     // Validate and format the flashcards
     const formattedFlashcards: FlashCard[] = flashcards
-      .filter(card => 
-        card.question && 
-        card.answer && 
-        card.question.length > 10 && 
-        card.answer.length > 10 &&
-        !card.question.toLowerCase().includes('what is and') &&
-        !card.question.toLowerCase().includes('what is the') &&
-        !card.question.toLowerCase().includes('what is a') &&
-        !card.question.toLowerCase().includes('what is this')
+      .filter(
+        (card) =>
+          card.question &&
+          card.answer &&
+          card.question.length > 10 &&
+          card.answer.length > 10 &&
+          !card.question.toLowerCase().includes('what is and') &&
+          !card.question.toLowerCase().includes('what is the') &&
+          !card.question.toLowerCase().includes('what is a') &&
+          !card.question.toLowerCase().includes('what is this')
       )
       .slice(0, quantity)
       .map((card, index) => ({
         id: `ai-card-${index + 1}`,
         question: card.question.trim(),
         answer: card.answer.trim(),
-        difficulty: card.difficulty || 'medium'
+        difficulty: card.difficulty || 'medium',
       }));
 
     if (formattedFlashcards.length === 0) {
-      throw new Error('No valid flashcards could be generated from this content');
+      throw new Error(
+        'No valid flashcards could be generated from this content'
+      );
     }
 
     console.log(`Generated ${formattedFlashcards.length} AI flashcards`);
 
     return NextResponse.json({
       flashcards: formattedFlashcards,
-      count: formattedFlashcards.length
+      count: formattedFlashcards.length,
     });
-
   } catch (error) {
     console.error('Error generating AI flashcards:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
         return NextResponse.json(
@@ -147,9 +150,15 @@ Generate ${quantity} flashcards now:`;
           { status: 500 }
         );
       }
-      if (error.message.includes('quota') || error.message.includes('rate limit')) {
+      if (
+        error.message.includes('quota') ||
+        error.message.includes('rate limit')
+      ) {
         return NextResponse.json(
-          { error: 'AI service temporarily unavailable. Please try again later.' },
+          {
+            error:
+              'AI service temporarily unavailable. Please try again later.',
+          },
           { status: 429 }
         );
       }
