@@ -505,7 +505,7 @@ export default function PDFViewer({
         const pdfDocument = await loadingTask.promise;
 
         // Extract text from all pages
-        const pages: Array<{ pageNumber: number; content: string }> = [];
+        const allPages: Array<{ pageNumber: number; content: string }> = [];
 
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
           try {
@@ -519,7 +519,7 @@ export default function PDFViewer({
               .trim();
 
             if (pageText) {
-              pages.push({
+              allPages.push({
                 pageNumber: pageNum,
                 content: pageText,
               });
@@ -532,19 +532,44 @@ export default function PDFViewer({
           }
         }
 
-        // Send to extraction API
-        if (pages.length > 0) {
-          const response = await fetch(`/api/pdf/${pdfId}/extract`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ pages }),
-          });
+        // Send pages in batches to avoid payload size limits
+        if (allPages.length > 0) {
+          const BATCH_SIZE = 10; // Send 10 pages per request
+          const totalBatches = Math.ceil(allPages.length / BATCH_SIZE);
+          
+          console.log(`Processing ${allPages.length} pages in ${totalBatches} batches`);
 
-          if (response.ok) {
-            console.log('PDF text extracted successfully in background');
+          for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+            const startIndex = batchIndex * BATCH_SIZE;
+            const endIndex = Math.min(startIndex + BATCH_SIZE, allPages.length);
+            const batchPages = allPages.slice(startIndex, endIndex);
+
+            console.log(`Sending batch ${batchIndex + 1}/${totalBatches} (pages ${batchPages[0].pageNumber}-${batchPages[batchPages.length - 1].pageNumber})`);
+
+            const response = await fetch(`/api/pdf/${pdfId}/extract`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                pages: batchPages,
+                batchInfo: {
+                  batchIndex: batchIndex,
+                  totalBatches: totalBatches,
+                  isLastBatch: batchIndex === totalBatches - 1
+                }
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+              throw new Error(`Batch ${batchIndex + 1} failed: ${errorData.error || 'Unknown error'}`);
+            }
+
+            console.log(`Batch ${batchIndex + 1}/${totalBatches} processed successfully`);
           }
+
+          console.log('PDF text extracted successfully in background');
         }
       } catch (error) {
         console.error('Background text extraction failed:', error);

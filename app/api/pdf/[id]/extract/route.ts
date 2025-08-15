@@ -35,15 +35,7 @@ export async function POST(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
-    // Check if text extraction is already done
-    if (pdf.textExtracted) {
-      return NextResponse.json({ 
-        message: 'Text already extracted',
-        chunksCount: await prisma.pDFChunk.count({ where: { pdfId } })
-      });
-    }
-
-    const { pages } = await request.json();
+    const { pages, batchInfo } = await request.json();
 
     if (!pages || !Array.isArray(pages)) {
       return NextResponse.json(
@@ -52,7 +44,17 @@ export async function POST(
       );
     }
 
-    return await processPages(pages, pdfId);
+    // Check if text extraction is already done (only for first batch or non-batched requests)
+    if (!batchInfo || batchInfo.batchIndex === 0) {
+      if (pdf.textExtracted) {
+        return NextResponse.json({ 
+          message: 'Text already extracted',
+          chunksCount: await prisma.pDFChunk.count({ where: { pdfId } })
+        });
+      }
+    }
+
+    return await processPages(pages, pdfId, batchInfo);
 
   } catch (error) {
     console.error('Text extraction error:', error);
@@ -176,8 +178,23 @@ function createTextChunks(
 }
 
 // Process pages and save chunks to database
-async function processPages(pages: Array<{pageNumber: number; content: string}>, pdfId: string) {
+async function processPages(
+  pages: Array<{pageNumber: number; content: string}>, 
+  pdfId: string, 
+  batchInfo?: { batchIndex: number; totalBatches: number; isLastBatch: boolean }
+) {
+  // For batched requests, we need to get the current chunk index from existing chunks
   let chunkIndex = 0;
+  if (batchInfo && batchInfo.batchIndex > 0) {
+    // Get the highest chunk index from existing chunks
+    const lastChunk = await prisma.pDFChunk.findFirst({
+      where: { pdfId },
+      orderBy: { chunkIndex: 'desc' },
+      select: { chunkIndex: true }
+    });
+    chunkIndex = lastChunk ? lastChunk.chunkIndex + 1 : 0;
+  }
+
   const allChunks = [];
 
   for (const page of pages) {
@@ -214,24 +231,31 @@ async function processPages(pages: Array<{pageNumber: number; content: string}>,
   }
 
   // Save all chunks to database in batches
-  const batchSize = 100;
-  for (let i = 0; i < allChunks.length; i += batchSize) {
-    const batch = allChunks.slice(i, i + batchSize);
+  const dbBatchSize = 100;
+  for (let i = 0; i < allChunks.length; i += dbBatchSize) {
+    const batch = allChunks.slice(i, i + dbBatchSize);
     await prisma.pDFChunk.createMany({
       data: batch,
     });
   }
 
-  // Mark PDF as text extracted
-  await prisma.pDF.update({
-    where: { id: pdfId },
-    data: { textExtracted: true },
-  });
+  // Mark PDF as text extracted only if this is the last batch or non-batched request
+  if (!batchInfo || batchInfo.isLastBatch) {
+    await prisma.pDF.update({
+      where: { id: pdfId },
+      data: { textExtracted: true },
+    });
+  }
+
+  const responseMessage = batchInfo 
+    ? `Batch ${batchInfo.batchIndex + 1}/${batchInfo.totalBatches} processed`
+    : 'Text extraction completed';
 
   return NextResponse.json({
-    message: 'Text extraction completed',
+    message: responseMessage,
     chunksCreated: allChunks.length,
     pagesProcessed: pages.length,
+    batchInfo: batchInfo,
   });
 }
 
