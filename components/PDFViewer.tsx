@@ -544,29 +544,40 @@ export default function PDFViewer({
             const endIndex = Math.min(startIndex + BATCH_SIZE, allPages.length);
             const batchPages = allPages.slice(startIndex, endIndex);
 
-            console.log(`Sending batch ${batchIndex + 1}/${totalBatches} (pages ${batchPages[0].pageNumber}-${batchPages[batchPages.length - 1].pageNumber})`);
+            // Calculate payload size for debugging
+            const payload = { 
+              pages: batchPages,
+              batchInfo: {
+                batchIndex: batchIndex,
+                totalBatches: totalBatches,
+                isLastBatch: batchIndex === totalBatches - 1
+              }
+            };
+            const payloadString = JSON.stringify(payload);
+            const payloadSizeKB = (payloadString.length / 1024).toFixed(2);
+            const payloadSizeMB = (payloadString.length / (1024 * 1024)).toFixed(2);
+            
+            console.log(`🚀 Sending batch ${batchIndex + 1}/${totalBatches}`);
+            console.log(`   📄 Pages: ${batchPages[0].pageNumber}-${batchPages[batchPages.length - 1].pageNumber} (${batchPages.length} pages)`);
+            console.log(`   📊 Payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`);
+            console.log(`   📝 Total characters in batch: ${batchPages.reduce((sum, page) => sum + page.content.length, 0)}`);
 
             const response = await fetch(`/api/pdf/${pdfId}/extract`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ 
-                pages: batchPages,
-                batchInfo: {
-                  batchIndex: batchIndex,
-                  totalBatches: totalBatches,
-                  isLastBatch: batchIndex === totalBatches - 1
-                }
-              }),
+              body: payloadString,
             });
 
             if (!response.ok) {
+              console.error(`❌ Batch ${batchIndex + 1} failed with status: ${response.status} ${response.statusText}`);
+              console.error(`   📊 Failed payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`);
               const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
               throw new Error(`Batch ${batchIndex + 1} failed: ${errorData.error || 'Unknown error'}`);
             }
 
-            console.log(`Batch ${batchIndex + 1}/${totalBatches} processed successfully`);
+            console.log(`✅ Batch ${batchIndex + 1}/${totalBatches} processed successfully`);
           }
 
           console.log('PDF text extracted successfully in background');

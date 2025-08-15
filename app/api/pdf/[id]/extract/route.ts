@@ -23,6 +23,15 @@ export async function POST(
     const pdfId = resolvedParams.id;
     const userId = session.user.id;
 
+    // Log incoming request size
+    const requestBody = await request.text();
+    const requestSizeKB = (requestBody.length / 1024).toFixed(2);
+    const requestSizeMB = (requestBody.length / (1024 * 1024)).toFixed(2);
+    
+    console.log(`📨 API received request for PDF ${pdfId}`);
+    console.log(`   📊 Request size: ${requestSizeKB} KB (${requestSizeMB} MB)`);
+    console.log(`   👤 User: ${userId}`);
+
     // Verify PDF exists and belongs to user
     const pdf = await prisma.pDF.findFirst({
       where: {
@@ -35,7 +44,7 @@ export async function POST(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
-    const { pages, batchInfo } = await request.json();
+    const { pages, batchInfo } = JSON.parse(requestBody);
 
     if (!pages || !Array.isArray(pages)) {
       return NextResponse.json(
@@ -44,9 +53,14 @@ export async function POST(
       );
     }
 
+    console.log(`   📄 Pages in request: ${pages.length}`);
+    console.log(`   🔢 Batch info: ${batchInfo ? `${batchInfo.batchIndex + 1}/${batchInfo.totalBatches}` : 'No batching'}`);
+    console.log(`   📝 Total characters: ${pages.reduce((sum: number, page: any) => sum + (page.content?.length || 0), 0)}`);
+
     // Check if text extraction is already done (only for first batch or non-batched requests)
     if (!batchInfo || batchInfo.batchIndex === 0) {
       if (pdf.textExtracted) {
+        console.log(`✅ Text already extracted for PDF ${pdfId}`);
         return NextResponse.json({ 
           message: 'Text already extracted',
           chunksCount: await prisma.pDFChunk.count({ where: { pdfId } })
@@ -54,10 +68,12 @@ export async function POST(
       }
     }
 
-    return await processPages(pages, pdfId, batchInfo);
+    const result = await processPages(pages, pdfId, batchInfo);
+    console.log(`✅ Successfully processed batch for PDF ${pdfId}`);
+    return result;
 
   } catch (error) {
-    console.error('Text extraction error:', error);
+    console.error('❌ Text extraction error:', error);
     return NextResponse.json(
       { error: 'Failed to extract text from PDF' },
       { status: 500 }

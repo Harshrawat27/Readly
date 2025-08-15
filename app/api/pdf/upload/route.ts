@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log(`📤 Upload request received from user: ${session.user.id}`);
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -32,6 +34,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const fileSizeKB = (file.size / 1024).toFixed(2);
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    
+    console.log(`📁 File details:`);
+    console.log(`   📄 Name: ${file.name}`);
+    console.log(`   📊 Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+    console.log(`   🗂️ Type: ${file.type}`);
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const fileName = file.name;
@@ -58,9 +68,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to S3
+    console.log(`☁️ Uploading to S3...`);
     const s3Key = await uploadPdfToS3(fileBuffer, fileName, userId);
+    console.log(`✅ S3 upload successful: ${s3Key}`);
 
     // Save PDF info to database
+    console.log(`💾 Saving PDF metadata to database...`);
     const pdf = await prisma.pDF.create({
       data: {
         title: fileName.replace('.pdf', ''),
@@ -71,10 +84,12 @@ export async function POST(request: NextRequest) {
         userId: userId,
       },
     });
+    console.log(`✅ PDF saved to database with ID: ${pdf.id}`);
 
     // Increment user's PDF upload count
     await incrementPdfUpload(userId);
 
+    console.log(`🎉 Upload completed successfully`);
     return NextResponse.json({
       id: pdf.id,
       title: pdf.title,
@@ -82,7 +97,7 @@ export async function POST(request: NextRequest) {
       uploadedAt: pdf.uploadedAt,
     });
   } catch (error) {
-    console.error('PDF upload error:', error);
+    console.error('❌ PDF upload error:', error);
     return NextResponse.json(
       { error: 'Failed to upload PDF' },
       { status: 500 }
