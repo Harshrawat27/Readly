@@ -55,7 +55,7 @@ export async function POST(
 
     console.log(`   📄 Pages in request: ${pages.length}`);
     console.log(`   🔢 Batch info: ${batchInfo ? `${batchInfo.batchIndex + 1}/${batchInfo.totalBatches}` : 'No batching'}`);
-    console.log(`   📝 Total characters: ${pages.reduce((sum: number, page: any) => sum + (page.content?.length || 0), 0)}`);
+    console.log(`   📝 Total characters: ${pages.reduce((sum: number, page: { pageNumber: number; content: string }) => sum + (page.content?.length || 0), 0)}`);
 
     // Check if text extraction is already done (only for first batch or non-batched requests)
     if (!batchInfo || batchInfo.batchIndex === 0) {
