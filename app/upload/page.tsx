@@ -23,30 +23,86 @@ export default function UploadPage() {
       return false;
     }
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      alert('File size must be less than 50MB.');
+    const fileSizeKB = (file.size / 1024).toFixed(2);
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    
+    console.log(`📁 Attempting to upload file: ${file.name}`);
+    console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+    console.log(`🔗 Using direct S3 upload (no size limits!)`);
+
+    if (file.size > 100 * 1024 * 1024) { // 100MB limit (reasonable for PDFs)
+      alert('File size must be less than 100MB.');
       return false;
     }
 
     setIsUploading(true);
-    setUploadProgress('Uploading PDF...');
+    setUploadProgress('Preparing upload...');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/pdf/upload', {
+      // Step 1: Get presigned upload URL
+      console.log(`🔑 Requesting presigned upload URL...`);
+      const urlResponse = await fetch('/api/pdf/upload-url', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
+      if (!urlResponse.ok) {
+        const error = await urlResponse.json();
+        throw new Error(error.error || 'Failed to get upload URL');
       }
 
-      const result = await response.json();
+      const { uploadUrl, s3Key } = await urlResponse.json();
+      console.log(`✅ Got presigned URL for S3 key: ${s3Key}`);
+
+      // Step 2: Upload directly to S3
+      setUploadProgress('Uploading to S3...');
+      console.log(`☁️ Uploading directly to S3...`);
+
+      const s3Response = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!s3Response.ok) {
+        throw new Error(`S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
+      }
+
+      console.log(`✅ S3 upload successful!`);
+
+      // Step 3: Complete upload (save metadata to database)
+      setUploadProgress('Finalizing upload...');
+      console.log(`💾 Saving metadata to database...`);
+
+      const completeResponse = await fetch('/api/pdf/upload-complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          s3Key: s3Key,
+          fileName: file.name,
+          fileSize: file.size,
+        }),
+      });
+
+      if (!completeResponse.ok) {
+        const error = await completeResponse.json();
+        throw new Error(error.error || 'Failed to complete upload');
+      }
+
+      const result = await completeResponse.json();
       setUploadProgress('Upload successful!');
+      console.log(`🎉 Upload completed! PDF ID: ${result.id}`);
       
       // Redirect to the PDF view page after a short delay
       setTimeout(() => {
@@ -55,7 +111,7 @@ export default function UploadPage() {
 
       return true;
     } catch (error) {
-      console.error('Error uploading PDF:', error);
+      console.error('❌ Error uploading PDF:', error);
       alert(error instanceof Error ? error.message : 'Error uploading PDF file. Please try again.');
       setUploadProgress('');
       return false;
@@ -241,7 +297,7 @@ export default function UploadPage() {
                   </button>
                 </h3>
                 <p className='text-[var(--text-muted)]'>
-                  Supports PDF files up to 50MB
+                  Supports PDF files up to 100MB
                 </p>
               </div>
               

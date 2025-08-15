@@ -534,10 +534,11 @@ export default function PDFViewer({
 
         // Send pages in batches to avoid payload size limits
         if (allPages.length > 0) {
-          const BATCH_SIZE = 10; // Send 10 pages per request
+          // Smart batching: 100 pages for PDFs with 100+ pages, all pages if less than 100
+          const BATCH_SIZE = allPages.length <= 100 ? allPages.length : 100;
           const totalBatches = Math.ceil(allPages.length / BATCH_SIZE);
           
-          console.log(`Processing ${allPages.length} pages in ${totalBatches} batches`);
+          console.log(`Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch)`);
 
           for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
             const startIndex = batchIndex * BATCH_SIZE;
