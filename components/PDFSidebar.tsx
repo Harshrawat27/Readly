@@ -71,7 +71,12 @@ const PDFSidebar = ({
               lastAccessedAt: new Date(pdf.lastAccessedAt),
             })
           );
-          setPdfHistory(processedPdfs);
+          // Sort by upload date (newest first)
+          const sortedPdfs = processedPdfs.sort(
+            (a: { uploadedAt: Date }, b: { uploadedAt: Date }) =>
+              b.uploadedAt.getTime() - a.uploadedAt.getTime()
+          );
+          setPdfHistory(sortedPdfs);
         }
       } catch (error) {
         console.error('Error loading PDFs:', error);
@@ -172,26 +177,17 @@ const PDFSidebar = ({
         const result = await response.json();
         setUploadProgress('Upload successful!');
 
-        // Add the new PDF to the history
-        setPdfHistory((prev) => [
-          ...prev,
-          {
+        // Add the new PDF to the history and sort by upload date (newest first)
+        setPdfHistory((prev) => {
+          const newPdf = {
             id: result.id,
             title: file.name, // Use file name as title
             fileName: file.name,
             uploadedAt: new Date(),
             lastAccessedAt: new Date(),
-          },
-        ]);
-
-        // Sort by last accessed for the sidebar
-        setPdfHistory((prev) =>
-          [...prev].sort(
-            (a, b) =>
-              new Date(b.lastAccessedAt).getTime() -
-              new Date(a.lastAccessedAt).getTime()
-          )
-        );
+          };
+          return [newPdf, ...prev]; // Add new PDF at the beginning (newest first)
+        });
 
         // Show success toast
         setToast({
@@ -1013,8 +1009,8 @@ const PDFSidebar = ({
                       setPdfHistory((prev) =>
                         [...prev, deletingPdf].sort(
                           (a, b) =>
-                            new Date(b.lastAccessedAt).getTime() -
-                            new Date(a.lastAccessedAt).getTime()
+                            new Date(b.uploadedAt).getTime() -
+                            new Date(a.uploadedAt).getTime()
                         )
                       );
 
