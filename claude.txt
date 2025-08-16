@@ -94,3 +94,12 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
 
 
 -- make comment opening z-index bigger and text!!
+
+
+16 aug Todo:
+
+-- flow chat can be better than mind mapping. 
+-- upload should work on domain
+-- ask question via image. add image to ask input field. 
+-- shapes
+-- domain purchase and connect!
