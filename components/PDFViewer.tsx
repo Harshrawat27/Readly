@@ -12,6 +12,7 @@ import MindMap from './MindMap';
 import FlashCards from './FlashCards';
 import MCQs from './MCQs';
 import { usePDFData } from '@/hooks/usePDFData';
+import ImageCaptureSystem from './ImageCaptureSystem';
 
 // Dynamically import PDF components
 const Document = dynamic(
@@ -37,6 +38,7 @@ interface PDFViewerProps {
   selectedText: string;
   scale?: number;
   onScaleChange?: (scale: number) => void;
+  onImageCapture?: ((imageBlob: Blob, question: string) => void) | null;
   currentUser?: {
     id: string;
     name: string;
@@ -61,6 +63,7 @@ export default function PDFViewer({
   selectedText, // eslint-disable-line @typescript-eslint/no-unused-vars
   scale: externalScale,
   onScaleChange,
+  onImageCapture,
   currentUser,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -87,9 +90,15 @@ export default function PDFViewer({
 
   // PDF document reference for programmatic navigation
   const pdfDocumentRef = useRef<boolean>(null);
+  
+  // Container reference for image capture
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
+  
+  // Screenshot mode state
+  const [isScreenshotMode, setIsScreenshotMode] = useState(false);
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1418,6 +1427,30 @@ export default function PDFViewer({
             Mind Mapping
           </button>
 
+          {/* Screenshot Button */}
+          <button
+            onClick={() => setIsScreenshotMode(!isScreenshotMode)}
+            className={`px-4 py-2 rounded-lg transition-opacity flex items-center gap-2 text-sm font-medium ${
+              isScreenshotMode 
+                ? 'bg-orange-500 text-white' 
+                : 'bg-[var(--button-secondary)] text-[var(--button-secondary-text)] hover:opacity-90'
+            }`}
+            title={isScreenshotMode ? 'Exit Screenshot Mode' : 'Take Screenshot'}
+          >
+            <svg
+              className='w-4 h-4'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <rect x='2' y='3' width='20' height='14' rx='2' ry='2' />
+              <circle cx='8' cy='9' r='1' />
+              <path d='M21 15l-5-5L5 21l5.5-5.5Z' />
+            </svg>
+            {isScreenshotMode ? 'Exit Screenshot' : 'Screenshot'}
+          </button>
+
           {/* Flash Cards Button */}
           <button
             onClick={() => setShowFlashCards(true)}
@@ -1634,7 +1667,15 @@ export default function PDFViewer({
 
       {/* Optimized PDF Document with virtualization */}
       <div
-        ref={scrollContainerRef}
+        ref={(el) => {
+          // Update both refs
+          if (pdfContainerRef.current !== el) {
+            pdfContainerRef.current = el;
+          }
+          if (scrollContainerRef.current !== el) {
+            scrollContainerRef.current = el;
+          }
+        }}
         className='flex-1 overflow-auto bg-[var(--pdf-viewer-bg)] pdf-scroll-container'
       >
         <div className='p-4 min-w-fit'>
@@ -1865,6 +1906,20 @@ export default function PDFViewer({
         <MCQs
           pdfId={pdfId}
           onClose={() => setShowMCQs(false)}
+        />
+      )}
+
+      {/* Image Capture System - Only active when screenshot mode is enabled */}
+      {isScreenshotMode && (
+        <ImageCaptureSystem
+          isActive={isScreenshotMode}
+          onImageCapture={(imageBlob, question) => {
+            if (onImageCapture) {
+              onImageCapture(imageBlob, question || 'What can you tell me about this image?');
+            }
+            setIsScreenshotMode(false); // Exit screenshot mode after capture
+          }}
+          containerRef={pdfContainerRef}
         />
       )}
     </div>

@@ -47,6 +47,7 @@ const PDFLayout = memo(function PDFLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
   const [currentPdfId, setCurrentPdfId] = useState(pdfId);
+  const [imageQuestionHandler, setImageQuestionHandler] = useState<((imageBlob: Blob, question: string) => void) | null>(null);
 
   // Use service worker for PDF caching
   const { clearPDFCache } = usePDFServiceWorker();
@@ -103,6 +104,7 @@ const PDFLayout = memo(function PDFLayout({
             pdfId={currentPdfId}
             onTextSelect={onTextSelect}
             selectedText={selectedText}
+            onImageCapture={imageQuestionHandler}
             currentUser={{
               id: session.user.id,
               name: session.user.name,
@@ -132,6 +134,7 @@ const PDFLayout = memo(function PDFLayout({
             pdfId={currentPdfId}
             selectedText={selectedText}
             onTextSubmit={onTextSubmit}
+            onImageQuestion={setImageQuestionHandler}
           />
         </div>
       </div>

@@ -148,6 +148,8 @@ model Message {
   createdAt DateTime @default(now())
   chatId    String
   userId    String
+  imageUrl  String?  // URL for uploaded images
+  imageType String?  // 'screenshot' or 'upload'
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

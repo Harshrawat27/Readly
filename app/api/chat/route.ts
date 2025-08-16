@@ -15,7 +15,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, pdfId, chatId } = await request.json();
+    const { messages, pdfId, chatId, imageUrl, imageType } = await request.json();
 
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
           userId: userId,
           role: 'user',
           content: lastUserMessage.content,
+          imageUrl: imageUrl || null,
+          imageType: imageType || null,
         },
       });
     }
@@ -151,15 +153,33 @@ export async function POST(request: NextRequest) {
         : 'When users select text from the PDF, help them understand or elaborate on that specific content.'
     }`;
 
-    // Prepare messages with system prompt
+    // Prepare messages with system prompt and handle images
     const chatMessages = [
       { role: 'system', content: systemPrompt },
-      ...messages,
+      ...messages.map((msg: { role: string; content: string }) => {
+        if (msg.role === 'user' && imageUrl && messages.indexOf(msg) === messages.length - 1) {
+          // Last user message with image
+          return {
+            role: 'user',
+            content: [
+              { type: 'text', text: msg.content },
+              { 
+                type: 'image_url', 
+                image_url: { 
+                  url: imageUrl,
+                  detail: 'high'
+                }
+              }
+            ]
+          };
+        }
+        return msg;
+      }),
     ];
 
     // Create streaming response from OpenAI
     const stream = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o', // Use gpt-4o for vision capabilities
       messages:
         chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,

@@ -13,6 +13,7 @@ interface ChatPanelProps {
   pdfId: string | null;
   selectedText: string;
   onTextSubmit: () => void;
+  onImageQuestion?: (handler: (imageBlob: Blob, question: string) => void) => void;
 }
 
 interface Message {
@@ -21,12 +22,15 @@ interface Message {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  imageUrl?: string;
+  imageType?: string;
 }
 
 export default function ChatPanel({
   pdfId,
   selectedText,
   onTextSubmit,
+  onImageQuestion,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
@@ -247,11 +251,15 @@ export default function ChatPanel({
               role: 'user' | 'assistant';
               content: string;
               createdAt: string;
+              imageUrl?: string;
+              imageType?: string;
             }) => ({
               id: msg.id,
               role: msg.role,
               content: msg.content,
               timestamp: new Date(msg.createdAt),
+              imageUrl: msg.imageUrl,
+              imageType: msg.imageType,
             })
           );
 
@@ -477,6 +485,185 @@ export default function ChatPanel({
     }
   }, [inputValue, isLoading, pdfId, currentChatId, onTextSubmit]);
 
+  // Function to handle image uploads and send image messages
+  const sendImageMessage = useCallback(async (imageBlob: Blob, question: string) => {
+    if (!pdfId || isLoading) return;
+
+    // Validate that imageBlob is actually a Blob
+    if (!(imageBlob instanceof Blob)) {
+      console.error('Invalid image blob provided:', imageBlob);
+      return;
+    }
+
+    const assistantMessageId = (Date.now() + 1).toString();
+
+    try {
+      setIsLoading(true);
+
+      // Upload image first
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'screenshot.png');
+      formData.append('imageType', 'screenshot');
+
+      const uploadResponse = await fetch('/api/chat/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const imageUrl = uploadResult.imageUrl;
+
+      // Create user message with image
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: question,
+        timestamp: new Date(),
+        imageUrl: imageUrl,
+        imageType: 'screenshot',
+      };
+
+      // Update UI first
+      setMessages((prev) => {
+        const updated = [...prev, userMessage];
+        messagesRef.current = updated;
+        return updated;
+      });
+
+      setIsInitialLoad(false);
+      const assistantMessage: Message = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+      };
+
+      setMessages((prev) => {
+        const updated = [...prev, assistantMessage];
+        messagesRef.current = updated;
+        return updated;
+      });
+      setStreamingMessageId(assistantMessageId);
+
+      // Scroll down for new message
+      if (messages.length > 1) {
+        setTimeout(() => {
+          scrollDownForNewMessage();
+        }, 100);
+      }
+
+      // Send to chat API with image
+      const messagesToSend = messagesRef.current
+        .filter(msg => !msg.isStreaming)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: messagesToSend,
+          pdfId,
+          chatId: currentChatId,
+          imageUrl: imageUrl,
+          imageType: 'screenshot',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      // Handle streaming response (same as regular messages)
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  if (data.chatId) {
+                    setCurrentChatId((prev) => prev || data.chatId);
+                  }
+
+                  if (data.content) {
+                    accumulatedContent += data.content;
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, content: accumulatedContent }
+                          : msg
+                      )
+                    );
+                  }
+
+                  if (data.done) {
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === assistantMessageId
+                          ? { ...msg, isStreaming: false }
+                          : msg
+                      )
+                    );
+                    setStreamingMessageId(null);
+                  }
+                } catch (e) {
+                  console.error('Error parsing SSE data:', e);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+    } catch (error) {
+      console.error('Error sending image message:', error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: 'Sorry, I encountered an error while processing your image. Please try again.',
+                isStreaming: false,
+              }
+            : msg
+        )
+      );
+      setStreamingMessageId(null);
+    } finally {
+      setIsLoading(false);
+      onTextSubmit();
+    }
+  }, [pdfId, isLoading, currentChatId, messages.length, scrollDownForNewMessage, onTextSubmit]);
+
+  // Expose the sendImageMessage function to parent components
+  useEffect(() => {
+    if (onImageQuestion) {
+      onImageQuestion(sendImageMessage);
+    }
+  }, [onImageQuestion, sendImageMessage]);
+
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -621,6 +808,18 @@ export default function ChatPanel({
                       overflowWrap: 'break-word',
                     }}
                   >
+                    {/* Show image if present */}
+                    {message.imageUrl && (
+                      <div className='mb-2'>
+                        <img
+                          src={message.imageUrl}
+                          alt={`${message.imageType || 'User'} image`}
+                          className='max-w-full h-auto rounded-lg border border-gray-300'
+                          style={{ maxHeight: '300px' }}
+                        />
+                      </div>
+                    )}
+                    
                     {message.role === 'assistant' ? (
                       <EnhancedMarkdownRenderer
                         markdownText={message.content}
