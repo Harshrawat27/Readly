@@ -556,7 +556,7 @@ const PDFSidebar = ({
                 </svg>
               </div>
               <h1 className='text-lg font-medium text-[var(--text-primary)]'>
-                Readly
+                ReadItEasy
               </h1>
             </div>
 
