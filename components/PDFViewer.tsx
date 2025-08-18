@@ -1247,6 +1247,47 @@ export default function PDFViewer({
     return Math.max(scale, 0.5);
   }, [scale]);
 
+  // Force refresh PDF by clearing cache and reloading
+  const handleForceRefresh = useCallback(async () => {
+    if (!pdfId) return;
+
+    try {
+      console.log('🔄 Force refreshing PDF, clearing cache...');
+      setIsLoadingPdf(true);
+      setError(null);
+
+      // Clear the cache for this PDF
+      const cacheKey = `pdf_${pdfId}`;
+      sessionStorage.removeItem(cacheKey);
+
+      // Force reload from AWS
+      const response = await fetch(`/api/pdf/${pdfId}?bust=${Date.now()}`);
+      if (!response.ok) throw new Error('Failed to load PDF from server');
+
+      const pdfData = await response.json();
+
+      // Update cache with fresh data
+      sessionStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          url: pdfData.url,
+          timestamp: Date.now(),
+        })
+      );
+
+      setPdfFile(pdfData.url);
+      setCurrentPage(1);
+      setIsLoadingPdf(false);
+      setIsInitialLoad(false);
+
+      console.log('✅ PDF refreshed successfully');
+    } catch (error) {
+      console.error('❌ Force refresh failed:', error);
+      setError('Failed to refresh PDF. Please try again.');
+      setIsLoadingPdf(false);
+    }
+  }, [pdfId]);
+
   const handleZoomIn = useCallback(() => {
     const newScale = Math.min(3.0, scale + 0.1);
     if (onScaleChange) {
@@ -1395,7 +1436,7 @@ export default function PDFViewer({
   if (error) {
     return (
       <div className='h-full flex items-center justify-center'>
-        <div className='text-center space-y-4'>
+        <div className='flex flex-col items-center text-center space-y-4'>
           <div className='w-16 h-16 bg-red-100 rounded-full mx-auto flex items-center justify-center'>
             <svg
               className='w-8 h-8 text-red-500'
@@ -1413,6 +1454,34 @@ export default function PDFViewer({
             Error Loading PDF
           </h3>
           <p className='text-[var(--text-muted)]'>{error}</p>
+          <button
+            onClick={handleForceRefresh}
+            disabled={isLoadingPdf}
+            className='px-4 py-2 bg-[var(--accent)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+          >
+            {isLoadingPdf ? (
+              <>
+                <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <svg
+                  className='w-4 h-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8' />
+                  <path d='M21 3v5h-5' />
+                  <path d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16' />
+                  <path d='M3 21v-5h5' />
+                </svg>
+                Try Again
+              </>
+            )}
+          </button>
         </div>
       </div>
     );
@@ -1672,11 +1741,9 @@ export default function PDFViewer({
         <div className='p-4 min-w-fit'>
           {isLoadingPdf && (
             <div className='h-full flex items-center justify-center'>
-              <div className='text-center space-y-4'>
-                <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)] mx-auto'></div>
-                <p className='text-[var(--text-muted)] text-lg'>
-                  Loading PDF...
-                </p>
+              <div className='text-center py-8'>
+                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
+                <p className='text-[var(--text-muted)]'>Loading PDF...</p>
               </div>
             </div>
           )}
