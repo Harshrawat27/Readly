@@ -93,6 +93,9 @@ export default function PDFViewer({
     width: number;
     height: number;
   } | null>(null);
+  const [pdfPageDimensions, setPdfPageDimensions] = useState<
+    Map<number, { width: number; height: number }>
+  >(new Map());
   const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
 
@@ -678,14 +681,21 @@ export default function PDFViewer({
       console.log('Target element found:', !!targetElement);
 
       if (targetElement) {
-        console.log('Scrolling to existing element for page:', targetPage);
+        console.log('🎯 Scrolling to existing element for page:', targetPage);
+        
         // Calculate scroll position relative to container
         const containerRect = scrollContainer.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
         const scrollTop =
           scrollContainer.scrollTop + elementRect.top - containerRect.top - 20; // 20px offset from top
 
-        console.log('Scroll position calculated:', scrollTop);
+        console.log(`📍 Scroll calculation:
+          - Container top: ${containerRect.top}
+          - Element top: ${elementRect.top}
+          - Current scroll: ${scrollContainer.scrollTop}
+          - Target scroll: ${scrollTop}
+          - Element height: ${elementRect.height}px`);
+          
         scrollContainer.scrollTo({
           top: scrollTop,
           behavior: 'smooth',
@@ -1067,6 +1077,7 @@ export default function PDFViewer({
           setPageHeights(new Map());
           setAveragePageHeight(PLACEHOLDER_HEIGHT);
           setBasePageDimensions(null);
+          setPdfPageDimensions(new Map());
 
           // Check if PDF is cached
           const cacheKey = `pdf_${pdfId}`;
@@ -1120,6 +1131,7 @@ export default function PDFViewer({
       setPageHeights(new Map());
       setAveragePageHeight(PLACEHOLDER_HEIGHT);
       setBasePageDimensions(null);
+      setPdfPageDimensions(new Map());
       setIsLoadingPdf(false);
     }
   }, [pdfId]);
@@ -1243,7 +1255,7 @@ export default function PDFViewer({
   }, [numPages]);
 
   const onDocumentLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
+    async ({ numPages }: { numPages: number }) => {
       setNumPages(numPages);
       setCurrentPage(1);
       setError(null);
@@ -1279,6 +1291,141 @@ export default function PDFViewer({
   const calculateScale = useCallback(() => {
     return Math.max(scale, 0.5);
   }, [scale]);
+
+  // Pre-calculate page dimensions for all pages
+  const preCalculatePageDimensions = useCallback(
+    async (pdfDocument: any, numPages: number) => {
+      const dimensionsMap = new Map<
+        number,
+        { width: number; height: number }
+      >();
+
+      try {
+        console.log(`🚀 Pre-calculating dimensions for ${numPages} pages at scale ${calculateScale()}`);
+        
+        // Check if pages have different sizes by sampling a few
+        const samplePages = [1, Math.floor(numPages/2), numPages];
+        const sampleHeights = [];
+        
+        for (const pageNum of samplePages) {
+          if (pageNum <= numPages) {
+            try {
+              const page = await pdfDocument.getPage(pageNum);
+              const viewport = page.getViewport({ scale: calculateScale() });
+              sampleHeights.push(viewport.height);
+              console.log(`📏 Sample page ${pageNum}: ${viewport.width}x${viewport.height}`);
+            } catch (err) {
+              console.warn(`Failed to get dimensions for sample page ${pageNum}:`, err);
+            }
+          }
+        }
+        
+        // Check if all pages have similar heights
+        const heightVariation = Math.max(...sampleHeights) - Math.min(...sampleHeights);
+        const useSingleHeight = heightVariation < 10; // If variation is less than 10px, assume uniform
+        
+        console.log(`📊 Height variation: ${heightVariation}px, Using single height: ${useSingleHeight}`);
+        
+        if (useSingleHeight && sampleHeights.length > 0) {
+          // If pages are uniform, set all pages to the same height
+          const uniformHeight = sampleHeights[0];
+          for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+            dimensionsMap.set(pageNum, {
+              width: sampleHeights[0] * (8.5/11), // Assume standard aspect ratio
+              height: uniformHeight,
+            });
+          }
+          console.log(`✅ Set uniform height of ${uniformHeight}px for all ${numPages} pages`);
+        } else {
+          // If pages vary, calculate individual dimensions for more pages
+          const pagesToCalculate = Math.min(numPages, 50); // Increased from 10 to 50
+          console.log(`🔄 Pages vary in size, calculating individual dimensions for first ${pagesToCalculate} pages`);
+          
+          for (let pageNum = 1; pageNum <= pagesToCalculate; pageNum++) {
+            try {
+              const page = await pdfDocument.getPage(pageNum);
+              const viewport = page.getViewport({ scale: calculateScale() });
+              dimensionsMap.set(pageNum, {
+                width: viewport.width,
+                height: viewport.height,
+              });
+            } catch (err) {
+              console.warn(`Failed to get dimensions for page ${pageNum}:`, err);
+            }
+          }
+        }
+
+        setPdfPageDimensions(dimensionsMap);
+
+        // Set the average height based on these pre-calculated dimensions
+        if (dimensionsMap.size > 0) {
+          const heights = Array.from(dimensionsMap.values()).map(
+            (d) => d.height
+          );
+          const avgHeight =
+            heights.reduce((sum, h) => sum + h, 0) / heights.length;
+          setAveragePageHeight(avgHeight);
+          console.log(`📐 Average height set to: ${avgHeight}px from ${heights.length} pages`);
+
+          // Set base dimensions from first page
+          const firstPage = dimensionsMap.get(1);
+          if (firstPage) {
+            setBasePageDimensions(firstPage);
+            console.log(`📋 Base dimensions set: ${firstPage.width}x${firstPage.height}`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error pre-calculating page dimensions:', error);
+      }
+    },
+    [calculateScale]
+  );
+
+  // Pre-calculate page dimensions when PDF loads
+  useEffect(() => {
+    if (pdfFile && numPages && pdfPageDimensions.size === 0) {
+      // Initial calculation when PDF first loads
+      const calculateInitialDimensions = async () => {
+        try {
+          const reactPdf = await import('react-pdf');
+          const pdfjs = reactPdf.pdfjs;
+          const loadingTask = pdfjs.getDocument(pdfFile);
+          const pdfDocument = await loadingTask.promise;
+          await preCalculatePageDimensions(pdfDocument, numPages);
+        } catch (error) {
+          console.error('Error calculating initial page dimensions:', error);
+        }
+      };
+
+      calculateInitialDimensions();
+    }
+  }, [pdfFile, numPages, preCalculatePageDimensions, pdfPageDimensions.size]);
+
+  // Recalculate page dimensions when scale changes
+  useEffect(() => {
+    if (pdfFile && numPages && pdfPageDimensions.size > 0) {
+      // Recalculate dimensions with new scale
+      const loadPdfAndRecalculate = async () => {
+        try {
+          const reactPdf = await import('react-pdf');
+          const pdfjs = reactPdf.pdfjs;
+          const loadingTask = pdfjs.getDocument(pdfFile);
+          const pdfDocument = await loadingTask.promise;
+          await preCalculatePageDimensions(pdfDocument, numPages);
+        } catch (error) {
+          console.error('Error recalculating page dimensions:', error);
+        }
+      };
+
+      loadPdfAndRecalculate();
+    }
+  }, [
+    scale,
+    pdfFile,
+    numPages,
+    preCalculatePageDimensions,
+    pdfPageDimensions.size,
+  ]);
 
   const handleZoomIn = useCallback(() => {
     const newScale = Math.min(3.0, scale + 0.1);
@@ -1417,24 +1564,34 @@ export default function PDFViewer({
       // If we have the exact height for this page, return it
       const exactHeight = pageHeights.get(pageNumber);
       if (exactHeight) {
+        console.log(`📏 Page ${pageNumber}: Using exact height ${exactHeight}px`);
         return exactHeight;
       }
 
-      // If we have base dimensions and other loaded pages, use average
+      // If we have pre-calculated dimensions for this specific page, use them
+      const preCalculatedDimensions = pdfPageDimensions.get(pageNumber);
+      if (preCalculatedDimensions) {
+        console.log(`📐 Page ${pageNumber}: Using pre-calculated height ${preCalculatedDimensions.height}px`);
+        return preCalculatedDimensions.height;
+      }
+
+      // If we have an average from pre-calculated dimensions, use that
       if (averagePageHeight !== PLACEHOLDER_HEIGHT) {
+        console.log(`📊 Page ${pageNumber}: Using average height ${averagePageHeight}px`);
         return averagePageHeight;
       }
 
-      // If we have base dimensions, calculate height based on current scale
+      // If we have base dimensions, use them
       if (basePageDimensions) {
-        // This will give us a much more accurate placeholder height
+        console.log(`📋 Page ${pageNumber}: Using base height ${basePageDimensions.height}px`);
         return basePageDimensions.height;
       }
 
       // Fallback to default placeholder
+      console.log(`⚠️ Page ${pageNumber}: Using fallback height ${PLACEHOLDER_HEIGHT}px`);
       return PLACEHOLDER_HEIGHT;
     },
-    [pageHeights, averagePageHeight, basePageDimensions]
+    [pageHeights, pdfPageDimensions, averagePageHeight, basePageDimensions]
   );
 
   if (!pdfId) {
