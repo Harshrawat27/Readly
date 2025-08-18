@@ -82,6 +82,7 @@ export default function PDFViewer({
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
+  const [averagePageHeight, setAveragePageHeight] = useState<number>(PLACEHOLDER_HEIGHT);
   const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
 
@@ -1005,6 +1006,8 @@ export default function PDFViewer({
           setIsLoadingPdf(true);
           setError(null);
           setIsInitialLoad(true);
+          setPageHeights(new Map());
+          setAveragePageHeight(PLACEHOLDER_HEIGHT);
 
           // Check if PDF is cached
           const cacheKey = `pdf_${pdfId}`;
@@ -1055,6 +1058,8 @@ export default function PDFViewer({
       setNumPages(null);
       setCurrentPage(1);
       setVisiblePages(new Set([1]));
+      setPageHeights(new Map());
+      setAveragePageHeight(PLACEHOLDER_HEIGHT);
       setIsLoadingPdf(false);
     }
   }, [pdfId]);
@@ -1322,15 +1327,23 @@ export default function PDFViewer({
     setPageHeights((prev) => {
       const newMap = new Map(prev);
       newMap.set(pageNumber, height);
+      
+      // Update average height based on loaded pages
+      const heights = Array.from(newMap.values());
+      if (heights.length > 0) {
+        const avgHeight = heights.reduce((sum, h) => sum + h, 0) / heights.length;
+        setAveragePageHeight(avgHeight);
+      }
+      
       return newMap;
     });
   }, []);
 
   const getPageHeight = useCallback(
     (pageNumber: number) => {
-      return pageHeights.get(pageNumber) || PLACEHOLDER_HEIGHT;
+      return pageHeights.get(pageNumber) || averagePageHeight;
     },
-    [pageHeights]
+    [pageHeights, averagePageHeight]
   );
 
   if (!pdfId) {
