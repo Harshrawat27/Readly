@@ -104,3 +104,4 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
 -- shapes
 -- domain purchase and connect!
 -- use links to upload doc. 
+-- id and pass not working! 
