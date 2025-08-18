@@ -21,7 +21,7 @@ export async function GET() {
         userId: session.user.id,
       },
       orderBy: {
-        uploadedAt: 'asc',
+        uploadedAt: 'desc',
       },
       select: {
         id: true,
