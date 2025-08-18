@@ -79,8 +79,9 @@ export default function PDFViewer({
 
   // Virtualization state
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]));
-  const [pageHeights, setPageHeights] = useState<Map<number, number>>(
-    new Map()
+  // Uniform page height for accurate scroll calculations
+  const [uniformPageHeight, setUniformPageHeight] = useState<number | null>(
+    null
   );
   const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
@@ -653,7 +654,41 @@ export default function PDFViewer({
         return;
       }
 
-      // Scroll to the target page within the container
+      // Use uniform page height for accurate scroll calculation
+      if (uniformPageHeight) {
+        const pageGap = 16; // Gap between pages in pixels
+        const scrollPosition = (targetPage - 1) * (uniformPageHeight + pageGap);
+
+        console.log('Using uniform height calculation:', {
+          targetPage,
+          uniformPageHeight,
+          pageGap,
+          scrollPosition,
+        });
+
+        scrollContainer.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth',
+        });
+
+        // Ensure target page and surrounding pages are visible
+        setVisiblePages((prev) => {
+          const newSet = new Set(prev);
+          for (
+            let i = Math.max(1, targetPage - PAGE_BUFFER);
+            i <= Math.min(numPages, targetPage + PAGE_BUFFER);
+            i++
+          ) {
+            newSet.add(i);
+          }
+          return newSet;
+        });
+
+        setCurrentPage(targetPage);
+        return;
+      }
+
+      // Fallback to element-based scrolling if uniform height not available yet
       const targetElement = scrollContainer.querySelector(
         `[data-page-number="${targetPage}"]`
       );
@@ -662,11 +697,10 @@ export default function PDFViewer({
 
       if (targetElement) {
         console.log('Scrolling to existing element for page:', targetPage);
-        // Calculate scroll position relative to container
         const containerRect = scrollContainer.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
         const scrollTop =
-          scrollContainer.scrollTop + elementRect.top - containerRect.top - 20; // 20px offset from top
+          scrollContainer.scrollTop + elementRect.top - containerRect.top - 20;
 
         console.log('Scroll position calculated:', scrollTop);
         scrollContainer.scrollTo({
@@ -675,10 +709,8 @@ export default function PDFViewer({
         });
       } else {
         console.log('Page not rendered, adding to visible pages:', targetPage);
-        // If page isn't rendered yet, update visible pages and then scroll
         setVisiblePages((prev) => {
           const newSet = new Set(prev);
-          // Add the target page and surrounding pages to render
           for (
             let i = Math.max(1, targetPage - PAGE_BUFFER);
             i <= Math.min(numPages, targetPage + PAGE_BUFFER);
@@ -695,7 +727,6 @@ export default function PDFViewer({
           const element = scrollContainer.querySelector(
             `[data-page-number="${targetPage}"]`
           );
-          console.log('After timeout, element found:', !!element);
           if (element) {
             const containerRect = scrollContainer.getBoundingClientRect();
             const elementRect = element.getBoundingClientRect();
@@ -705,20 +736,17 @@ export default function PDFViewer({
               containerRect.top -
               20;
 
-            console.log('Delayed scroll position:', scrollTop);
             scrollContainer.scrollTo({
               top: scrollTop,
               behavior: 'smooth',
             });
-          } else {
-            console.log('Element still not found after timeout');
           }
-        }, 200); // Increased timeout to ensure page renders
+        }, 200);
       }
 
       setCurrentPage(targetPage);
     },
-    [numPages]
+    [numPages, uniformPageHeight]
   );
 
   // Handle pending navigation after PDF loads
@@ -1216,6 +1244,9 @@ export default function PDFViewer({
       setError(null);
       pdfDocumentRef.current = true;
 
+      // Reset uniform height for new PDF
+      setUniformPageHeight(null);
+
       // Initialize with first few pages visible
       const initialPages = new Set<number>();
       for (let i = 1; i <= Math.min(5, numPages); i++) {
@@ -1391,20 +1422,26 @@ export default function PDFViewer({
   );
 
   // Page height tracking for accurate placeholder sizing
-  const handlePageLoad = useCallback((pageNumber: number, height: number) => {
-    setPageHeights((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(pageNumber, height);
-      return newMap;
-    });
-  }, []);
-
-  const getPageHeight = useCallback(
-    (pageNumber: number) => {
-      return pageHeights.get(pageNumber) || PLACEHOLDER_HEIGHT;
+  const handlePageLoad = useCallback(
+    (pageNumber: number, height: number) => {
+      // Set uniform height from first page loaded
+      if (uniformPageHeight === null) {
+        setUniformPageHeight(height);
+        console.log(
+          'Setting uniform page height from page',
+          pageNumber,
+          ':',
+          height
+        );
+      }
     },
-    [pageHeights]
+    [uniformPageHeight]
   );
+
+  const getPageHeight = useCallback(() => {
+    // Always return uniform height if available, otherwise use placeholder
+    return uniformPageHeight || PLACEHOLDER_HEIGHT;
+  }, [uniformPageHeight]);
 
   if (!pdfId) {
     return (
@@ -1791,7 +1828,7 @@ export default function PDFViewer({
                   Array.from(new Array(numPages), (el, index) => {
                     const pageNumber = index + 1;
                     const isPageVisible = visiblePages.has(pageNumber);
-                    const pageHeight = getPageHeight(pageNumber);
+                    const pageHeight = getPageHeight();
 
                     return (
                       <div
