@@ -64,6 +64,11 @@ export default function PDFViewer({
   currentUser,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
+
+  // Keep ref in sync with numPages
+  useEffect(() => {
+    numPagesRef.current = numPages;
+  }, [numPages]);
   const [currentPage, setCurrentPage] = useState(1);
   const [internalScale, setInternalScale] = useState(1.2);
   const scale = externalScale || internalScale;
@@ -82,12 +87,18 @@ export default function PDFViewer({
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
-  const [averagePageHeight, setAveragePageHeight] = useState<number>(PLACEHOLDER_HEIGHT);
+  const [averagePageHeight, setAveragePageHeight] =
+    useState<number>(PLACEHOLDER_HEIGHT);
+  const [basePageDimensions, setBasePageDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
 
   // PDF document reference for programmatic navigation
   const pdfDocumentRef = useRef<boolean>(null);
+  const numPagesRef = useRef<number | null>(null);
 
   // Figma toolbar state
   const [activeTool, setActiveTool] = useState<ToolType>('move');
@@ -538,8 +549,10 @@ export default function PDFViewer({
           // Smart batching: 100 pages for PDFs with 100+ pages, all pages if less than 100
           const BATCH_SIZE = allPages.length <= 100 ? allPages.length : 100;
           const totalBatches = Math.ceil(allPages.length / BATCH_SIZE);
-          
-          console.log(`Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch)`);
+
+          console.log(
+            `Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch)`
+          );
 
           for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
             const startIndex = batchIndex * BATCH_SIZE;
@@ -547,22 +560,36 @@ export default function PDFViewer({
             const batchPages = allPages.slice(startIndex, endIndex);
 
             // Calculate payload size for debugging
-            const payload = { 
+            const payload = {
               pages: batchPages,
               batchInfo: {
                 batchIndex: batchIndex,
                 totalBatches: totalBatches,
-                isLastBatch: batchIndex === totalBatches - 1
-              }
+                isLastBatch: batchIndex === totalBatches - 1,
+              },
             };
             const payloadString = JSON.stringify(payload);
             const payloadSizeKB = (payloadString.length / 1024).toFixed(2);
-            const payloadSizeMB = (payloadString.length / (1024 * 1024)).toFixed(2);
-            
+            const payloadSizeMB = (
+              payloadString.length /
+              (1024 * 1024)
+            ).toFixed(2);
+
             console.log(`🚀 Sending batch ${batchIndex + 1}/${totalBatches}`);
-            console.log(`   📄 Pages: ${batchPages[0].pageNumber}-${batchPages[batchPages.length - 1].pageNumber} (${batchPages.length} pages)`);
-            console.log(`   📊 Payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`);
-            console.log(`   📝 Total characters in batch: ${batchPages.reduce((sum, page) => sum + page.content.length, 0)}`);
+            console.log(
+              `   📄 Pages: ${batchPages[0].pageNumber}-${
+                batchPages[batchPages.length - 1].pageNumber
+              } (${batchPages.length} pages)`
+            );
+            console.log(
+              `   📊 Payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`
+            );
+            console.log(
+              `   📝 Total characters in batch: ${batchPages.reduce(
+                (sum, page) => sum + page.content.length,
+                0
+              )}`
+            );
 
             const response = await fetch(`/api/pdf/${pdfId}/extract`, {
               method: 'POST',
@@ -573,13 +600,29 @@ export default function PDFViewer({
             });
 
             if (!response.ok) {
-              console.error(`❌ Batch ${batchIndex + 1} failed with status: ${response.status} ${response.statusText}`);
-              console.error(`   📊 Failed payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`);
-              const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-              throw new Error(`Batch ${batchIndex + 1} failed: ${errorData.error || 'Unknown error'}`);
+              console.error(
+                `❌ Batch ${batchIndex + 1} failed with status: ${
+                  response.status
+                } ${response.statusText}`
+              );
+              console.error(
+                `   📊 Failed payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`
+              );
+              const errorData = await response
+                .json()
+                .catch(() => ({ error: 'Unknown error' }));
+              throw new Error(
+                `Batch ${batchIndex + 1} failed: ${
+                  errorData.error || 'Unknown error'
+                }`
+              );
             }
 
-            console.log(`✅ Batch ${batchIndex + 1}/${totalBatches} processed successfully`);
+            console.log(
+              `✅ Batch ${
+                batchIndex + 1
+              }/${totalBatches} processed successfully`
+            );
           }
 
           console.log('PDF text extracted successfully in background');
@@ -601,8 +644,14 @@ export default function PDFViewer({
     (targetPage: number) => {
       console.log('handleCitationClick called for page:', targetPage);
 
+      // Use ref to get current value to avoid stale closure
+      const currentNumPages = numPagesRef.current;
+      const scrollContainer = scrollContainerRef.current;
+
+      console.log('Current num pages from ref:', currentNumPages);
+
       // If PDF isn't loaded yet, queue the navigation
-      if (!numPages) {
+      if (!currentNumPages) {
         console.log(
           'PDF not loaded yet, queuing navigation to page:',
           targetPage
@@ -611,12 +660,11 @@ export default function PDFViewer({
         return;
       }
 
-      if (targetPage < 1 || targetPage > numPages) {
-        console.log('Invalid page range:', { targetPage, numPages });
+      if (targetPage < 1 || targetPage > currentNumPages) {
+        console.log('Invalid page range:', { targetPage, currentNumPages });
         return;
       }
 
-      const scrollContainer = scrollContainerRef.current;
       if (!scrollContainer) {
         console.log('No scroll container found');
         return;
@@ -650,7 +698,7 @@ export default function PDFViewer({
           // Add the target page and surrounding pages to render
           for (
             let i = Math.max(1, targetPage - PAGE_BUFFER);
-            i <= Math.min(numPages, targetPage + PAGE_BUFFER);
+            i <= Math.min(currentNumPages, targetPage + PAGE_BUFFER);
             i++
           ) {
             newSet.add(i);
@@ -687,7 +735,7 @@ export default function PDFViewer({
 
       setCurrentPage(targetPage);
     },
-    [numPages]
+    [] // Remove dependencies to prevent event listener re-attachment
   );
 
   // Handle pending navigation after PDF loads
@@ -746,7 +794,12 @@ export default function PDFViewer({
 
         if (pageMatch) {
           const pageNumber = parseInt(pageMatch[1]);
-          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+          const currentNumPages = numPagesRef.current; // Use ref to get current value
+          if (
+            pageNumber > 0 &&
+            currentNumPages &&
+            pageNumber <= currentNumPages
+          ) {
             handleCitationClick(pageNumber);
           }
         }
@@ -771,14 +824,19 @@ export default function PDFViewer({
         const pageMatch = href.match(/(\d+)/);
         if (pageMatch) {
           const pageNumber = parseInt(pageMatch[0]);
-          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+          const currentNumPages = numPagesRef.current; // Use ref to get current value
+          if (
+            pageNumber > 0 &&
+            currentNumPages &&
+            pageNumber <= currentNumPages
+          ) {
             event.preventDefault();
             handleCitationClick(pageNumber);
           }
         }
       }
     },
-    [handleCitationClick, numPages]
+    [handleCitationClick] // Only depend on handleCitationClick
   );
 
   // Add PDF text layer link handler
@@ -972,7 +1030,7 @@ export default function PDFViewer({
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [handleLinkClick, pdfFile, isMousePressed, selectedTextId]); // Re-attach when PDF changes
+  }, [handleLinkClick, pdfFile]); // Re-attach only when PDF changes or handleLinkClick changes
 
   // Clear selection when clicking elsewhere (from old implementation)
   useEffect(() => {
@@ -1008,6 +1066,7 @@ export default function PDFViewer({
           setIsInitialLoad(true);
           setPageHeights(new Map());
           setAveragePageHeight(PLACEHOLDER_HEIGHT);
+          setBasePageDimensions(null);
 
           // Check if PDF is cached
           const cacheKey = `pdf_${pdfId}`;
@@ -1060,6 +1119,7 @@ export default function PDFViewer({
       setVisiblePages(new Set([1]));
       setPageHeights(new Map());
       setAveragePageHeight(PLACEHOLDER_HEIGHT);
+      setBasePageDimensions(null);
       setIsLoadingPdf(false);
     }
   }, [pdfId]);
@@ -1323,27 +1383,58 @@ export default function PDFViewer({
   );
 
   // Page height tracking for accurate placeholder sizing
-  const handlePageLoad = useCallback((pageNumber: number, height: number) => {
-    setPageHeights((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(pageNumber, height);
-      
-      // Update average height based on loaded pages
-      const heights = Array.from(newMap.values());
-      if (heights.length > 0) {
-        const avgHeight = heights.reduce((sum, h) => sum + h, 0) / heights.length;
-        setAveragePageHeight(avgHeight);
+  const handlePageLoad = useCallback(
+    (pageNumber: number, pageElement: HTMLElement) => {
+      // Get the actual rendered height from the DOM element
+      const renderedHeight = pageElement.offsetHeight;
+      const renderedWidth = pageElement.offsetWidth;
+
+      setPageHeights((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(pageNumber, renderedHeight);
+
+        // Update average height based on loaded pages
+        const heights = Array.from(newMap.values());
+        if (heights.length > 0) {
+          const avgHeight =
+            heights.reduce((sum, h) => sum + h, 0) / heights.length;
+          setAveragePageHeight(avgHeight);
+        }
+
+        return newMap;
+      });
+
+      // Store base dimensions from the first loaded page for future scaling calculations
+      if (!basePageDimensions && pageNumber === 1) {
+        setBasePageDimensions({ width: renderedWidth, height: renderedHeight });
       }
-      
-      return newMap;
-    });
-  }, []);
+    },
+    [basePageDimensions]
+  );
 
   const getPageHeight = useCallback(
     (pageNumber: number) => {
-      return pageHeights.get(pageNumber) || averagePageHeight;
+      // If we have the exact height for this page, return it
+      const exactHeight = pageHeights.get(pageNumber);
+      if (exactHeight) {
+        return exactHeight;
+      }
+
+      // If we have base dimensions and other loaded pages, use average
+      if (averagePageHeight !== PLACEHOLDER_HEIGHT) {
+        return averagePageHeight;
+      }
+
+      // If we have base dimensions, calculate height based on current scale
+      if (basePageDimensions) {
+        // This will give us a much more accurate placeholder height
+        return basePageDimensions.height;
+      }
+
+      // Fallback to default placeholder
+      return PLACEHOLDER_HEIGHT;
     },
-    [pageHeights, averagePageHeight]
+    [pageHeights, averagePageHeight, basePageDimensions]
   );
 
   if (!pdfId) {
@@ -1407,7 +1498,7 @@ export default function PDFViewer({
           <span className='text-sm text-[var(--text-primary)]'>
             {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
           </span>
-          
+
           {/* Mind Mapping Button */}
           <button
             onClick={() => setShowMindMap(true)}
@@ -1444,9 +1535,9 @@ export default function PDFViewer({
               stroke='currentColor'
               strokeWidth='2'
             >
-              <rect x='2' y='3' width='20' height='14' rx='2' ry='2'/>
-              <line x1='8' y1='21' x2='16' y2='21'/>
-              <line x1='12' y1='17' x2='12' y2='21'/>
+              <rect x='2' y='3' width='20' height='14' rx='2' ry='2' />
+              <line x1='8' y1='21' x2='16' y2='21' />
+              <line x1='12' y1='17' x2='12' y2='21' />
             </svg>
             Flash Cards
           </button>
@@ -1653,9 +1744,9 @@ export default function PDFViewer({
         <div className='p-4 min-w-fit'>
           {isLoadingPdf && (
             <div className='h-full flex items-center justify-center'>
-              <div className='text-center space-y-4'>
-                <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)] mx-auto'></div>
-                <p className='text-[var(--text-muted)] text-lg'>Loading PDF...</p>
+              <div className='text-center py-8'>
+                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)] mx-auto mb-4'></div>
+                <p className='text-[var(--text-muted)]'>Loading PDF...</p>
               </div>
             </div>
           )}
@@ -1723,8 +1814,22 @@ export default function PDFViewer({
                               renderTextLayer={true}
                               renderAnnotationLayer={true}
                               className='pdf-page shadow-lg border'
-                              onLoadSuccess={(page) => {
-                                handlePageLoad(pageNumber, page.height);
+                              onLoadSuccess={() => {
+                                // Get the actual rendered page element and measure it
+                                setTimeout(() => {
+                                  const pageElement =
+                                    pageRefs.current.get(pageNumber);
+                                  if (pageElement) {
+                                    const pdfPageElement =
+                                      pageElement.querySelector('.pdf-page');
+                                    if (pdfPageElement) {
+                                      handlePageLoad(
+                                        pageNumber,
+                                        pdfPageElement as HTMLElement
+                                      );
+                                    }
+                                  }
+                                }, 100); // Small delay to ensure the page is fully rendered
                               }}
                             />
 
@@ -1819,7 +1924,7 @@ export default function PDFViewer({
                           <div
                             className='flex items-center justify-center bg-gray-50 border rounded shadow-lg'
                             style={{
-                              height: `${pageHeight * calculateScale()}px`,
+                              height: `${pageHeight}px`,
                             }}
                           >
                             <p className='text-gray-400'>Page {pageNumber}</p>
@@ -1859,26 +1964,17 @@ export default function PDFViewer({
 
       {/* Mind Map Modal */}
       {showMindMap && pdfId && (
-        <MindMap
-          pdfId={pdfId}
-          onClose={() => setShowMindMap(false)}
-        />
+        <MindMap pdfId={pdfId} onClose={() => setShowMindMap(false)} />
       )}
 
       {/* Flash Cards Modal */}
       {showFlashCards && pdfId && (
-        <FlashCards
-          pdfId={pdfId}
-          onClose={() => setShowFlashCards(false)}
-        />
+        <FlashCards pdfId={pdfId} onClose={() => setShowFlashCards(false)} />
       )}
 
       {/* MCQs Modal */}
       {showMCQs && pdfId && (
-        <MCQs
-          pdfId={pdfId}
-          onClose={() => setShowMCQs(false)}
-        />
+        <MCQs pdfId={pdfId} onClose={() => setShowMCQs(false)} />
       )}
     </div>
   );
