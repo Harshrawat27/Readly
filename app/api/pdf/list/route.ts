@@ -10,10 +10,7 @@ export async function GET() {
     });
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const pdfs = await prisma.pDF.findMany({
@@ -21,7 +18,7 @@ export async function GET() {
         userId: session.user.id,
       },
       orderBy: {
-        uploadedAt: 'asc',
+        uploadedAt: 'desc',
       },
       select: {
         id: true,
@@ -33,7 +30,6 @@ export async function GET() {
     });
 
     return NextResponse.json(pdfs);
-
   } catch (error) {
     console.error('PDF list error:', error);
     return NextResponse.json(

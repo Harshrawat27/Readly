@@ -47,6 +47,8 @@ const PDFSidebar = ({
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [urlInput, setUrlInput] = useState('');
+  const [isConvertingUrl, setIsConvertingUrl] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -229,6 +231,66 @@ const PDFSidebar = ({
       fileInputRef.current.click();
     }
   }, []);
+
+  const handleUrlUpload = async () => {
+    if (!urlInput.trim()) {
+      setToast({ message: 'Please enter a valid URL', type: 'error' });
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      new URL(urlInput);
+    } catch {
+      setToast({ message: 'Please enter a valid URL', type: 'error' });
+      return;
+    }
+
+    setIsConvertingUrl(true);
+    
+    try {
+      const response = await fetch('/api/pdf/convert-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: urlInput }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to convert URL to PDF');
+      }
+
+      const result = await response.json();
+      
+      // Add the new PDF to the history
+      setPdfHistory((prev) => [
+        {
+          id: result.id,
+          title: result.title || new URL(urlInput).hostname,
+          fileName: result.fileName,
+          uploadedAt: new Date(),
+          lastAccessedAt: new Date(),
+        },
+        ...prev,
+      ]);
+
+      // Select the new PDF
+      onPdfSelect(result.id);
+      
+      setToast({ message: 'URL converted to PDF successfully!', type: 'success' });
+      setUrlInput(''); // Clear the input
+    } catch (error) {
+      console.error('Error converting URL to PDF:', error);
+      setToast({ 
+        message: error instanceof Error ? error.message : 'Failed to convert URL to PDF', 
+        type: 'error' 
+      });
+    } finally {
+      setIsConvertingUrl(false);
+    }
+  };
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -616,6 +678,53 @@ const PDFSidebar = ({
             onChange={handleFileChange}
             className='hidden'
           />
+
+          {/* URL Upload Section */}
+          <div className='mb-6 space-y-2'>
+            <p className='text-sm text-[var(--text-muted)] font-medium'>Upload URL</p>
+            <div className='flex gap-2'>
+              <input
+                type='url'
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder='https://example.com/article'
+                disabled={isConvertingUrl}
+                className='flex-1 px-3 py-2 text-sm bg-[var(--card-background)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent disabled:opacity-50'
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isConvertingUrl) {
+                    handleUrlUpload();
+                  }
+                }}
+              />
+              <button
+                onClick={handleUrlUpload}
+                disabled={isConvertingUrl || !urlInput.trim()}
+                className='px-3 py-2 bg-[var(--accent)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1'
+              >
+                {isConvertingUrl ? (
+                  <>
+                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></div>
+                    <span className='text-xs'>Converting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className='w-4 h-4'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                    >
+                      <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' />
+                      <polyline points='7,10 12,15 17,10' />
+                      <line x1='12' y1='15' x2='12' y2='3' />
+                    </svg>
+                    <span className='text-xs'>Upload</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
 
           {/* Navigation Sections */}
           <div className='space-y-1'>
