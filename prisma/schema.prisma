@@ -107,6 +107,7 @@ model PDF {
   chunks         PDFChunk[]
   penDrawings    PenDrawing[]
 
+  @@index([userId, uploadedAt])
   @@map("pdf")
 }
 
