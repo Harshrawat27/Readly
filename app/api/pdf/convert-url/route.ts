@@ -4,7 +4,16 @@ import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { uploadPdfToS3 } from '@/lib/s3';
 import { incrementPdfUpload } from '@/lib/subscription-utils';
-import puppeteer from 'puppeteer';
+// Import puppeteer conditionally based on environment
+let puppeteer: any;
+let chromium: any;
+
+if (process.env.NODE_ENV === 'production') {
+  puppeteer = require('puppeteer-core');
+  chromium = require('@sparticuz/chromium');
+} else {
+  puppeteer = require('puppeteer');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,20 +56,34 @@ export async function POST(request: NextRequest) {
     console.log(`🔗 [URL-to-PDF] URL: ${url}`);
     console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
 
-    // Launch Puppeteer
+    // Launch Puppeteer (serverless-optimized for production)
     console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-      ],
-    });
+    
+    const isProduction = process.env.NODE_ENV === 'production';
+    console.log(`🔧 [URL-to-PDF] Environment: ${isProduction ? 'production (serverless)' : 'development (local)'}`);
+    
+    const browser = await puppeteer.launch(
+      isProduction
+        ? {
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true,
+          }
+        : {
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--no-first-run',
+              '--no-zygote',
+              '--disable-gpu',
+            ],
+          }
+    );
 
     let pdfBuffer: Uint8Array;
     let pageTitle = '';
