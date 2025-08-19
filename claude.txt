@@ -111,6 +111,6 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
 
 before launch focus on this. 
 
--- upload doc via main domain
+-- upload doc via main domain, working --- but url on domain is not working! 
 -- subscription should work
 -- maybe remove shapes. 
