@@ -48,7 +48,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause for cursor-based pagination
-    const whereClause: any = {
+    const whereClause: {
+      chatId: string;
+      createdAt?: {
+        lt: Date;
+      };
+    } = {
       chatId: chat.id,
     };
 
