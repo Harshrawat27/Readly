@@ -206,7 +206,53 @@ export default function ChatPanel({
     };
   }, [scrollToBottom, streamingMessageId]);
 
-  // Load chat history (optimized single call). Scroll handled by the effects above.
+  // Pagination state
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Load more messages function
+  const loadMoreMessages = useCallback(async () => {
+    if (!nextCursor || !currentChatId || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/chat/recent?pdfId=${pdfId}&cursor=${nextCursor}&limit=30`
+      );
+
+      if (!response.ok) throw new Error('Failed to load more messages');
+
+      const data = await response.json();
+
+      if (data.chat && data.chat.messages) {
+        const olderMessages = data.chat.messages.map(
+          (msg: {
+            id: string;
+            role: 'user' | 'assistant';
+            content: string;
+            createdAt: string;
+          }) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+          })
+        );
+
+        // Prepend older messages to the beginning
+        setMessages((prev) => [...olderMessages, ...prev]);
+        setHasMoreMessages(data.pagination?.hasMore || false);
+        setNextCursor(data.pagination?.nextCursor || null);
+      }
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextCursor, currentChatId, pdfId, isLoadingMore]);
+
+  // Load chat history (optimized with pagination). Scroll handled by the effects above.
   useEffect(() => {
     let mounted = true;
     const loadChatHistory = async () => {
@@ -216,6 +262,8 @@ export default function ChatPanel({
         setCurrentChatId(null);
         setIsInitialLoad(true);
         setShowChatContent(true);
+        setHasMoreMessages(false);
+        setNextCursor(null);
         return;
       }
 
@@ -224,8 +272,8 @@ export default function ChatPanel({
       setShowChatContent(false);
 
       try {
-        // backend returns last N messages
-        const response = await fetch(`/api/chat/recent?pdfId=${pdfId}`);
+        // backend returns last 50 messages by default
+        const response = await fetch(`/api/chat/recent?pdfId=${pdfId}&limit=50`);
 
         if (!mounted) return;
 
@@ -233,6 +281,8 @@ export default function ChatPanel({
           if (response.status === 404) {
             setMessages([]);
             setCurrentChatId(null);
+            setHasMoreMessages(false);
+            setNextCursor(null);
             return;
           }
           throw new Error(`API failed: ${response.status}`);
@@ -257,6 +307,8 @@ export default function ChatPanel({
 
           setMessages(allMessages);
           setCurrentChatId(data.chat.id);
+          setHasMoreMessages(data.pagination?.hasMore || false);
+          setNextCursor(data.pagination?.nextCursor || null);
 
           // mark initial load finished in next tick to allow scroll effects to run first
           requestAnimationFrame(() => {
@@ -271,6 +323,8 @@ export default function ChatPanel({
           setCurrentChatId(null);
           setIsInitialLoad(false);
           setShowChatContent(true);
+          setHasMoreMessages(false);
+          setNextCursor(null);
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
@@ -278,6 +332,8 @@ export default function ChatPanel({
         setCurrentChatId(null);
         setIsInitialLoad(false);
         setShowChatContent(true);
+        setHasMoreMessages(false);
+        setNextCursor(null);
       } finally {
         if (mounted) setIsLoadingHistory(false);
       }
@@ -596,6 +652,26 @@ export default function ChatPanel({
               isInitialLoad && !showChatContent ? 'opacity-0' : 'opacity-100'
             }`}
           >
+            {/* Load More Messages Button */}
+            {hasMoreMessages && (
+              <div className='flex justify-center py-2'>
+                <button
+                  onClick={loadMoreMessages}
+                  disabled={isLoadingMore}
+                  className='px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-lg hover:bg-[var(--faded-white)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isLoadingMore ? (
+                    <div className='flex items-center gap-2'>
+                      <div className='w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin' />
+                      Loading older messages...
+                    </div>
+                  ) : (
+                    'Load older messages'
+                  )}
+                </button>
+              </div>
+            )}
+
             {messages.map((message) => (
               <div
                 key={message.id}

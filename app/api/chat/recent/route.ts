@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const pdfId = searchParams.get('pdfId');
+    const cursor = searchParams.get('cursor'); // For pagination
+    const limit = parseInt(searchParams.get('limit') || '50'); // Default 50 messages
 
     if (!pdfId) {
       return NextResponse.json(
@@ -24,10 +26,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Limit how many messages are returned for speed.
-    // Fetch the last 200 messages (descending) and then reverse to ascending.
-    const MESSAGE_FETCH_LIMIT = 200;
-
+    // Find the chat first
     const chat = await prisma.chat.findFirst({
       where: {
         userId: session.user.id,
@@ -36,19 +35,8 @@ export async function GET(request: NextRequest) {
       orderBy: {
         updatedAt: 'desc',
       },
-      include: {
-        messages: {
-          orderBy: {
-            createdAt: 'desc', // get newest first so we can `take` last N quickly
-          },
-          take: MESSAGE_FETCH_LIMIT,
-          select: {
-            id: true,
-            role: true,
-            content: true,
-            createdAt: true,
-          },
-        },
+      select: {
+        id: true,
       },
     });
 
@@ -59,13 +47,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // messages currently newest -> oldest; reverse to oldest -> newest
-    const messagesAsc = [...chat.messages].reverse();
+    // Build where clause for cursor-based pagination
+    const whereClause: any = {
+      chatId: chat.id,
+    };
+
+    // If cursor is provided, fetch messages older than cursor
+    if (cursor) {
+      whereClause.createdAt = {
+        lt: new Date(cursor),
+      };
+    }
+
+    // Fetch messages with cursor-based pagination
+    const messages = await prisma.message.findMany({
+      where: whereClause,
+      orderBy: {
+        createdAt: 'desc', // Newest first
+      },
+      take: limit,
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+
+    // Reverse to show oldest first (chronological order)
+    const messagesAsc = [...messages].reverse();
+
+    // Determine if there are more messages (for pagination)
+    const hasMore = messages.length === limit;
+    const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
 
     return NextResponse.json({
       chat: {
         id: chat.id,
         messages: messagesAsc,
+      },
+      pagination: {
+        hasMore,
+        nextCursor,
+        limit,
       },
     });
   } catch (error) {

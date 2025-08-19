@@ -152,6 +152,8 @@ model Message {
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([chatId, createdAt])
+  @@index([userId, createdAt])
   @@map("message")
 }
 
