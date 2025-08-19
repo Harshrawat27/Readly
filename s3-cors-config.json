@@ -1,0 +1,26 @@
+{
+  "CORSRules": [
+    {
+      "ID": "AllowDirectUploads",
+      "AllowedHeaders": [
+        "*"
+      ],
+      "AllowedMethods": [
+        "GET",
+        "PUT",
+        "POST",
+        "HEAD"
+      ],
+      "AllowedOrigins": [
+        "http://localhost:3000",
+        "https://readlydoc.vercel.app",
+        "https://*.vercel.app"
+      ],
+      "ExposeHeaders": [
+        "ETag",
+        "x-amz-request-id"
+      ],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}

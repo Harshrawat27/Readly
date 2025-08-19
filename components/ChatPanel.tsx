@@ -279,6 +279,7 @@ export default function ChatPanel({
 
         if (!response.ok) {
           if (response.status === 404) {
+            console.log(`💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`);
             setMessages([]);
             setCurrentChatId(null);
             setHasMoreMessages(false);

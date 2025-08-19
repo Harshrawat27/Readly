@@ -145,33 +145,96 @@ const PDFSidebar = ({
         return false;
       }
 
-      if (file.size > 50 * 1024 * 1024) {
-        // 50MB limit
+      const fileSizeKB = (file.size / 1024).toFixed(2);
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      
+      console.log(`🚀 [PDFSidebar] Starting upload process`);
+      console.log(`📁 [PDFSidebar] File: ${file.name}`);
+      console.log(`📊 [PDFSidebar] Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+      console.log(`🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`);
+
+      if (file.size > 100 * 1024 * 1024) {
+        // 100MB limit (much higher than Vercel's 4.5MB)
+        console.log(`❌ [PDFSidebar] File too large: ${fileSizeMB} MB`);
         setToast({
-          message: 'File size must be less than 50MB.',
+          message: 'File size must be less than 100MB.',
           type: 'error',
         });
         return false;
       }
 
       setIsUploading(true);
-      setUploadProgress('Uploading PDF...');
+      setUploadProgress('Preparing upload...');
 
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('/api/pdf/upload', {
+        // Step 1: Get presigned upload URL
+        console.log(`🔑 [PDFSidebar] Requesting presigned upload URL...`);
+        setUploadProgress('Getting upload URL...');
+        
+        const urlResponse = await fetch('/api/pdf/upload-url', {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+          }),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Upload failed');
+        if (!urlResponse.ok) {
+          const error = await urlResponse.json();
+          console.error(`❌ [PDFSidebar] Failed to get upload URL:`, error);
+          throw new Error(error.error || 'Failed to get upload URL');
         }
 
-        const result = await response.json();
+        const { uploadUrl, s3Key } = await urlResponse.json();
+        console.log(`✅ [PDFSidebar] Got presigned URL for S3 key: ${s3Key}`);
+
+        // Step 2: Upload directly to S3
+        console.log(`☁️ [PDFSidebar] Uploading directly to S3...`);
+        setUploadProgress('Uploading to S3...');
+
+        const s3Response = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!s3Response.ok) {
+          console.error(`❌ [PDFSidebar] S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
+          throw new Error(`S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
+        }
+
+        console.log(`✅ [PDFSidebar] S3 upload successful!`);
+
+        // Step 3: Complete upload (save metadata to database)
+        console.log(`💾 [PDFSidebar] Saving metadata to database...`);
+        setUploadProgress('Finalizing upload...');
+
+        const completeResponse = await fetch('/api/pdf/upload-complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            s3Key: s3Key,
+            fileName: file.name,
+            fileSize: file.size,
+          }),
+        });
+
+        if (!completeResponse.ok) {
+          const error = await completeResponse.json();
+          console.error(`❌ [PDFSidebar] Failed to complete upload:`, error);
+          throw new Error(error.error || 'Failed to complete upload');
+        }
+
+        const result = await completeResponse.json();
+        console.log(`✅ [PDFSidebar] Upload completed! PDF ID: ${result.id}`);
         setUploadProgress('Upload successful!');
 
         // Add the new PDF to the history

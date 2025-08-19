@@ -37,11 +37,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Handle PDF files from S3/CloudFront
+  // IMPORTANT: Ignore upload requests (PUT, POST) to S3 - these should not be cached
   if (
-    url.pathname.includes('.pdf') ||
-    url.hostname.includes('s3.amazonaws.com') ||
-    url.hostname.includes('cloudfront.net')
+    (url.hostname.includes('s3.amazonaws.com') || url.hostname.includes('cloudfront.net')) &&
+    (event.request.method === 'PUT' || event.request.method === 'POST')
+  ) {
+    // Let upload requests pass through without interception
+    return;
+  }
+
+  // Handle PDF files from S3/CloudFront (only GET requests)
+  if (
+    event.request.method === 'GET' &&
+    (url.pathname.includes('.pdf') ||
+     url.hostname.includes('s3.amazonaws.com') ||
+     url.hostname.includes('cloudfront.net'))
   ) {
     event.respondWith(
       caches.open(PDF_CACHE_NAME).then(async (cache) => {
@@ -94,8 +104,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache successful API responses
-          if (response.status === 200) {
+          // Only cache GET requests with successful responses
+          if (response.status === 200 && event.request.method === 'GET') {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseClone);
@@ -104,8 +114,12 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Return cached response if network fails
-          return caches.match(event.request);
+          // Return cached response if network fails (only for GET requests)
+          if (event.request.method === 'GET') {
+            return caches.match(event.request);
+          }
+          // For non-GET requests, let the error propagate
+          throw new Error('Network request failed');
         })
     );
     return;

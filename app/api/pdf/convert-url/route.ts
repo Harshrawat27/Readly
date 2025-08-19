@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client } from '@/lib/aws';
+import { uploadPdfToS3 } from '@/lib/s3';
+import { incrementPdfUpload } from '@/lib/subscription-utils';
 import puppeteer from 'puppeteer';
 
 export async function POST(request: NextRequest) {
@@ -43,9 +43,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Converting URL to PDF: ${url}`);
+    console.log(`🌐 [URL-to-PDF] Starting URL-to-PDF conversion`);
+    console.log(`🔗 [URL-to-PDF] URL: ${url}`);
+    console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
 
     // Launch Puppeteer
+    console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
     const browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -63,6 +66,7 @@ export async function POST(request: NextRequest) {
     let pageTitle = '';
 
     try {
+      console.log(`📄 [URL-to-PDF] Creating new page...`);
       const page = await browser.newPage();
 
       // Set user agent to avoid being blocked
@@ -74,6 +78,7 @@ export async function POST(request: NextRequest) {
       await page.setViewport({ width: 1200, height: 800 });
 
       // Navigate to URL with timeout
+      console.log(`🌍 [URL-to-PDF] Navigating to URL...`);
       await page.goto(url, {
         waitUntil: 'networkidle2',
         timeout: 30000,
@@ -81,11 +86,14 @@ export async function POST(request: NextRequest) {
 
       // Get page title
       pageTitle = await page.title();
+      console.log(`📝 [URL-to-PDF] Page title: ${pageTitle}`);
 
       // Wait a bit for any dynamic content to load
+      console.log(`⏳ [URL-to-PDF] Waiting for dynamic content...`);
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Generate PDF
+      console.log(`🖨️ [URL-to-PDF] Generating PDF...`);
       pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
@@ -96,42 +104,49 @@ export async function POST(request: NextRequest) {
           left: '20px',
         },
       });
+
+      const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
+      const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
+      console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
+      console.log(`📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`);
     } finally {
+      console.log(`🔐 [URL-to-PDF] Closing browser...`);
       await browser.close();
     }
 
-    // Generate file name and key
+    // Generate file name
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const domain = parsedUrl.hostname.replace(/[^a-zA-Z0-9]/g, '-');
     const fileName = `${domain}-${timestamp}.pdf`;
-    const s3Key = `pdfs/${session.user.id}/${fileName}`;
 
-    // Upload to S3
-    const uploadCommand = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME!,
-      Key: s3Key,
-      Body: Buffer.from(pdfBuffer),
-      ContentType: 'application/pdf',
-    });
-
-    await s3Client.send(uploadCommand);
+    // Upload to S3 using the same function as local uploads
+    console.log(`☁️ [URL-to-PDF] Uploading PDF to S3...`);
+    console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
+    
+    const fileBuffer = Buffer.from(pdfBuffer);
+    const s3Key = await uploadPdfToS3(fileBuffer, fileName, session.user.id);
+    
+    console.log(`✅ [URL-to-PDF] S3 upload successful! S3 key: ${s3Key}`);
 
     // Save to database
+    console.log(`💾 [URL-to-PDF] Saving metadata to database...`);
     const pdf = await prisma.pDF.create({
       data: {
         title: pageTitle || parsedUrl.hostname,
         fileName: fileName,
         fileUrl: s3Key, // Store S3 key in fileUrl field
         fileSize: pdfBuffer.byteLength,
-        pageCount: null, // Will be updated later when PDF is processed
+        pageCount: 1, // Will be updated later when PDF is processed
         userId: session.user.id,
-        uploadedAt: new Date(),
-        lastAccessedAt: new Date(),
-        // sourceUrl: url, // Will add this field to schema later
       },
     });
 
-    console.log(`Successfully converted URL to PDF: ${pdf.id}`);
+    console.log(`✅ [URL-to-PDF] PDF saved to database with ID: ${pdf.id}`);
+
+    // Increment user's PDF upload count
+    await incrementPdfUpload(session.user.id);
+
+    console.log(`🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`);
 
     return NextResponse.json({
       id: pdf.id,

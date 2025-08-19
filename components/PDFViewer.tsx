@@ -1562,8 +1562,8 @@ export default function PDFViewer({
                 strokeWidth='2'
               >
                 <circle cx='12' cy='12' r='10' />
-                <path d='9,9h6v6h-6z' />
-                <path d='m9,1 l6,0' />
+                <path d='M9 9h6v6h-6z' />
+                <path d='M9 1h6' />
               </svg>
             </button>
             <div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50'>
