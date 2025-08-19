@@ -923,8 +923,8 @@ export default function PDFViewer({
               });
 
               setSelectionDialog({
-                x: firstRect.left + (lastRect.right - firstRect.left) / 2,
-                y: firstRect.top - 10,
+                x: lastRect.right,
+                y: firstRect.top - 100,
                 text: selectedText,
                 visible: true,
               });
@@ -1495,69 +1495,81 @@ export default function PDFViewer({
           <span className='text-sm text-[var(--text-primary)]'>
             {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
           </span>
+        </div>
 
+        {/* Center section with Mind Map, Flash Cards, MCQs */}
+        <div className='flex items-center gap-2'>
           {/* Mind Mapping Button */}
-          <button
-            onClick={() => setShowMindMap(true)}
-            className='px-4 py-2 bg-[var(--accent)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
-            title='Generate Mind Map'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
+          <div className='relative group'>
+            <button
+              onClick={() => setShowMindMap(true)}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
             >
-              <circle cx='12' cy='12' r='3' />
-              <path d='M12 1v6m0 6v6' />
-              <path d='m21 12-6-3v6z' />
-              <path d='m3 12 6-3v6z' />
-              <path d='m12 22-3-6h6z' />
-              <path d='m12 2-3 6h6z' />
-            </svg>
-            Mind Mapping
-          </button>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='12' cy='12' r='3' />
+                <path d='M12 1v6m0 6v6' />
+                <path d='m21 12-6-3v6z' />
+                <path d='m3 12 6-3v6z' />
+                <path d='m12 22-3-6h6z' />
+                <path d='m12 2-3 6h6z' />
+              </svg>
+            </button>
+            <div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50'>
+              Mind Mapping
+            </div>
+          </div>
 
           {/* Flash Cards Button */}
-          <button
-            onClick={() => setShowFlashCards(true)}
-            className='px-4 py-2 bg-[var(--button-primary)] text-[var(--button-primary-text)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
-            title='Generate Flash Cards'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
+          <div className='relative group'>
+            <button
+              onClick={() => setShowFlashCards(true)}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
             >
-              <rect x='2' y='3' width='20' height='14' rx='2' ry='2' />
-              <line x1='8' y1='21' x2='16' y2='21' />
-              <line x1='12' y1='17' x2='12' y2='21' />
-            </svg>
-            Flash Cards
-          </button>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <rect x='2' y='3' width='20' height='14' rx='2' ry='2' />
+                <line x1='8' y1='21' x2='16' y2='21' />
+                <line x1='12' y1='17' x2='12' y2='21' />
+              </svg>
+            </button>
+            <div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50'>
+              Flash Cards
+            </div>
+          </div>
 
           {/* MCQs Button */}
-          <button
-            onClick={() => setShowMCQs(true)}
-            className='px-4 py-2 bg-[var(--secondary)] text-[var(--text-primary)] rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 text-sm font-medium'
-            title='Generate MCQ Quiz'
-          >
-            <svg
-              className='w-4 h-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              stroke='currentColor'
-              strokeWidth='2'
+          <div className='relative group'>
+            <button
+              onClick={() => setShowMCQs(true)}
+              className='p-2 rounded-lg bg-[var(--faded-white)] hover:bg-[var(--border)] transition-colors'
             >
-              <circle cx='12' cy='12' r='10' />
-              <path d='9,9h6v6h-6z' />
-              <path d='m9,1 l6,0' />
-            </svg>
-            MCQ Quiz
-          </button>
+              <svg
+                className='w-4 h-4'
+                viewBox='0 0 24 24'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth='2'
+              >
+                <circle cx='12' cy='12' r='10' />
+                <path d='9,9h6v6h-6z' />
+                <path d='m9,1 l6,0' />
+              </svg>
+            </button>
+            <div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-[var(--card-background)] border border-[var(--border)] text-[var(--text-primary)] text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50'>
+              MCQs
+            </div>
+          </div>
         </div>
 
         <div className='flex items-center gap-4'>
