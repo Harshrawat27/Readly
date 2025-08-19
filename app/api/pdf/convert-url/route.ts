@@ -5,14 +5,36 @@ import prisma from '@/lib/prisma';
 import { uploadPdfToS3 } from '@/lib/s3';
 import { incrementPdfUpload } from '@/lib/subscription-utils';
 // Import puppeteer conditionally based on environment
-let puppeteer: any;
-let chromium: any;
+async function createBrowser() {
+  const isProduction = process.env.NODE_ENV === 'production';
 
-if (process.env.NODE_ENV === 'production') {
-  puppeteer = require('puppeteer-core');
-  chromium = require('@sparticuz/chromium');
-} else {
-  puppeteer = require('puppeteer');
+  if (isProduction) {
+    const puppeteerCore = await import('puppeteer-core');
+    const chromium = await import('@sparticuz/chromium');
+
+    return puppeteerCore.default.launch({
+      args: chromium.default.args,
+      defaultViewport: { width: 1280, height: 720 },
+      executablePath: await chromium.default.executablePath(),
+      headless: true,
+      ignoreDefaultArgs: ['--disable-extensions'],
+    });
+  } else {
+    const puppeteer = await import('puppeteer');
+
+    return puppeteer.default.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+      ],
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -58,32 +80,15 @@ export async function POST(request: NextRequest) {
 
     // Launch Puppeteer (serverless-optimized for production)
     console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
-    
+
     const isProduction = process.env.NODE_ENV === 'production';
-    console.log(`🔧 [URL-to-PDF] Environment: ${isProduction ? 'production (serverless)' : 'development (local)'}`);
-    
-    const browser = await puppeteer.launch(
-      isProduction
-        ? {
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
-            headless: chromium.headless,
-            ignoreHTTPSErrors: true,
-          }
-        : {
-            headless: true,
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-accelerated-2d-canvas',
-              '--no-first-run',
-              '--no-zygote',
-              '--disable-gpu',
-            ],
-          }
+    console.log(
+      `🔧 [URL-to-PDF] Environment: ${
+        isProduction ? 'production (serverless)' : 'development (local)'
+      }`
     );
+
+    const browser = await createBrowser();
 
     let pdfBuffer: Uint8Array;
     let pageTitle = '';
@@ -131,7 +136,9 @@ export async function POST(request: NextRequest) {
       const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
       const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
       console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
-      console.log(`📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`);
+      console.log(
+        `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
+      );
     } finally {
       console.log(`🔐 [URL-to-PDF] Closing browser...`);
       await browser.close();
@@ -145,10 +152,10 @@ export async function POST(request: NextRequest) {
     // Upload to S3 using the same function as local uploads
     console.log(`☁️ [URL-to-PDF] Uploading PDF to S3...`);
     console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
-    
+
     const fileBuffer = Buffer.from(pdfBuffer);
     const s3Key = await uploadPdfToS3(fileBuffer, fileName, session.user.id);
-    
+
     console.log(`✅ [URL-to-PDF] S3 upload successful! S3 key: ${s3Key}`);
 
     // Save to database
@@ -169,7 +176,9 @@ export async function POST(request: NextRequest) {
     // Increment user's PDF upload count
     await incrementPdfUpload(session.user.id);
 
-    console.log(`🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`);
+    console.log(
+      `🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`
+    );
 
     return NextResponse.json({
       id: pdf.id,
