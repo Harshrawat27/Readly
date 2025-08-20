@@ -115,3 +115,7 @@ before launch focus on this.
 -- subscription should work
 -- maybe remove shapes. 
 -- i'm able to upload doc using url but chunks are not being sent to DB from main domain and no summarisation working. 
+-- ⁠sound can play in my website. 
+•⁠  ⁠⁠model switch
+•⁠  ⁠⁠upgrade card if hit any limit
+-- allow home page access to free users -- create home page.
