@@ -3,6 +3,10 @@
     "app/api/pdf/convert-url/route.ts": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "app/api/pdf/[id]/extract/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   }
 }

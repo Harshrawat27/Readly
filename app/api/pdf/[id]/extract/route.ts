@@ -3,6 +3,11 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
+// Log environment info at startup
+console.log(`📊 Extract endpoint loaded - Environment: ${process.env.NODE_ENV}`);
+console.log(`   🗄️  Database URL exists: ${!!process.env.DATABASE_URL}`);
+console.log(`   🔐 Auth configured: ${!!process.env.BETTER_AUTH_SECRET}`);
+
 const CHUNK_SIZE = 1000; // Characters per chunk
 const CHUNK_OVERLAP = 200; // Characters to overlap between chunks
 
@@ -10,12 +15,18 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let pages: Array<{pageNumber: number; content: string}> | undefined;
+  let batchInfo: { batchIndex: number; totalBatches: number; isLastBatch: boolean } | undefined;
+  
   try {
+    console.log(`🚀 Starting PDF extraction process...`);
+    
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
     if (!session?.user?.id) {
+      console.log(`❌ Unauthorized access attempt`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -31,8 +42,21 @@ export async function POST(
     console.log(`📨 API received request for PDF ${pdfId}`);
     console.log(`   📊 Request size: ${requestSizeKB} KB (${requestSizeMB} MB)`);
     console.log(`   👤 User: ${userId}`);
+    console.log(`   🌍 Environment: ${process.env.NODE_ENV || 'unknown'}`);
+    console.log(`   🔍 Headers count: ${Object.keys(await headers()).length}`);
+
+    // Test database connectivity first
+    console.log(`🔍 Testing database connection...`);
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      console.log(`   ✅ Database connection successful`);
+    } catch (dbConnError) {
+      console.error(`❌ Database connection failed:`, dbConnError);
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
 
     // Verify PDF exists and belongs to user
+    console.log(`🔍 Looking up PDF ${pdfId} for user ${userId}...`);
     const pdf = await prisma.pDF.findFirst({
       where: {
         id: pdfId,
@@ -41,10 +65,22 @@ export async function POST(
     });
 
     if (!pdf) {
+      console.log(`❌ PDF ${pdfId} not found or doesn't belong to user ${userId}`);
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
+    
+    console.log(`✅ PDF found: ${pdf.title || 'Untitled'}`);
 
-    const { pages, batchInfo } = JSON.parse(requestBody);
+    console.log(`📝 Parsing request body...`);
+    let parsedData;
+    try {
+      parsedData = JSON.parse(requestBody);
+    } catch (parseError) {
+      console.error(`❌ JSON parse error:`, parseError);
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    }
+    
+    ({ pages, batchInfo } = parsedData);
 
     if (!pages || !Array.isArray(pages)) {
       return NextResponse.json(
@@ -68,12 +104,36 @@ export async function POST(
       }
     }
 
-    const result = await processPages(pages, pdfId, batchInfo);
+    console.log(`🔄 Processing pages...`);
+    
+    // Add timeout to catch hanging operations
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Operation timed out after 45 seconds')), 45000);
+    });
+    
+    const processPromise = processPages(pages, pdfId, batchInfo);
+    
+    const result = await Promise.race([processPromise, timeoutPromise]);
     console.log(`✅ Successfully processed batch for PDF ${pdfId}`);
     return result;
 
   } catch (error) {
     console.error('❌ Text extraction error:', error);
+    if (error instanceof Error) {
+      console.error('   📍 Error name:', error.name);
+      console.error('   📍 Error message:', error.message);
+      console.error('   📍 Error stack:', error.stack);
+    }
+    
+    // Log additional context
+    console.error('   📍 Error context:', {
+      hasPages: typeof pages !== 'undefined',
+      pagesLength: pages?.length,
+      hasBatchInfo: typeof batchInfo !== 'undefined',
+      batchInfo: batchInfo,
+      environment: process.env.NODE_ENV
+    });
+    
     return NextResponse.json(
       { error: 'Failed to extract text from PDF' },
       { status: 500 }
@@ -199,16 +259,26 @@ async function processPages(
   pdfId: string, 
   batchInfo?: { batchIndex: number; totalBatches: number; isLastBatch: boolean }
 ) {
+  console.log(`🔄 processPages called with ${pages.length} pages for PDF ${pdfId}`);
+  console.log(`   🔢 Batch info:`, batchInfo);
+  
   // For batched requests, we need to get the current chunk index from existing chunks
   let chunkIndex = 0;
   if (batchInfo && batchInfo.batchIndex > 0) {
-    // Get the highest chunk index from existing chunks
-    const lastChunk = await prisma.pDFChunk.findFirst({
-      where: { pdfId },
-      orderBy: { chunkIndex: 'desc' },
-      select: { chunkIndex: true }
-    });
-    chunkIndex = lastChunk ? lastChunk.chunkIndex + 1 : 0;
+    console.log(`🔍 Getting last chunk index for batched request...`);
+    try {
+      // Get the highest chunk index from existing chunks
+      const lastChunk = await prisma.pDFChunk.findFirst({
+        where: { pdfId },
+        orderBy: { chunkIndex: 'desc' },
+        select: { chunkIndex: true }
+      });
+      chunkIndex = lastChunk ? lastChunk.chunkIndex + 1 : 0;
+      console.log(`   ✅ Starting chunk index: ${chunkIndex}`);
+    } catch (dbError) {
+      console.error(`❌ Database error getting last chunk index:`, dbError);
+      throw dbError;
+    }
   }
 
   const allChunks = [];
@@ -246,21 +316,48 @@ async function processPages(
     chunkIndex += pageChunks.length;
   }
 
+  console.log(`💾 Saving ${allChunks.length} chunks to database...`);
+  
   // Save all chunks to database in batches
   const dbBatchSize = 100;
-  for (let i = 0; i < allChunks.length; i += dbBatchSize) {
-    const batch = allChunks.slice(i, i + dbBatchSize);
-    await prisma.pDFChunk.createMany({
-      data: batch,
+  let savedChunks = 0;
+  
+  try {
+    for (let i = 0; i < allChunks.length; i += dbBatchSize) {
+      const batch = allChunks.slice(i, i + dbBatchSize);
+      console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(allChunks.length / dbBatchSize)} (${batch.length} chunks)`);
+      
+      await prisma.pDFChunk.createMany({
+        data: batch,
+      });
+      savedChunks += batch.length;
+      console.log(`   ✅ Saved ${savedChunks}/${allChunks.length} chunks`);
+    }
+  } catch (dbError) {
+    console.error(`❌ Database error saving chunks:`, dbError);
+    console.error(`   📍 Error details:`, {
+      name: dbError instanceof Error ? dbError.name : 'Unknown',
+      message: dbError instanceof Error ? dbError.message : 'Unknown error',
+      code: (dbError as {code?: string})?.code || 'No code',
+      savedChunks,
+      totalChunks: allChunks.length
     });
+    throw dbError;
   }
 
   // Mark PDF as text extracted only if this is the last batch or non-batched request
   if (!batchInfo || batchInfo.isLastBatch) {
-    await prisma.pDF.update({
-      where: { id: pdfId },
-      data: { textExtracted: true },
-    });
+    console.log(`🏁 Marking PDF as text extracted (last batch or non-batched)`);
+    try {
+      await prisma.pDF.update({
+        where: { id: pdfId },
+        data: { textExtracted: true },
+      });
+      console.log(`   ✅ PDF marked as text extracted`);
+    } catch (dbError) {
+      console.error(`❌ Database error marking PDF as extracted:`, dbError);
+      throw dbError;
+    }
   }
 
   const responseMessage = batchInfo 
