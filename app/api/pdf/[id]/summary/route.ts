@@ -66,8 +66,11 @@ export async function POST(
 
     for (const chunk of pdf.chunks) {
       const chunkTokens = chunk.content.length / 4; // Rough token estimation
-      
-      if (currentTokenCount + chunkTokens > maxTokensPerSection && currentSection.length > 0) {
+
+      if (
+        currentTokenCount + chunkTokens > maxTokensPerSection &&
+        currentSection.length > 0
+      ) {
         sections.push(currentSection);
         currentSection = chunk.content;
         currentTokenCount = chunkTokens;
@@ -83,24 +86,26 @@ export async function POST(
 
     // Generate summaries for each section
     const sectionSummaries = [];
-    
+
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
-      
+
       const systemPrompt = getSummarySystemPrompt(summaryType);
-      
+
       try {
         const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [
             { role: 'system', content: systemPrompt },
-            { 
-              role: 'user', 
-              content: `Please summarize the following text from "${pdf.title}" (Section ${i + 1} of ${sections.length}):\n\n${section}` 
+            {
+              role: 'user',
+              content: `Please summarize the following text from "${
+                pdf.title
+              }" (Section ${i + 1} of ${sections.length}):\n\n${section}`,
             },
           ],
-          temperature: 0.3,
-          max_tokens: 500,
+          temperature: 1,
+          max_tokens: 2000,
         });
 
         const summary = response.choices[0]?.message?.content || '';
@@ -122,25 +127,27 @@ export async function POST(
     }
 
     // Generate final comprehensive summary
-    const combinedSummaries = sectionSummaries.map(s => s.summary).join('\n\n');
-    
+    const combinedSummaries = sectionSummaries
+      .map((s) => s.summary)
+      .join('\n\n');
+
     let finalSummary = '';
     if (sectionSummaries.length > 1) {
       try {
         const finalResponse = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [
-            { 
-              role: 'system', 
-              content: `You are an expert summarizer. Create a comprehensive ${summaryType} of the document based on the section summaries provided. Maintain key insights, main points, and important details while ensuring coherence and readability.` 
+            {
+              role: 'system',
+              content: `You are an expert summarizer. Create a comprehensive ${summaryType} of the document based on the section summaries provided. Maintain key insights, main points, and important details while ensuring coherence and readability.`,
             },
-            { 
-              role: 'user', 
-              content: `Create a comprehensive summary of "${pdf.title}" based on these section summaries:\n\n${combinedSummaries}` 
+            {
+              role: 'user',
+              content: `Create a comprehensive summary of "${pdf.title}" based on these section summaries:\n\n${combinedSummaries}`,
             },
           ],
-          temperature: 0.3,
-          max_tokens: 800,
+          temperature: 1,
+          max_tokens: 2000,
         });
 
         finalSummary = finalResponse.choices[0]?.message?.content || '';
@@ -159,7 +166,6 @@ export async function POST(
       chunksProcessed: pdf.chunks.length,
       sectionSummaries, // Include individual section summaries for reference
     });
-
   } catch (error) {
     console.error('Summary generation error:', error);
     return NextResponse.json(
@@ -174,13 +180,16 @@ function getSummarySystemPrompt(summaryType: string): string {
 
   const summaryPrompts = {
     overview: `${basePrompt} Create a comprehensive overview that captures the main themes, key points, and important conclusions. Focus on providing a clear understanding of the document's content and purpose.`,
-    
+
     detailed: `${basePrompt} Create a detailed summary that includes main points, supporting evidence, key findings, methodologies (if applicable), and important details. Preserve technical terms and specific information while maintaining readability.`,
-    
+
     bullet: `${basePrompt} Create a structured summary using bullet points and subheadings. Organize information hierarchically to highlight main topics, subtopics, and key details in an easily scannable format.`,
-    
+
     academic: `${basePrompt} Create an academic-style summary suitable for research purposes. Include main hypotheses, methodologies, key findings, implications, and conclusions. Maintain formal tone and preserve technical accuracy.`,
   };
 
-  return summaryPrompts[summaryType as keyof typeof summaryPrompts] || summaryPrompts.overview;
+  return (
+    summaryPrompts[summaryType as keyof typeof summaryPrompts] ||
+    summaryPrompts.overview
+  );
 }
