@@ -292,6 +292,8 @@ async function processPages(
 
     // Clean the content while preserving mathematical formatting
     const cleanContent = content
+      .replace(/\0/g, '') // Remove null bytes (0x00) that cause PostgreSQL errors
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove other control characters except \t, \n, \r
       .replace(/\s+/g, ' ')
       .replace(/\n+/g, '\n')
       // Preserve common mathematical notation patterns

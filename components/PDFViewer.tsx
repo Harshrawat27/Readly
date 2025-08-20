@@ -532,14 +532,78 @@ export default function PDFViewer({
           }
         }
 
-        // Send pages in batches to avoid payload size limits
+        // Check if this needs server-side extraction based on payload size or URL type
+        if (allPages.length > 0) {
+          // Check if this is an external URL upload (not S3 URLs)
+          const isUrlUpload =
+            pdfFile &&
+            !pdfFile.includes('amazonaws.com') &&
+            !pdfFile.includes('s3.');
+
+          // Calculate total payload size for all pages
+          const totalPayloadSize = allPages.reduce(
+            (size, page) => size + JSON.stringify(page).length,
+            0
+          );
+          const payloadSizeKB = (totalPayloadSize / 1024).toFixed(2);
+          const isLargePayload = totalPayloadSize > 100 * 1024; // >100KB
+
+          if (isUrlUpload || isLargePayload) {
+            const reason = isUrlUpload
+              ? 'External URL upload'
+              : `Large payload (${payloadSizeKB} KB)`;
+            console.log(
+              '🎯 DETECTED LARGE/URL UPLOAD - Using server-side extraction'
+            );
+            console.log('   📄 PDF ID:', pdfId);
+            console.log('   🔗 PDF URL:', pdfFile);
+            console.log('   📊 Reason:', reason);
+            console.log('   💾 Payload size:', `${payloadSizeKB} KB`);
+            console.log('   🚀 Switching to server-side extraction method');
+
+            // Use server-side extraction for URL uploads or large payloads
+            const serverResponse = await fetch('/api/pdf/extract-from-url', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                pdfId: pdfId,
+                pages: allPages,
+              }),
+            });
+
+            if (!serverResponse.ok) {
+              throw new Error(
+                `Server-side extraction failed: ${serverResponse.status}`
+              );
+            }
+
+            const result = await serverResponse.json();
+            console.log('✅ SERVER-SIDE TEXT EXTRACTION COMPLETED');
+            console.log('   🎯 Method:', result.method);
+            console.log('   📊 Pages processed:', result.pagesProcessed);
+            console.log('   🔢 Chunks created:', result.chunksCreated);
+
+            return;
+          }
+        }
+
+        // Fall back to client-side extraction for small direct uploads
+        console.log(
+          '📁 DETECTED SMALL DIRECT UPLOAD - Using client-side extraction'
+        );
+        console.log('   📄 PDF ID:', pdfId);
+        console.log('   🔗 S3 URL:', pdfFile);
+
+        // Send pages in batches to avoid payload size limits (for small direct uploads only)
         if (allPages.length > 0) {
           // Smart batching: 100 pages for PDFs with 100+ pages, all pages if less than 100
           const BATCH_SIZE = allPages.length <= 100 ? allPages.length : 100;
           const totalBatches = Math.ceil(allPages.length / BATCH_SIZE);
 
           console.log(
-            `Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch)`
+            `Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch, client-side)`
           );
 
           for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
