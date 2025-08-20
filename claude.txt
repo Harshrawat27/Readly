@@ -119,3 +119,6 @@ before launch focus on this.
 •⁠  ⁠⁠model switch
 •⁠  ⁠⁠upgrade card if hit any limit
 -- allow home page access to free users -- create home page.
+-- comment all console log
+-- option where user can listen the text, add input in speaking way. 
+-- in brush tool drawings are not scaling properly.
