@@ -113,6 +113,9 @@ export default function PDFViewer({
   // MCQs state
   const [showMCQs, setShowMCQs] = useState(false);
 
+  // Background audio management
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   // Load highlights
   useEffect(() => {
     const loadHighlights = async () => {
@@ -848,6 +851,28 @@ export default function PDFViewer({
         return;
       }
 
+      // Check if it's an MP3 file
+      if (href.toLowerCase().endsWith('.mp3')) {
+        event.preventDefault();
+        
+        // Stop any currently playing audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        
+        // Create and play new audio
+        const audio = new Audio(href);
+        audioRef.current = audio;
+        
+        // Play the audio
+        audio.play().catch((error) => {
+          console.error('Failed to play audio:', error);
+        });
+        
+        return;
+      }
+
       // Handle external links
       try {
         const currentDomain = window.location.hostname;
@@ -1202,6 +1227,12 @@ export default function PDFViewer({
       setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
       setError(null);
       pageRefsMap.clear();
+      
+      // Stop any playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -2035,6 +2066,7 @@ export default function PDFViewer({
       {showMCQs && pdfId && (
         <MCQs pdfId={pdfId} onClose={() => setShowMCQs(false)} />
       )}
+
     </div>
   );
 }
