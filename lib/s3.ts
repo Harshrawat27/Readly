@@ -75,3 +75,76 @@ export async function deletePdfFromS3(key: string): Promise<void> {
     throw new Error('Failed to delete PDF from S3');
   }
 }
+
+// Upload image analysis screenshots to S3
+export async function uploadImageToS3(
+  imageDataUrl: string,
+  userId: string,
+  pdfId: string
+): Promise<string> {
+  // Convert base64 data URL to buffer
+  const matches = imageDataUrl.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+  if (!matches) {
+    throw new Error('Invalid image data URL');
+  }
+
+  const imageType = matches[1]; // png, jpeg, etc.
+  const base64Data = matches[2];
+  const imageBuffer = Buffer.from(base64Data, 'base64');
+
+  // Generate unique filename
+  const timestamp = Date.now();
+  const key = `image-analysis/${userId}/${pdfId}/${timestamp}.${imageType}`;
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    Body: imageBuffer,
+    ContentType: `image/${imageType}`,
+    Metadata: {
+      userId,
+      pdfId,
+      uploadedAt: new Date().toISOString(),
+      type: 'image-analysis',
+    },
+  });
+
+  try {
+    console.log('📤 Uploading image to S3:', {
+      bucket: BUCKET_NAME,
+      key: key,
+      size: imageBuffer.length,
+      contentType: `image/${imageType}`,
+      region: process.env.AWS_REGION
+    });
+
+    await s3Client.send(command);
+    
+    console.log('✅ Image uploaded successfully to S3');
+    
+    // Instead of returning the S3 key, return the key so we can generate fresh signed URLs when needed
+    // This way we don't have expiring URLs stored in the database
+    return key;
+  } catch (error) {
+    console.error('❌ Error uploading image to S3:', error);
+    throw new Error('Failed to upload image to S3');
+  }
+}
+
+// Get signed URL for image access (if bucket is private)
+export async function getImageFromS3(key: string): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  });
+
+  try {
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600, // 1 hour
+    });
+    return signedUrl;
+  } catch (error) {
+    console.error('Error getting image from S3:', error);
+    throw new Error('Failed to get image from S3');
+  }
+}

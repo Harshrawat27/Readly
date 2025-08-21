@@ -8,6 +8,7 @@ import {
   canUserPerformAction,
   incrementQuestionUsage,
 } from '@/lib/subscription-utils';
+import { uploadImageToS3 } from '@/lib/s3';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -93,6 +94,20 @@ export async function POST(request: NextRequest) {
     // Save user message to database (last user message)
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage && lastUserMessage.role === 'user') {
+      let imageUrl = null;
+      
+      // Upload image to S3 if present
+      if (selectedImage) {
+        try {
+          const s3Key = await uploadImageToS3(selectedImage, userId, pdfId);
+          imageUrl = s3Key; // Store S3 key, not signed URL
+          console.log('Image uploaded to S3 with key:', s3Key);
+        } catch (error) {
+          console.error('Failed to upload image to S3:', error);
+          // Fall back to storing base64 in imageData field for backwards compatibility
+        }
+      }
+
       // create message record
       await prisma.message.create({
         data: {
@@ -100,7 +115,8 @@ export async function POST(request: NextRequest) {
           userId: userId,
           role: 'user',
           content: lastUserMessage.content,
-          imageData: selectedImage || null,
+          imageUrl: imageUrl,
+          imageData: imageUrl ? null : (selectedImage || null), // Fallback to base64 if S3 failed
         },
       });
     }

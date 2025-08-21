@@ -20,7 +20,8 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  imageData?: string;
+  imageData?: string; // Legacy base64 data (for backwards compatibility)
+  imageUrl?: string; // S3 URL (preferred)
   timestamp: Date;
   isStreaming?: boolean;
 }
@@ -235,12 +236,14 @@ export default function ChatPanel({
             role: 'user' | 'assistant';
             content: string;
             imageData?: string;
+            imageUrl?: string;
             createdAt: string;
           }) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
             imageData: msg.imageData,
+            imageUrl: msg.imageUrl,
             timestamp: new Date(msg.createdAt),
           })
         );
@@ -278,13 +281,17 @@ export default function ChatPanel({
 
       try {
         // backend returns last 50 messages by default
-        const response = await fetch(`/api/chat/recent?pdfId=${pdfId}&limit=50`);
+        const response = await fetch(
+          `/api/chat/recent?pdfId=${pdfId}&limit=50`
+        );
 
         if (!mounted) return;
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.log(`💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`);
+            console.log(
+              `💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`
+            );
             setMessages([]);
             setCurrentChatId(null);
             setHasMoreMessages(false);
@@ -303,12 +310,14 @@ export default function ChatPanel({
               role: 'user' | 'assistant';
               content: string;
               imageData?: string;
+              imageUrl?: string;
               createdAt: string;
             }) => ({
               id: msg.id,
               role: msg.role,
               content: msg.content,
               imageData: msg.imageData,
+              imageUrl: msg.imageUrl,
               timestamp: new Date(msg.createdAt),
             })
           );
@@ -413,7 +422,7 @@ export default function ChatPanel({
       id: Date.now().toString(),
       role: 'user',
       content: inputValue.trim(),
-      imageData: selectedImage || undefined,
+      imageData: selectedImage || undefined, // Will be uploaded to S3 by API
       timestamp: new Date(),
     };
 
@@ -734,13 +743,34 @@ export default function ChatPanel({
                       />
                     ) : (
                       <div className='space-y-2'>
-                        {message.imageData && (
+                        {(message.imageUrl || message.imageData) && (
                           <div className='mb-2'>
                             <img
-                              src={message.imageData}
+                              src={message.imageUrl || message.imageData}
                               alt='Selected from PDF'
                               className='max-w-full h-32 object-contain rounded border bg-white'
+                              onLoad={() => {
+                                console.log(
+                                  '✅ Image loaded successfully:',
+                                  message.imageUrl || message.imageData
+                                );
+                              }}
+                              onError={(e) => {
+                                console.error('❌ Image failed to load:', {
+                                  imageUrl: message.imageUrl,
+                                  imageData: message.imageData
+                                    ? 'base64 data present'
+                                    : 'no base64',
+                                  error: e,
+                                  src: message.imageUrl || message.imageData,
+                                });
+                              }}
                             />
+                            {/* Debug info */}
+                            {/* <div className="text-xs text-gray-500 mt-1">
+                              {message.imageUrl && <div>S3 URL: {message.imageUrl.substring(0, 50)}...</div>}
+                              {message.imageData && <div>Base64: {message.imageData.substring(0, 50)}...</div>}
+                            </div> */}
                           </div>
                         )}
                         <div className='whitespace-pre-wrap'>
