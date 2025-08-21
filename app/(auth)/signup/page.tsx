@@ -16,10 +16,10 @@ export default function SignUp() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
 
-  // Redirect to home if already authenticated (only after loading is complete)
+  // Redirect to app if already authenticated (only after loading is complete)
   useEffect(() => {
     if (!isPending && session) {
-      router.push('/');
+      router.push('/new');
     }
   }, [session, isPending, router]);
 
@@ -53,7 +53,7 @@ export default function SignUp() {
     try {
       await signIn.social({
         provider: 'google',
-        callbackURL: '/',
+        callbackURL: '/new',
       });
     } catch (error) {
       console.error('Sign-up error:', error);
@@ -69,7 +69,7 @@ export default function SignUp() {
     try {
       await signIn.social({
         provider: 'github',
-        callbackURL: '/',
+        callbackURL: '/new',
       });
     } catch (error) {
       console.error('Sign-up error:', error);
@@ -88,7 +88,7 @@ export default function SignUp() {
         email,
         password,
         name,
-        callbackURL: '/',
+        callbackURL: '/new',
       });
     } catch (error) {
       console.error('Email sign-up error:', error);

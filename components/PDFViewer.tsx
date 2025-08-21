@@ -68,6 +68,8 @@ export default function PDFViewer({
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageInputValue, setPageInputValue] = useState('1');
+  const [isEditingPage, setIsEditingPage] = useState(false);
   const [internalScale, setInternalScale] = useState(1.2);
   const scale = externalScale || internalScale;
   const [error, setError] = useState<string | null>(null);
@@ -828,9 +830,37 @@ export default function PDFViewer({
       }
 
       setCurrentPage(targetPage);
+      setPageInputValue(targetPage.toString());
     },
     [numPages]
   );
+
+  // Page input handlers
+  const handlePageInputChange = useCallback((value: string) => {
+    setPageInputValue(value);
+  }, []);
+
+  const handlePageInputSubmit = useCallback(() => {
+    const pageNumber = parseInt(pageInputValue);
+    if (numPages && pageNumber >= 1 && pageNumber <= numPages) {
+      // Valid page number, navigate to it
+      handleCitationClick(pageNumber);
+      setIsEditingPage(false);
+    } else {
+      // Invalid page number, reset to current page
+      setPageInputValue(currentPage.toString());
+      setIsEditingPage(false);
+    }
+  }, [pageInputValue, numPages, currentPage, handleCitationClick]);
+
+  const handlePageInputKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handlePageInputSubmit();
+    } else if (e.key === 'Escape') {
+      setPageInputValue(currentPage.toString());
+      setIsEditingPage(false);
+    }
+  }, [handlePageInputSubmit, currentPage]);
 
   // Handle pending navigation after PDF loads
   useEffect(() => {
@@ -1631,9 +1661,36 @@ export default function PDFViewer({
       {/* PDF Controls */}
       <div className='flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card-background)] flex-shrink-0 z-10'>
         <div className='flex items-center gap-4'>
-          <span className='text-sm text-[var(--text-primary)]'>
-            {numPages ? `Page ${currentPage} / ${numPages}` : 'Loading...'}
-          </span>
+          {numPages ? (
+            <div className='flex items-center gap-2 text-sm text-[var(--text-primary)]'>
+              <span>Page</span>
+              {isEditingPage ? (
+                <input
+                  type='text'
+                  value={pageInputValue}
+                  onChange={(e) => handlePageInputChange(e.target.value)}
+                  onKeyDown={handlePageInputKeyDown}
+                  onBlur={handlePageInputSubmit}
+                  className='w-12 px-1 py-0.5 text-center text-sm border border-[var(--border)] rounded bg-[var(--input-background)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]'
+                  autoFocus
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsEditingPage(true);
+                    setPageInputValue(currentPage.toString());
+                  }}
+                  className='px-1 py-0.5 text-[var(--accent)] hover:bg-[var(--faded-white)] rounded transition-colors'
+                  title='Click to jump to a specific page'
+                >
+                  {currentPage}
+                </button>
+              )}
+              <span>/ {numPages}</span>
+            </div>
+          ) : (
+            <span className='text-sm text-[var(--text-primary)]'>Loading...</span>
+          )}
         </div>
 
         {/* Center section with Mind Map, Flash Cards, MCQs */}
