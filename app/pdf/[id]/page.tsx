@@ -11,6 +11,7 @@ export default function PDFPage() {
   const params = useParams();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedText, setSelectedText] = useState<string>('');
+  const [selectedImage, setSelectedImage] = useState<string>('');
 
   const pdfId = params.id as string;
 
@@ -67,8 +68,13 @@ export default function PDFPage() {
       isSigningOut={isLoading}
       pdfId={pdfId}
       selectedText={selectedText}
+      selectedImage={selectedImage}
       onTextSelect={setSelectedText}
-      onTextSubmit={() => setSelectedText('')}
+      onImageSelect={setSelectedImage}
+      onTextSubmit={() => {
+        setSelectedText('');
+        setSelectedImage('');
+      }}
     />
   );
 }

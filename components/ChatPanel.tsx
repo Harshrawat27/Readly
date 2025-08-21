@@ -12,6 +12,7 @@ import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 interface ChatPanelProps {
   pdfId: string | null;
   selectedText: string;
+  selectedImage?: string;
   onTextSubmit: () => void;
 }
 
@@ -26,6 +27,7 @@ interface Message {
 export default function ChatPanel({
   pdfId,
   selectedText,
+  selectedImage = '',
   onTextSubmit,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -380,6 +382,24 @@ export default function ChatPanel({
     }
   }, [selectedText, adjustTextareaHeight]);
 
+  // Handle selected image from PDF
+  useEffect(() => {
+    if (selectedImage && selectedImage.trim()) {
+      setInputValue((prev) => {
+        const prefix = prev ? prev + '\n\n' : '';
+        return `${prefix}What can you tell me about this image from the PDF?\n\n`;
+      });
+      adjustTextareaHeight();
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(
+          textareaRef.current.value.length,
+          textareaRef.current.value.length
+        );
+      }
+    }
+  }, [selectedImage, adjustTextareaHeight]);
+
   // Send message. Use messagesRef to ensure we send latest messages and avoid stale state.
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -451,6 +471,7 @@ export default function ChatPanel({
           messages: messagesToSend,
           pdfId,
           chatId: currentChatId,
+          selectedImage: selectedImage || undefined,
         }),
       });
 
@@ -751,6 +772,18 @@ export default function ChatPanel({
                 : selectedText}
               &quot;
             </div>
+          </div>
+        )}
+        {selectedImage && (
+          <div className='mb-3 p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg'>
+            <div className='text-xs text-[var(--accent)] font-medium mb-2'>
+              Selected image:
+            </div>
+            <img
+              src={selectedImage}
+              alt='Selected from PDF'
+              className='max-w-full h-20 object-contain rounded border bg-white'
+            />
           </div>
         )}
 

@@ -15,7 +15,7 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, pdfId, chatId } = await request.json();
+    const { messages, pdfId, chatId, selectedImage } = await request.json();
 
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -151,11 +151,37 @@ export async function POST(request: NextRequest) {
         : 'When users select text from the PDF, help them understand or elaborate on that specific content.'
     }`;
 
-    // Prepare messages with system prompt
-    const chatMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messages,
-    ];
+    // Prepare messages with system prompt and handle image if present
+    let chatMessages;
+    if (selectedImage && messages.length > 0) {
+      // If there's a selected image, modify the last user message to include it
+      const lastMessage = messages[messages.length - 1];
+      const otherMessages = messages.slice(0, -1);
+      
+      const messageWithImage = {
+        role: 'user',
+        content: [
+          { type: 'text', text: lastMessage.content },
+          {
+            type: 'image_url',
+            image_url: {
+              url: selectedImage,
+            },
+          },
+        ],
+      };
+
+      chatMessages = [
+        { role: 'system', content: systemPrompt },
+        ...otherMessages,
+        messageWithImage,
+      ];
+    } else {
+      chatMessages = [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ];
+    }
 
     // Create streaming response from OpenAI
     const stream = await openai.chat.completions.create({

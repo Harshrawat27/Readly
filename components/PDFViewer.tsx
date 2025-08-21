@@ -11,6 +11,7 @@ import PenToolbar from './PenToolbar';
 import MindMap from './MindMap';
 import FlashCards from './FlashCards';
 import MCQs from './MCQs';
+import ImageAnalyser from './ImageAnalyser';
 import { usePDFData } from '@/hooks/usePDFData';
 
 // Dynamically import PDF components
@@ -34,6 +35,7 @@ if (typeof window !== 'undefined') {
 interface PDFViewerProps {
   pdfId: string | null;
   onTextSelect: (text: string) => void;
+  onImageAnalyse?: (imageDataUrl: string) => void;
   selectedText: string;
   scale?: number;
   onScaleChange?: (scale: number) => void;
@@ -58,6 +60,7 @@ const PLACEHOLDER_HEIGHT = 1000; // Estimated height for unrendered pages
 export default function PDFViewer({
   pdfId,
   onTextSelect,
+  onImageAnalyse,
   selectedText, // eslint-disable-line @typescript-eslint/no-unused-vars
   scale: externalScale,
   onScaleChange,
@@ -224,6 +227,47 @@ export default function PDFViewer({
     consolidated.push(current);
     return consolidated;
   };
+
+  const handleImageAnalyse = useCallback(
+    (imageDataUrl: string) => {
+      if (onImageAnalyse) {
+        onImageAnalyse(imageDataUrl);
+      }
+    },
+    [onImageAnalyse]
+  );
+
+  const handleImageHighlight = useCallback(
+    async (color: string, area: { x: number; y: number; width: number; height: number }, pageNumber: number) => {
+      if (!pdfId) return;
+
+      // Create a rectangle highlight for the selected area
+      const highlight = {
+        id: `image_highlight_${Date.now()}_page_${pageNumber}`,
+        pdfId,
+        text: 'Image selection',
+        color,
+        rects: [area],
+        pageNumber,
+      };
+
+      // Add to highlights state
+      setHighlights((prev) => [...prev, highlight]);
+
+      // Save to database
+      try {
+        await fetch('/api/highlights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(highlight),
+        });
+      } catch (error) {
+        console.error('Failed to save image highlight:', error);
+        setHighlights((prev) => prev.filter((h) => h.id !== highlight.id));
+      }
+    },
+    [pdfId]
+  );
 
   const handleHighlight = useCallback(
     async (color: string, text: string) => {
@@ -1969,6 +2013,22 @@ export default function PDFViewer({
                                     }
                                   : { current: null }
                               }
+                            />
+
+                            {/* Image Analyser Overlay */}
+                            <ImageAnalyser
+                              isActive={activeTool === 'analyseimage'}
+                              pageNumber={pageNumber}
+                              containerRef={
+                                pageRefs.current.get(pageNumber)
+                                  ? {
+                                      current:
+                                        pageRefs.current.get(pageNumber)!,
+                                    }
+                                  : { current: null }
+                              }
+                              onImageAnalyse={handleImageAnalyse}
+                              onHighlight={(color, area) => handleImageHighlight(color, area, pageNumber)}
                             />
 
                             {/* Highlight Overlay */}

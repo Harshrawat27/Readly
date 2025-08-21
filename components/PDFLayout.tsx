@@ -30,7 +30,9 @@ interface PDFLayoutProps {
   isSigningOut: boolean;
   pdfId: string;
   selectedText: string;
+  selectedImage: string;
   onTextSelect: (text: string) => void;
+  onImageSelect: (imageDataUrl: string) => void;
   onTextSubmit: () => void;
 }
 
@@ -41,7 +43,9 @@ const PDFLayout = memo(function PDFLayout({
   isSigningOut,
   pdfId,
   selectedText,
+  selectedImage,
   onTextSelect,
+  onImageSelect,
   onTextSubmit,
 }: PDFLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -102,6 +106,7 @@ const PDFLayout = memo(function PDFLayout({
           <PDFViewer
             pdfId={currentPdfId}
             onTextSelect={onTextSelect}
+            onImageAnalyse={onImageSelect}
             selectedText={selectedText}
             currentUser={{
               id: session.user.id,
@@ -131,6 +136,7 @@ const PDFLayout = memo(function PDFLayout({
           <ChatPanel
             pdfId={currentPdfId}
             selectedText={selectedText}
+            selectedImage={selectedImage}
             onTextSubmit={onTextSubmit}
           />
         </div>
