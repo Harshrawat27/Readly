@@ -122,3 +122,4 @@ before launch focus on this.
 -- comment all console log
 -- option where user can listen the text, add input in speaking way. 
 -- in brush tool drawings are not scaling properly.
+-- screenshot asking! 
