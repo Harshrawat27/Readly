@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
         id: true,
         role: true,
         content: true,
+        imageData: true,
         createdAt: true,
       },
     });
