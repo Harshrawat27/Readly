@@ -146,6 +146,7 @@ model Message {
   id        String   @id @default(cuid())
   content   String
   role      String
+  imageData String?  // Store base64 image data for image analysis messages
   createdAt DateTime @default(now())
   chatId    String
   userId    String

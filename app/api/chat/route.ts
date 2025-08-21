@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
           userId: userId,
           role: 'user',
           content: lastUserMessage.content,
+          imageData: selectedImage || null,
         },
       });
     }

@@ -197,7 +197,7 @@ export default function ImageAnalyser({
           <>
             {/* Top overlay */}
             <div
-              className="absolute bg-black bg-opacity-70"
+              className="absolute bg-black bg-opacity-60"
               style={{
                 left: 0,
                 top: 0,
@@ -207,7 +207,7 @@ export default function ImageAnalyser({
             />
             {/* Bottom overlay */}
             <div
-              className="absolute bg-black bg-opacity-70"
+              className="absolute bg-black bg-opacity-60"
               style={{
                 left: 0,
                 top: Math.max(selectionArea.startY, selectionArea.endY),
@@ -217,7 +217,7 @@ export default function ImageAnalyser({
             />
             {/* Left overlay */}
             <div
-              className="absolute bg-black bg-opacity-70"
+              className="absolute bg-black bg-opacity-60"
               style={{
                 left: 0,
                 top: Math.min(selectionArea.startY, selectionArea.endY),
@@ -227,7 +227,7 @@ export default function ImageAnalyser({
             />
             {/* Right overlay */}
             <div
-              className="absolute bg-black bg-opacity-70"
+              className="absolute bg-black bg-opacity-60"
               style={{
                 left: Math.max(selectionArea.startX, selectionArea.endX),
                 top: Math.min(selectionArea.startY, selectionArea.endY),

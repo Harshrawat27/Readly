@@ -20,6 +20,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  imageData?: string;
   timestamp: Date;
   isStreaming?: boolean;
 }
@@ -233,11 +234,13 @@ export default function ChatPanel({
             id: string;
             role: 'user' | 'assistant';
             content: string;
+            imageData?: string;
             createdAt: string;
           }) => ({
             id: msg.id,
             role: msg.role,
             content: msg.content,
+            imageData: msg.imageData,
             timestamp: new Date(msg.createdAt),
           })
         );
@@ -299,11 +302,13 @@ export default function ChatPanel({
               id: string;
               role: 'user' | 'assistant';
               content: string;
+              imageData?: string;
               createdAt: string;
             }) => ({
               id: msg.id,
               role: msg.role,
               content: msg.content,
+              imageData: msg.imageData,
               timestamp: new Date(msg.createdAt),
             })
           );
@@ -408,6 +413,7 @@ export default function ChatPanel({
       id: Date.now().toString(),
       role: 'user',
       content: inputValue.trim(),
+      imageData: selectedImage || undefined,
       timestamp: new Date(),
     };
 
@@ -727,8 +733,19 @@ export default function ChatPanel({
                         fontSize={15}
                       />
                     ) : (
-                      <div className='whitespace-pre-wrap'>
-                        {message.content}
+                      <div className='space-y-2'>
+                        {message.imageData && (
+                          <div className='mb-2'>
+                            <img
+                              src={message.imageData}
+                              alt='Selected from PDF'
+                              className='max-w-full h-32 object-contain rounded border bg-white'
+                            />
+                          </div>
+                        )}
+                        <div className='whitespace-pre-wrap'>
+                          {message.content}
+                        </div>
                       </div>
                     )}
 
