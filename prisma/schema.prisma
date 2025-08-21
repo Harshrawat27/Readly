@@ -40,6 +40,7 @@ model User {
   textElements   TextElement[]
   highlights     Highlight[]
   subscriptions  Subscription[]
+  shapes         Shape[]
 
   @@map("user")
 }
@@ -106,6 +107,7 @@ model PDF {
   highlights     Highlight[]
   chunks         PDFChunk[]
   penDrawings    PenDrawing[]
+  shapes         Shape[]
 
   @@index([userId, uploadedAt])
   @@map("pdf")
@@ -278,4 +280,30 @@ model SubscriptionPlan {
   updatedAt             DateTime @updatedAt
   
   @@map("subscription_plan")
+}
+
+model Shape {
+  id         String   @id @default(cuid())
+  pdfId      String
+  pageNumber Int
+  userId     String
+  type       String   // rectangle, ellipse, line, arrow
+  x          Float
+  y          Float
+  width      Float
+  height     Float
+  rotation   Float?   @default(0)
+  color      String   @default("#000000")
+  strokeWidth Float?  @default(2)
+  fillColor  String?
+  opacity    Float?   @default(1)
+  selected   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([pdfId, pageNumber])
+  @@map("shape")
 }

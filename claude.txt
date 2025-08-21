@@ -124,3 +124,4 @@ before launch focus on this.
 -- in brush tool drawings are not scaling properly.
 -- screenshot asking! 
 -- some spin animation when generating answers. 
+-- change in page not working properly, unloaded pages are not in good shape for sure. 

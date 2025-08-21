@@ -12,7 +12,10 @@ import MindMap from './MindMap';
 import FlashCards from './FlashCards';
 import MCQs from './MCQs';
 import ImageAnalyser from './ImageAnalyser';
+import ShapeTool from './ShapeTool';
+import ShapeToolbar from './ShapeToolbar';
 import { usePDFData } from '@/hooks/usePDFData';
+import { useShapes } from '@/hooks/useShapes';
 
 // Dynamically import PDF components
 const Document = dynamic(
@@ -154,6 +157,18 @@ export default function PDFViewer({
     updateText,
     deleteText,
   } = usePDFData(pdfId);
+
+  // Shapes management
+  const {
+    getShapesForPage,
+    addShape,
+    updateShape,
+    deleteShape,
+  } = useShapes(pdfId);
+
+  // Shape tool state
+  const [shapeColor, setShapeColor] = useState('#000000');
+  const [shapeStrokeWidth, setShapeStrokeWidth] = useState(2);
 
   const [currentSelectionData, setCurrentSelectionData] = useState<{
     text: string;
@@ -2088,6 +2103,28 @@ export default function PDFViewer({
                               onHighlight={(color, area) => handleImageHighlight(color, area, pageNumber)}
                             />
 
+                            {/* Shape Tool Overlay */}
+                            {pdfId && currentUser && (
+                              <ShapeTool
+                                isActive={['rectangle', 'ellipse', 'line', 'arrow', 'move'].includes(activeTool)}
+                                activeTool={activeTool}
+                                pdfId={pdfId}
+                                pageNumber={pageNumber}
+                                userId={currentUser.id}
+                                containerRef={
+                                  pageRefs.current.get(pageNumber)
+                                    ? { current: pageRefs.current.get(pageNumber)! }
+                                    : { current: null as HTMLDivElement | null }
+                                }
+                                onShapeCreate={addShape}
+                                onShapeUpdate={updateShape}
+                                onShapeDelete={deleteShape}
+                                shapes={getShapesForPage(pageNumber)}
+                                shapeColor={shapeColor}
+                                shapeStrokeWidth={shapeStrokeWidth}
+                              />
+                            )}
+
                             {/* Highlight Overlay */}
                             {getHighlightsForPage(pageNumber).map(
                               (highlight) => (
@@ -2155,6 +2192,18 @@ export default function PDFViewer({
 
       {/* Pen Tool Controls */}
       {activeTool === 'pen' && <PenToolbar />}
+
+      {/* Shape Tool Controls */}
+      {['rectangle', 'ellipse', 'line', 'arrow'].includes(activeTool) && (
+        <ShapeToolbar
+          activeTool={activeTool}
+          onToolChange={setActiveTool}
+          onColorChange={setShapeColor}
+          onStrokeWidthChange={setShapeStrokeWidth}
+          currentColor={shapeColor}
+          currentStrokeWidth={shapeStrokeWidth}
+        />
+      )}
 
       <HighlightColorPicker
         x={selectionDialog.x}
