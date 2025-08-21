@@ -804,7 +804,7 @@ export default function ChatPanel({
 
       {/* Input section (unchanged) */}
       <div className='p-4 border-t border-[var(--border)] bg-[var(--card-background)] flex-shrink-0'>
-        {selectedText && (
+        {/* {selectedText && (
           <div className='mb-3 p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg'>
             <div className='text-xs text-[var(--accent)] font-medium mb-1'>
               Selected text:
@@ -820,7 +820,7 @@ export default function ChatPanel({
               &quot;
             </div>
           </div>
-        )}
+        )} */}
         {selectedImage && (
           <div className='mb-3 p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/20 rounded-lg'>
             <div className='text-xs text-[var(--accent)] font-medium mb-2'>
