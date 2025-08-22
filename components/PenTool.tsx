@@ -8,6 +8,11 @@ interface PenToolProps {
   pageNumber: number;
   containerRef: React.RefObject<HTMLElement | null>;
   showDrawings?: boolean; // New prop to control visibility
+  scale?: number; // PDF zoom scale factor
+  // Centralized data management props
+  strokes: Stroke[];
+  onStrokesUpdate: (strokes: Stroke[]) => void;
+  onStrokesSave: (strokes: Stroke[]) => void;
 }
 
 interface Point {
@@ -49,12 +54,15 @@ const PenTool: React.FC<PenToolProps> = ({
   pageNumber,
   containerRef,
   showDrawings = true,
+  scale = 1,
+  strokes,
+  onStrokesUpdate,
+  onStrokesSave,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Point[]>([]);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Remove local state management - use props instead
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get current pen settings
@@ -133,9 +141,9 @@ const PenTool: React.FC<PenToolProps> = ({
 
     // Redraw all strokes after setup
     redrawCanvas();
-  }, [containerRef, getContext]);
+  }, [containerRef, getContext]); // Remove redrawCanvas to avoid circular dependency
 
-  // Redraw all strokes on canvas
+  // Redraw all strokes on canvas with scaling applied
   const redrawCanvas = useCallback(() => {
     const ctx = getContext();
     if (!ctx) return;
@@ -143,89 +151,53 @@ const PenTool: React.FC<PenToolProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw all strokes
+    // Draw all strokes with scaling applied
     strokes.forEach((stroke) => {
       if (stroke.points.length < 2) return;
 
       ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.width;
+      ctx.lineWidth = stroke.width * scale; // Scale line width
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
       ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      // Scale coordinates when rendering
+      ctx.moveTo(stroke.points[0].x * scale, stroke.points[0].y * scale);
 
       for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        ctx.lineTo(stroke.points[i].x * scale, stroke.points[i].y * scale);
       }
 
       ctx.stroke();
     });
-  }, [strokes, getContext]);
+  }, [strokes, getContext, scale]);
 
-  // Load drawings from database
-  const loadDrawings = useCallback(async () => {
-    if (!pdfId || !pageNumber) return;
+  // Remove loadDrawings - data comes from props
 
-    try {
-      setIsLoading(true);
-      const response = await fetch(
-        `/api/pen-drawings?pdfId=${pdfId}&pageNumber=${pageNumber}`
-      );
-      if (response.ok) {
-        const drawing = await response.json();
-        if (drawing && drawing.strokes) {
-          setStrokes(drawing.strokes);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load pen drawings:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pdfId, pageNumber]);
-
-  // Save drawings to database with debouncing
+  // Save drawings with debouncing using the centralized save function
   const saveDrawings = useCallback(
-    async (strokesToSave: Stroke[]) => {
-      if (!pdfId || !pageNumber) return;
-
+    (strokesToSave: Stroke[]) => {
       // Clear existing timeout
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
 
       // Set up debounced save
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          await fetch('/api/pen-drawings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pdfId,
-              pageNumber,
-              strokes: strokesToSave,
-            }),
-          });
-        } catch (error) {
-          console.error('Failed to save pen drawings:', error);
-        }
+      saveTimeoutRef.current = setTimeout(() => {
+        onStrokesSave(strokesToSave);
       }, 500); // 500ms debounce
     },
-    [pdfId, pageNumber]
+    [onStrokesSave]
   );
 
-  // Load drawings when component mounts or page changes
-  useEffect(() => {
-    loadDrawings();
-  }, [loadDrawings]);
+  // Remove loading effect - data comes from props
 
-  // Setup canvas when component loads or when strokes change
+  // Setup canvas when component loads or when strokes change or scale changes
   useEffect(() => {
-    if (!isLoading && showDrawings) {
+    if (showDrawings) {
       setupCanvas();
     }
-  }, [isLoading, showDrawings, setupCanvas, strokes]);
+  }, [showDrawings, setupCanvas, strokes, scale]);
 
   // Handle window resize
   useEffect(() => {
@@ -237,7 +209,7 @@ const PenTool: React.FC<PenToolProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [showDrawings, setupCanvas]);
 
-  // Get coordinates relative to canvas
+  // Get coordinates relative to canvas, converted to PDF coordinate space
   const getCanvasCoordinates = useCallback(
     (e: MouseEvent | TouchEvent): Point => {
       const canvas = canvasRef.current;
@@ -248,19 +220,21 @@ const PenTool: React.FC<PenToolProps> = ({
       if ('touches' in e) {
         const touch = e.touches[0] || e.changedTouches[0];
         return {
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top,
+          // Convert screen coordinates to PDF coordinate space by dividing by scale
+          x: (touch.clientX - rect.left) / scale,
+          y: (touch.clientY - rect.top) / scale,
           pressure: (touch as TouchWithForce).force || 0.5,
         };
       } else {
         return {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          // Convert screen coordinates to PDF coordinate space by dividing by scale
+          x: (e.clientX - rect.left) / scale,
+          y: (e.clientY - rect.top) / scale,
           pressure: 0.5,
         };
       }
     },
-    []
+    [scale]
   );
 
   // Start drawing
@@ -291,25 +265,26 @@ const PenTool: React.FC<PenToolProps> = ({
       setCurrentStroke((prev) => {
         const newStroke = [...prev, point];
 
-        // Draw the line segment
+        // Draw the line segment with scaling applied
         if (newStroke.length >= 2) {
           const prevPoint = newStroke[newStroke.length - 2];
 
           ctx.strokeStyle = penSettings.brushColor;
-          ctx.lineWidth = penSettings.brushWidth;
+          ctx.lineWidth = penSettings.brushWidth * scale; // Scale line width
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
 
           ctx.beginPath();
-          ctx.moveTo(prevPoint.x, prevPoint.y);
-          ctx.lineTo(point.x, point.y);
+          // Scale coordinates when drawing
+          ctx.moveTo(prevPoint.x * scale, prevPoint.y * scale);
+          ctx.lineTo(point.x * scale, point.y * scale);
           ctx.stroke();
         }
 
         return newStroke;
       });
     },
-    [isDrawing, isActive, getCanvasCoordinates, getContext, penSettings]
+    [isDrawing, isActive, getCanvasCoordinates, getContext, penSettings, scale]
   );
 
   // End drawing
@@ -327,44 +302,45 @@ const PenTool: React.FC<PenToolProps> = ({
         timestamp: Date.now(),
       };
 
-      setStrokes((prev) => {
-        const newStrokes = [...prev, newStroke];
-        // Save to database
-        saveDrawings(newStrokes);
+      const newStrokes = [...strokes, newStroke];
+      
+      // Update strokes via centralized management
+      onStrokesUpdate(newStrokes);
+      
+      // Save to database
+      saveDrawings(newStrokes);
 
-        // Force a redraw after stroke completion to ensure visibility
-        setTimeout(() => {
-          const ctx = getContext();
-          if (ctx) {
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // Force a redraw after stroke completion to ensure visibility
+      setTimeout(() => {
+        const ctx = getContext();
+        if (ctx) {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-            // Redraw all strokes including the new one
-            newStrokes.forEach((stroke) => {
-              if (stroke.points.length < 2) return;
+          // Redraw all strokes including the new one with scaling applied
+          newStrokes.forEach((stroke) => {
+            if (stroke.points.length < 2) return;
 
-              ctx.strokeStyle = stroke.color;
-              ctx.lineWidth = stroke.width;
-              ctx.lineCap = 'round';
-              ctx.lineJoin = 'round';
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.width * scale; // Scale line width
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
 
-              ctx.beginPath();
-              ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            ctx.beginPath();
+            // Scale coordinates when rendering
+            ctx.moveTo(stroke.points[0].x * scale, stroke.points[0].y * scale);
 
-              for (let i = 1; i < stroke.points.length; i++) {
-                ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-              }
+            for (let i = 1; i < stroke.points.length; i++) {
+              ctx.lineTo(stroke.points[i].x * scale, stroke.points[i].y * scale);
+            }
 
-              ctx.stroke();
-            });
-          }
-        }, 10); // Small delay to ensure state update
-
-        return newStrokes;
-      });
+            ctx.stroke();
+          });
+        }
+      }, 10); // Small delay to ensure state update
     }
 
     setCurrentStroke([]);
-  }, [isDrawing, currentStroke, penSettings, saveDrawings]);
+  }, [isDrawing, currentStroke, penSettings, saveDrawings, getContext, scale]);
 
   // Event handlers
   useEffect(() => {
@@ -407,23 +383,21 @@ const PenTool: React.FC<PenToolProps> = ({
   // Clear all strokes
   const clearCanvas = useCallback(() => {
     const newStrokes: Stroke[] = [];
-    setStrokes(newStrokes);
+    onStrokesUpdate(newStrokes);
     saveDrawings(newStrokes);
 
     const ctx = getContext();
     if (ctx) {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
-  }, [getContext, saveDrawings]);
+  }, [getContext, saveDrawings, onStrokesUpdate]);
 
   // Undo last stroke
   const undoStroke = useCallback(() => {
-    setStrokes((prev) => {
-      const newStrokes = prev.slice(0, -1);
-      saveDrawings(newStrokes);
-      return newStrokes;
-    });
-  }, [saveDrawings]);
+    const newStrokes = strokes.slice(0, -1);
+    onStrokesUpdate(newStrokes);
+    saveDrawings(newStrokes);
+  }, [strokes, onStrokesUpdate, saveDrawings]);
 
   // Listen for undo/clear events from toolbar
   useEffect(() => {

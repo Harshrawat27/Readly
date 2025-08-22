@@ -15,40 +15,61 @@ interface Stroke {
   timestamp: number;
 }
 
-// GET - Load pen drawings for a specific PDF page
+// GET - Load pen drawings for a PDF (all pages if no pageNumber, specific page if pageNumber provided)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const pdfId = searchParams.get('pdfId');
     const pageNumber = searchParams.get('pageNumber');
 
-    if (!pdfId || !pageNumber) {
+    if (!pdfId) {
       return NextResponse.json(
-        { error: 'Missing pdfId or pageNumber' },
+        { error: 'Missing pdfId' },
         { status: 400 }
       );
     }
 
-    // Find existing pen drawing for this PDF page
-    const drawing = await prisma.penDrawing.findFirst({
-      where: {
-        pdfId: pdfId,
-        pageNumber: parseInt(pageNumber),
-      },
-    });
+    if (pageNumber) {
+      // Legacy: Load drawings for a specific page (for backward compatibility)
+      const drawing = await prisma.penDrawing.findFirst({
+        where: {
+          pdfId: pdfId,
+          pageNumber: parseInt(pageNumber),
+        },
+      });
 
-    if (!drawing) {
-      return NextResponse.json({ strokes: [] });
+      if (!drawing) {
+        return NextResponse.json({ strokes: [] });
+      }
+
+      return NextResponse.json({
+        id: drawing.id,
+        pdfId: drawing.pdfId,
+        pageNumber: drawing.pageNumber,
+        strokes: drawing.strokes,
+        createdAt: drawing.createdAt,
+        updatedAt: drawing.updatedAt,
+      });
+    } else {
+      // New: Load all drawings for the PDF
+      const drawings = await prisma.penDrawing.findMany({
+        where: {
+          pdfId: pdfId,
+        },
+        orderBy: {
+          pageNumber: 'asc',
+        },
+      });
+
+      return NextResponse.json(drawings.map(drawing => ({
+        id: drawing.id,
+        pdfId: drawing.pdfId,
+        pageNumber: drawing.pageNumber,
+        strokes: drawing.strokes,
+        createdAt: drawing.createdAt,
+        updatedAt: drawing.updatedAt,
+      })));
     }
-
-    return NextResponse.json({
-      id: drawing.id,
-      pdfId: drawing.pdfId,
-      pageNumber: drawing.pageNumber,
-      strokes: drawing.strokes,
-      createdAt: drawing.createdAt,
-      updatedAt: drawing.updatedAt,
-    });
   } catch (error) {
     console.error('Error loading pen drawings:', error);
     return NextResponse.json(

@@ -125,3 +125,5 @@ before launch focus on this.
 -- screenshot asking! 
 -- some spin animation when generating answers. 
 -- change in page not working properly, unloaded pages are not in good shape for sure. 
+-- we have to main point-even: none or auto -- i'll do in the morning! 
+-- scale issue of shapes. they will change their scale with scale in pdf. 

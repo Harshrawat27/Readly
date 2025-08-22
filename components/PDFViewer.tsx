@@ -16,6 +16,7 @@ import ShapeTool from './ShapeTool';
 import ShapeToolbar from './ShapeToolbar';
 import { usePDFData } from '@/hooks/usePDFData';
 import { useShapes } from '@/hooks/useShapes';
+import { usePenDrawings } from '@/hooks/usePenDrawings';
 
 // Dynamically import PDF components
 const Document = dynamic(
@@ -165,6 +166,13 @@ export default function PDFViewer({
     updateShape,
     deleteShape,
   } = useShapes(pdfId);
+
+  // Pen drawings management
+  const {
+    getDrawingsForPage,
+    saveDrawingsForPage,
+    updateDrawingsForPage,
+  } = usePenDrawings(pdfId);
 
   // Shape tool state
   const [shapeColor, setShapeColor] = useState('#000000');
@@ -2085,6 +2093,10 @@ export default function PDFViewer({
                                     }
                                   : { current: null }
                               }
+                              scale={calculateScale()}
+                              strokes={getDrawingsForPage(pageNumber)}
+                              onStrokesUpdate={(strokes) => updateDrawingsForPage(pageNumber, strokes)}
+                              onStrokesSave={(strokes) => saveDrawingsForPage(pageNumber, strokes)}
                             />
 
                             {/* Image Analyser Overlay */}
@@ -2122,6 +2134,7 @@ export default function PDFViewer({
                                 shapes={getShapesForPage(pageNumber)}
                                 shapeColor={shapeColor}
                                 shapeStrokeWidth={shapeStrokeWidth}
+                                scale={calculateScale()}
                               />
                             )}
 
