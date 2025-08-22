@@ -472,7 +472,7 @@ const PenTool: React.FC<PenToolProps> = ({
       {/* Drawing Canvas */}
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 z-10 ${
+        className={`absolute inset-0 z-20 ${
           isActive
             ? 'pointer-events-auto cursor-crosshair'
             : 'pointer-events-none'

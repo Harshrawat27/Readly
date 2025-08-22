@@ -218,7 +218,7 @@ export default function TextSystem({
     <div
       ref={containerRef}
       className='absolute inset-0 pointer-events-none'
-      style={{ zIndex: isTextMode ? 10 : 5 }}
+      style={{ zIndex: isTextMode ? 40 : 35 }}
     >
       {/* Page Click Handler */}
       {isTextMode && (
@@ -244,7 +244,7 @@ export default function TextSystem({
           style={{
             left: `${cursor.x}%`,
             top: `${cursor.y}%`,
-            zIndex: 20,
+            zIndex: 42,
           }}
         >
           <div className='w-0.5 h-6 bg-black animate-blink' />
@@ -271,7 +271,7 @@ export default function TextSystem({
 
       {/* Text Mode Indicator */}
       {isTextMode && (
-        <div className='fixed top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none'>
+        <div className='fixed top-4 left-1/2 transform -translate-x-1/2 z-45 pointer-events-none'>
           <div className='bg-[var(--accent)] text-white px-4 py-2 rounded-full text-sm font-medium'>
             Click anywhere to add text
           </div>
@@ -505,7 +505,7 @@ function TextElement({
         left: `${text.x}%`,
         top: `${text.y}%`,
         width: `${localWidth * scale}px`,
-        zIndex: 15,
+        zIndex: 41,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
       }}

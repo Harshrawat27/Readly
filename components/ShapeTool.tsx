@@ -1125,14 +1125,14 @@ export default function ShapeTool({
       style={{
         cursor: isDrawingTool() ? 'crosshair' : 'default',
         pointerEvents: 'none', // Always none for div
-        zIndex: 20,
+        zIndex: 30,
       }}
     >
       <svg
         className='absolute inset-0 w-full h-full'
         onMouseDown={handleMouseDown}
         style={{
-          zIndex: 21,
+          zIndex: 31,
           pointerEvents: isDrawingTool() ? 'auto' : 'none',
         }}
       >

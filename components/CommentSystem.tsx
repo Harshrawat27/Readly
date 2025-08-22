@@ -221,7 +221,7 @@ export default function CommentSystem({
     <div
       ref={containerRef}
       className='absolute inset-0 pointer-events-none'
-      style={{ zIndex: isCommentMode ? 10 : 5 }}
+      style={{ zIndex: isCommentMode || isMoveMode ? 50 : 45 }}
     >
       {/* Page Click Handler */}
       {isCommentMode && (
@@ -252,7 +252,7 @@ export default function CommentSystem({
             key={comment.id}
             className='pointer-events-auto'
             data-comment-pin
-            style={{ zIndex: 10 }}
+            style={{ zIndex: 52 }}
           >
             <CommentPin
               comment={displayComment}
