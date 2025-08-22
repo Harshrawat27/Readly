@@ -50,8 +50,6 @@ let globalPenSettings = {
 
 const PenTool: React.FC<PenToolProps> = ({
   isActive,
-  pdfId,
-  pageNumber,
   containerRef,
   showDrawings = true,
   scale = 1,

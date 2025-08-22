@@ -51,7 +51,6 @@ interface CommentSystemProps {
   onCommentUpdate?: (id: string, updates: Partial<Comment>) => void;
   onCommentDelete?: (id: string) => void;
   onReplyCreate?: (commentId: string, content: string) => void;
-  scale?: number; // PDF zoom scale factor
 }
 
 interface Toast {
@@ -70,14 +69,15 @@ export default function CommentSystem({
   onCommentUpdate,
   onCommentDelete,
   onReplyCreate,
-  scale = 1,
 }: CommentSystemProps) {
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null
   );
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [tempPositions, setTempPositions] = useState<Record<string, {x: number, y: number}>>({});
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [tempPositions, setTempPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [newCommentDialog, setNewCommentDialog] = useState<NewCommentDialog>({
     x: 0,
@@ -104,30 +104,11 @@ export default function CommentSystem({
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Debounced update for drag operations (like shapes)
-  const debouncedCommentUpdate = useCallback(
-    (commentId: string, updates: Partial<Comment>) => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-
-      updateTimeoutRef.current = setTimeout(() => {
-        // This calls the actual API
-        fetch(`/api/comments/${commentId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
-      }, 50); // 50ms debounce like shapes
-    },
-    []
-  );
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
       }
     };
   }, []);
@@ -159,9 +140,8 @@ export default function CommentSystem({
       }
 
       const rect = pdfPage.getBoundingClientRect();
-      // Convert screen coordinates to PDF coordinate space by dividing by scale
-      const x = (((event.clientX - rect.left) / scale) / (rect.width / scale)) * 100;
-      const y = (((event.clientY - rect.top) / scale) / (rect.height / scale)) * 100;
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
 
       console.log('Creating comment dialog at:', x, y);
       setNewCommentDialog({
@@ -186,7 +166,6 @@ export default function CommentSystem({
       resolved: false,
     };
 
-
     setNewCommentDialog({ x: 0, y: 0, pageNumber: 0, visible: false });
     setNewCommentText('');
 
@@ -200,29 +179,25 @@ export default function CommentSystem({
   };
 
   const handleCommentMove = (id: string, x: number, y: number) => {
-    // Update temporary position immediately for smooth visual feedback (like shapes)
-    setTempPositions(prev => ({
+    // Only update temp position for smooth visual feedback (like shapes - pure local updates)
+    setTempPositions((prev) => ({
       ...prev,
-      [id]: { x, y }
+      [id]: { x, y },
     }));
     
-    // Debounced API call only (no immediate optimistic update to avoid DB spam)
-    debouncedCommentUpdate(id, { x, y });
+    // No API calls during drag - keep it pure like shapes
   };
 
   const handleCommentMoveComplete = (id: string, x: number, y: number) => {
-    // Called on mouseUp - update actual comment data and clear temp position
+    // Now make the API call like shapes do on completion
     onCommentUpdate?.(id, { x, y });
-    setTempPositions(prev => {
+    
+    // Clear temp position after API call
+    setTempPositions((prev) => {
       const newPositions = { ...prev };
       delete newPositions[id];
       return newPositions;
     });
-    
-    // Cancel any pending debounced update since we're doing immediate final update
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
   };
 
   const handleCommentResolve = (id: string) => {
@@ -266,9 +241,9 @@ export default function CommentSystem({
 
       {/* Existing Comments */}
       {pageComments.map((comment) => {
-        // Use temp position if available for smooth visual feedback
+        // Use temp position if available, otherwise use stored position
         const tempPos = tempPositions[comment.id];
-        const displayComment = tempPos 
+        const displayComment = tempPos
           ? { ...comment, x: tempPos.x, y: tempPos.y }
           : comment;
 
@@ -290,7 +265,6 @@ export default function CommentSystem({
               onSelect={setSelectedCommentId}
               isDraggable={isCommentMode || isMoveMode}
               currentUser={currentUser}
-              scale={scale}
             />
           </div>
         );

@@ -133,22 +133,6 @@ export default function ShapeTool({
     );
   }, [isActive, activeTool]);
 
-  // For pointer events, we need auto when drawing OR when in move mode and there are shapes to interact with
-  const shouldCapturePointerEvents = useCallback(() => {
-    if (!isActive) return false;
-
-    // Always capture for drawing tools
-    if (['rectangle', 'ellipse', 'line', 'arrow'].includes(activeTool)) {
-      return true;
-    }
-
-    // For move tool, only capture if there are shapes on this page that could be selected
-    if (activeTool === 'move') {
-      return shapes.some((shape) => shape.pageNumber === pageNumber);
-    }
-
-    return false;
-  }, [isActive, activeTool, shapes, pageNumber]);
 
   // Create shape via API
   const createShape = useCallback(

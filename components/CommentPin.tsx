@@ -42,7 +42,6 @@ interface CommentPinProps {
     name: string;
     image?: string;
   };
-  scale?: number; // PDF zoom scale factor
 }
 
 export default function CommentPin({
@@ -55,16 +54,15 @@ export default function CommentPin({
   onSelect,
   isDraggable = true,
   currentUser,
-  scale = 1,
 }: CommentPinProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [replyText, setReplyText] = useState('');
   const [showReplyInput, setShowReplyInput] = useState(false);
-  const [dragStartTime, setDragStartTime] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const pinRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -92,22 +90,26 @@ export default function CommentPin({
   }, [isOpen]);
 
   const handleMouseDown = (event: React.MouseEvent) => {
-    if (!isDraggable) return;
-
     event.preventDefault();
     event.stopPropagation();
-    setIsDragging(true);
-    setDragStartTime(Date.now());
-    setDragStartPos({ x: event.clientX, y: event.clientY });
-
-    const rect = pinRef.current?.getBoundingClientRect();
-    if (rect) {
-      setDragOffset({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
+    
+    if (isDraggable) {
+      setIsDragging(true);
+      setDragStartTime(Date.now());
+      setDragStart({
+        x: event.clientX,
+        y: event.clientY,
       });
-    }
 
+      const rect = pinRef.current?.getBoundingClientRect();
+      if (rect) {
+        setDragOffset({
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+      }
+    }
+    
     onSelect?.(comment.id);
   };
 
@@ -130,16 +132,14 @@ export default function CommentPin({
 
       const containerRect = pdfPage.getBoundingClientRect();
 
-      // Calculate new position relative to the page, adjusted for scale
+      // Calculate new position relative to the page
       const newX =
         ((event.clientX - dragOffset.x - containerRect.left) /
-          scale /
-          (containerRect.width / scale)) *
+          containerRect.width) *
         100;
       const newY =
         ((event.clientY - dragOffset.y - containerRect.top) /
-          scale /
-          (containerRect.height / scale)) *
+          containerRect.height) *
         100;
 
       // Constrain to container bounds with some padding
@@ -152,16 +152,16 @@ export default function CommentPin({
 
     const handleMouseUp = (event: MouseEvent) => {
       setIsDragging(false);
-
-      // Check if this was a drag or just a click
+      
+      // Check if this was a drag or just a click (like TextSystem)
       const dragTime = Date.now() - dragStartTime;
       const dragDistance = Math.sqrt(
-        Math.pow(event.clientX - dragStartPos.x, 2) +
-          Math.pow(event.clientY - dragStartPos.y, 2)
+        Math.pow(event.clientX - dragStart.x, 2) + 
+        Math.pow(event.clientY - dragStart.y, 2)
       );
-
+      
+      // If it was a quick click (less than 200ms and moved less than 5px), toggle comment thread
       if (dragTime < 200 && dragDistance < 5) {
-        // Quick click - open the comment
         setTimeout(() => {
           setIsOpen((prev) => !prev);
           setIsHovered(false);
@@ -169,21 +169,19 @@ export default function CommentPin({
       } else if (dragDistance > 5 && onMoveComplete) {
         // This was a drag - call onMoveComplete with final position
         const pdfPage =
-          (event.target as HTMLElement)?.closest('.pdf-page') ||
-          (event.target as HTMLElement)?.closest('[data-page-number]') ||
-          (event.target as HTMLElement)?.closest('.mb-4');
+          pinRef.current?.closest('.pdf-page') ||
+          pinRef.current?.closest('[data-page-number]') ||
+          pinRef.current?.closest('.mb-4');
 
         if (pdfPage) {
           const containerRect = pdfPage.getBoundingClientRect();
           const newX =
             ((event.clientX - dragOffset.x - containerRect.left) /
-              scale /
-              (containerRect.width / scale)) *
+              containerRect.width) *
             100;
           const newY =
             ((event.clientY - dragOffset.y - containerRect.top) /
-              scale /
-              (containerRect.height / scale)) *
+              containerRect.height) *
             100;
 
           const clampedX = Math.max(1, Math.min(99, newX));
@@ -194,7 +192,7 @@ export default function CommentPin({
       }
     };
 
-    // Prevent text selection during drag but no cursor change
+    // Prevent text selection during drag
     document.body.style.userSelect = 'none';
 
     document.addEventListener('mousemove', handleMouseMove, { capture: true });
@@ -202,17 +200,11 @@ export default function CommentPin({
 
     return () => {
       document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', handleMouseMove, {
-        capture: true,
-      });
+      document.removeEventListener('mousemove', handleMouseMove, { capture: true });
       document.removeEventListener('mouseup', handleMouseUp, { capture: true });
     };
-  }, [isDragging, dragOffset, comment.id, onMove, onMoveComplete, scale]);
+  }, [isDragging, dragOffset, dragStart, dragStartTime, comment.id, onMove, onMoveComplete]);
 
-  const handlePinClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    // Click handling is now done in handleMouseUp to distinguish from drag
-  };
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
@@ -297,13 +289,7 @@ export default function CommentPin({
       {/* Comment Pin */}
       <div
         ref={pinRef}
-        className={`absolute z-20 ${
-          isDraggable
-            ? isDragging
-              ? 'cursor-grabbing'
-              : 'cursor-grab'
-            : 'cursor-pointer'
-        } ${
+        className={`absolute z-20 cursor-pointer ${
           isDragging ? 'opacity-80 scale-110' : ''
         } transition-all duration-150`}
         style={{
@@ -312,7 +298,6 @@ export default function CommentPin({
           transform: 'translate(-50%, -50%)',
         }}
         onMouseDown={handleMouseDown}
-        onClick={handlePinClick}
       >
         <div
           className={`relative transition-all duration-200 rounded-full ${
@@ -391,7 +376,7 @@ export default function CommentPin({
       {isOpen && (
         <div
           ref={dialogRef}
-          className='absolute z-1000 w-96 bg-[var(--sidebar-bg)] text-white rounded-xl shadow-2xl'
+          className='absolute z-30 w-96 bg-[var(--sidebar-bg)] text-white rounded-xl shadow-2xl'
           style={{
             left: `${comment.x}%`,
             top: `${comment.y}%`,

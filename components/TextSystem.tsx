@@ -479,7 +479,7 @@ function TextElement({
       document.removeEventListener('mouseup', handleMouseUp, { capture: true });
       document.body.style.userSelect = '';
     };
-  }, [isDragging, dragStart, text.id, onTextUpdate, scale]);
+  }, [isDragging, dragStart, dragStartTime, text.id, onTextUpdate, onSelect, scale]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {

@@ -160,19 +160,12 @@ export default function PDFViewer({
   } = usePDFData(pdfId);
 
   // Shapes management
-  const {
-    getShapesForPage,
-    addShape,
-    updateShape,
-    deleteShape,
-  } = useShapes(pdfId);
+  const { getShapesForPage, addShape, updateShape, deleteShape } =
+    useShapes(pdfId);
 
   // Pen drawings management
-  const {
-    getDrawingsForPage,
-    saveDrawingsForPage,
-    updateDrawingsForPage,
-  } = usePenDrawings(pdfId);
+  const { getDrawingsForPage, saveDrawingsForPage, updateDrawingsForPage } =
+    usePenDrawings(pdfId);
 
   // Shape tool state
   const [shapeColor, setShapeColor] = useState('#000000');
@@ -263,7 +256,11 @@ export default function PDFViewer({
   );
 
   const handleImageHighlight = useCallback(
-    async (color: string, area: { x: number; y: number; width: number; height: number }, pageNumber: number) => {
+    async (
+      color: string,
+      area: { x: number; y: number; width: number; height: number },
+      pageNumber: number
+    ) => {
       if (!pdfId) return;
 
       // Create a rectangle highlight for the selected area
@@ -876,14 +873,17 @@ export default function PDFViewer({
     }
   }, [pageInputValue, numPages, currentPage, handleCitationClick]);
 
-  const handlePageInputKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handlePageInputSubmit();
-    } else if (e.key === 'Escape') {
-      setPageInputValue(currentPage.toString());
-      setIsEditingPage(false);
-    }
-  }, [handlePageInputSubmit, currentPage]);
+  const handlePageInputKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handlePageInputSubmit();
+      } else if (e.key === 'Escape') {
+        setPageInputValue(currentPage.toString());
+        setIsEditingPage(false);
+      }
+    },
+    [handlePageInputSubmit, currentPage]
+  );
 
   // Handle pending navigation after PDF loads
   useEffect(() => {
@@ -951,22 +951,22 @@ export default function PDFViewer({
       // Check if it's an MP3 file
       if (href.toLowerCase().endsWith('.mp3')) {
         event.preventDefault();
-        
+
         // Stop any currently playing audio
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
         }
-        
+
         // Create and play new audio
         const audio = new Audio(href);
         audioRef.current = audio;
-        
+
         // Play the audio
         audio.play().catch((error) => {
           console.error('Failed to play audio:', error);
         });
-        
+
         return;
       }
 
@@ -1324,7 +1324,7 @@ export default function PDFViewer({
       setSelectionDialog({ x: 0, y: 0, text: '', visible: false });
       setError(null);
       pageRefsMap.clear();
-      
+
       // Stop any playing audio
       if (audioRef.current) {
         audioRef.current.pause();
@@ -1712,7 +1712,9 @@ export default function PDFViewer({
               <span>/ {numPages}</span>
             </div>
           ) : (
-            <span className='text-sm text-[var(--text-primary)]'>Loading...</span>
+            <span className='text-sm text-[var(--text-primary)]'>
+              Loading...
+            </span>
           )}
         </div>
 
@@ -2059,7 +2061,6 @@ export default function PDFViewer({
                                 onCommentUpdate={updateComment}
                                 onCommentDelete={deleteComment}
                                 onReplyCreate={addReply}
-                                scale={calculateScale()}
                               />
                             )}
 
@@ -2099,8 +2100,12 @@ export default function PDFViewer({
                               }
                               scale={calculateScale()}
                               strokes={getDrawingsForPage(pageNumber)}
-                              onStrokesUpdate={(strokes) => updateDrawingsForPage(pageNumber, strokes)}
-                              onStrokesSave={(strokes) => saveDrawingsForPage(pageNumber, strokes)}
+                              onStrokesUpdate={(strokes) =>
+                                updateDrawingsForPage(pageNumber, strokes)
+                              }
+                              onStrokesSave={(strokes) =>
+                                saveDrawingsForPage(pageNumber, strokes)
+                              }
                             />
 
                             {/* Image Analyser Overlay */}
@@ -2116,20 +2121,31 @@ export default function PDFViewer({
                                   : { current: null }
                               }
                               onImageAnalyse={handleImageAnalyse}
-                              onHighlight={(color, area) => handleImageHighlight(color, area, pageNumber)}
+                              onHighlight={(color, area) =>
+                                handleImageHighlight(color, area, pageNumber)
+                              }
                             />
 
                             {/* Shape Tool Overlay */}
                             {pdfId && currentUser && (
                               <ShapeTool
-                                isActive={['rectangle', 'ellipse', 'line', 'arrow', 'move'].includes(activeTool)}
+                                isActive={[
+                                  'rectangle',
+                                  'ellipse',
+                                  'line',
+                                  'arrow',
+                                  'move',
+                                ].includes(activeTool)}
                                 activeTool={activeTool}
                                 pdfId={pdfId}
                                 pageNumber={pageNumber}
                                 userId={currentUser.id}
                                 containerRef={
                                   pageRefs.current.get(pageNumber)
-                                    ? { current: pageRefs.current.get(pageNumber)! }
+                                    ? {
+                                        current:
+                                          pageRefs.current.get(pageNumber)!,
+                                      }
                                     : { current: null as HTMLDivElement | null }
                                 }
                                 onShapeCreate={addShape}
@@ -2249,7 +2265,6 @@ export default function PDFViewer({
       {showMCQs && pdfId && (
         <MCQs pdfId={pdfId} onClose={() => setShowMCQs(false)} />
       )}
-
     </div>
   );
 }
