@@ -30,6 +30,7 @@ interface CommentReply {
 interface CommentPinProps {
   comment: Comment;
   onMove?: (id: string, x: number, y: number) => void;
+  onMoveComplete?: (id: string, x: number, y: number) => void;
   onResolve?: (id: string) => void;
   onReply?: (commentId: string, content: string) => void;
   onDelete?: (id: string) => void;
@@ -41,17 +42,20 @@ interface CommentPinProps {
     name: string;
     image?: string;
   };
+  scale?: number; // PDF zoom scale factor
 }
 
 export default function CommentPin({
   comment,
   onMove,
+  onMoveComplete,
   onResolve,
   onReply,
   onDelete,
   onSelect,
   isDraggable = true,
   currentUser,
+  scale = 1,
 }: CommentPinProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -59,6 +63,8 @@ export default function CommentPin({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [replyText, setReplyText] = useState('');
   const [showReplyInput, setShowReplyInput] = useState(false);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const pinRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,6 +97,8 @@ export default function CommentPin({
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(true);
+    setDragStartTime(Date.now());
+    setDragStartPos({ x: event.clientX, y: event.clientY });
 
     const rect = pinRef.current?.getBoundingClientRect();
     if (rect) {
@@ -122,14 +130,16 @@ export default function CommentPin({
 
       const containerRect = pdfPage.getBoundingClientRect();
 
-      // Calculate new position relative to the page
+      // Calculate new position relative to the page, adjusted for scale
       const newX =
         ((event.clientX - dragOffset.x - containerRect.left) /
-          containerRect.width) *
+          scale /
+          (containerRect.width / scale)) *
         100;
       const newY =
         ((event.clientY - dragOffset.y - containerRect.top) /
-          containerRect.height) *
+          scale /
+          (containerRect.height / scale)) *
         100;
 
       // Constrain to container bounds with some padding
@@ -140,32 +150,68 @@ export default function CommentPin({
       onMove(comment.id, clampedX, clampedY);
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (event: MouseEvent) => {
       setIsDragging(false);
+
+      // Check if this was a drag or just a click
+      const dragTime = Date.now() - dragStartTime;
+      const dragDistance = Math.sqrt(
+        Math.pow(event.clientX - dragStartPos.x, 2) +
+          Math.pow(event.clientY - dragStartPos.y, 2)
+      );
+
+      if (dragTime < 200 && dragDistance < 5) {
+        // Quick click - open the comment
+        setTimeout(() => {
+          setIsOpen((prev) => !prev);
+          setIsHovered(false);
+        }, 10);
+      } else if (dragDistance > 5 && onMoveComplete) {
+        // This was a drag - call onMoveComplete with final position
+        const pdfPage =
+          (event.target as HTMLElement)?.closest('.pdf-page') ||
+          (event.target as HTMLElement)?.closest('[data-page-number]') ||
+          (event.target as HTMLElement)?.closest('.mb-4');
+
+        if (pdfPage) {
+          const containerRect = pdfPage.getBoundingClientRect();
+          const newX =
+            ((event.clientX - dragOffset.x - containerRect.left) /
+              scale /
+              (containerRect.width / scale)) *
+            100;
+          const newY =
+            ((event.clientY - dragOffset.y - containerRect.top) /
+              scale /
+              (containerRect.height / scale)) *
+            100;
+
+          const clampedX = Math.max(1, Math.min(99, newX));
+          const clampedY = Math.max(1, Math.min(99, newY));
+
+          onMoveComplete(comment.id, clampedX, clampedY);
+        }
+      }
     };
 
-    // Prevent text selection during drag
+    // Prevent text selection during drag but no cursor change
     document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove, { capture: true });
+    document.addEventListener('mouseup', handleMouseUp, { capture: true });
 
     return () => {
       document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove, {
+        capture: true,
+      });
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true });
     };
-  }, [isDragging, dragOffset, comment.id, onMove]);
+  }, [isDragging, dragOffset, comment.id, onMove, onMoveComplete, scale]);
 
   const handlePinClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!isDragging) {
-      setIsOpen(!isOpen);
-      setIsHovered(false);
-      onSelect?.(comment.id);
-    }
+    // Click handling is now done in handleMouseUp to distinguish from drag
   };
 
   const handleMouseEnter = () => {
@@ -345,7 +391,7 @@ export default function CommentPin({
       {isOpen && (
         <div
           ref={dialogRef}
-          className='absolute z-30 w-96 bg-[var(--sidebar-bg)] text-white rounded-xl shadow-2xl'
+          className='absolute z-1000 w-96 bg-[var(--sidebar-bg)] text-white rounded-xl shadow-2xl'
           style={{
             left: `${comment.x}%`,
             top: `${comment.y}%`,

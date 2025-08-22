@@ -2052,12 +2052,14 @@ export default function PDFViewer({
                               <CommentSystem
                                 pageNumber={pageNumber}
                                 isCommentMode={activeTool === 'comment'}
+                                isMoveMode={activeTool === 'move'}
                                 currentUser={currentUser}
                                 comments={getCommentsForPage(pageNumber)}
                                 onCommentCreate={addComment}
                                 onCommentUpdate={updateComment}
                                 onCommentDelete={deleteComment}
                                 onReplyCreate={addReply}
+                                scale={calculateScale()}
                               />
                             )}
 
@@ -2067,6 +2069,7 @@ export default function PDFViewer({
                                 pdfId={pdfId}
                                 pageNumber={pageNumber}
                                 isTextMode={activeTool === 'text'}
+                                isMoveMode={activeTool === 'move'}
                                 selectedTextId={selectedTextId}
                                 texts={getTextsForPage(pageNumber)}
                                 onTextCreate={addText}
@@ -2076,6 +2079,7 @@ export default function PDFViewer({
                                   setActiveTool(tool as ToolType)
                                 }
                                 onTextSelect={handleTextSelect}
+                                scale={calculateScale()}
                               />
                             )}
 

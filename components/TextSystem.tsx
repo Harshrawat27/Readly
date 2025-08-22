@@ -19,6 +19,7 @@ interface TextSystemProps {
   pdfId: string;
   pageNumber: number;
   isTextMode: boolean;
+  isMoveMode: boolean;
   selectedTextId?: string | null;
   texts: TextElement[]; // Pre-loaded texts for this page
   onTextCreate?: (text: Omit<TextElement, 'id' | 'createdAt'>) => Promise<string | void>;
@@ -26,6 +27,7 @@ interface TextSystemProps {
   onTextDelete?: (id: string) => Promise<void>;
   onToolChange?: (tool: 'move' | 'text') => void;
   onTextSelect?: (textId: string | null, textElement?: TextElement) => void;
+  scale?: number; // PDF zoom scale factor
 }
 
 interface CursorState {
@@ -39,6 +41,7 @@ export default function TextSystem({
   pdfId, // eslint-disable-line @typescript-eslint/no-unused-vars
   pageNumber,
   isTextMode,
+  isMoveMode,
   selectedTextId: externalSelectedTextId,
   texts: pageTexts,
   onTextCreate,
@@ -46,6 +49,7 @@ export default function TextSystem({
   onTextDelete,
   onToolChange,
   onTextSelect,
+  scale = 1,
 }: TextSystemProps) {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(
     externalSelectedTextId || null
@@ -70,6 +74,7 @@ export default function TextSystem({
     pageNumber: 0,
     visible: false,
   });
+  const [pressStart, setPressStart] = useState<{ x: number; y: number; time: number } | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,9 +82,41 @@ export default function TextSystem({
 
   // Note: Formatting updates are now handled directly through the centralized updateText function
 
-  const handlePageClick = useCallback(
-    async (event: React.MouseEvent) => {
+  const handlePageMouseDown = useCallback(
+    (event: React.MouseEvent) => {
       if (!isTextMode) return;
+
+      const target = event.target as HTMLElement;
+      // Don't handle if clicking on existing text
+      if (target.closest('[data-text-element]')) return;
+
+      setPressStart({
+        x: event.clientX,
+        y: event.clientY,
+        time: Date.now()
+      });
+    },
+    [isTextMode]
+  );
+
+  const handlePageMouseUp = useCallback(
+    async (event: React.MouseEvent) => {
+      if (!isTextMode || !pressStart) {
+        setPressStart(null);
+        return;
+      }
+
+      // Check if this was a press (short duration, minimal movement)
+      const pressTime = Date.now() - pressStart.time;
+      const pressMoveDistance = Math.sqrt(
+        Math.pow(event.clientX - pressStart.x, 2) + 
+        Math.pow(event.clientY - pressStart.y, 2)
+      );
+
+      setPressStart(null);
+
+      // Only create text if it was a quick press (< 200ms, < 5px movement)
+      if (pressTime > 200 || pressMoveDistance > 5) return;
 
       const target = event.target as HTMLElement;
       const pdfPage =
@@ -91,10 +128,11 @@ export default function TextSystem({
       if (target.closest('[data-text-element]')) return;
 
       const rect = pdfPage.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 100;
-      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      // Convert screen coordinates to PDF coordinate space by dividing by scale
+      const x = (((event.clientX - rect.left) / scale) / (rect.width / scale)) * 100;
+      const y = (((event.clientY - rect.top) / scale) / (rect.height / scale)) * 100;
 
-      // Show cursor at click position
+      // Show cursor at press position
       setCursor({
         x,
         y,
@@ -130,7 +168,7 @@ export default function TextSystem({
         setCursor((prev) => ({ ...prev, visible: false }));
       }
     },
-    [isTextMode, pageNumber, onTextCreate, handleTextSelect]
+    [isTextMode, pageNumber, onTextCreate, handleTextSelect, pressStart, scale]
   );
 
   const handleTextSave = async (textId: string, content: string) => {
@@ -186,7 +224,8 @@ export default function TextSystem({
       {isTextMode && (
         <div
           className='absolute inset-0 pointer-events-auto cursor-crosshair bg-transparent'
-          onClick={handlePageClick}
+          onMouseDown={handlePageMouseDown}
+          onMouseUp={handlePageMouseUp}
           style={{
             position: 'absolute',
             top: 0,
@@ -225,6 +264,8 @@ export default function TextSystem({
           onSelect={handleTextSelect}
           onEdit={setEditingTextId}
           inputRef={inputRef}
+          isDraggable={isTextMode || isMoveMode}
+          scale={scale}
         />
       ))}
 
@@ -251,6 +292,8 @@ interface TextElementProps {
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  isDraggable?: boolean;
+  scale?: number;
 }
 
 function TextElement({
@@ -263,13 +306,19 @@ function TextElement({
   onSelect,
   onEdit,
   inputRef,
+  isDraggable = false,
+  scale = 1,
 }: TextElementProps) {
   const [isResizing, setIsResizing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [resizeStart, setResizeStart] = useState({ x: 0, width: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, textX: 0, textY: 0 });
+  const [dragStartTime, setDragStartTime] = useState(0);
   const [localWidth, setLocalWidth] = useState(text.width);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const contentUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -317,12 +366,12 @@ function TextElement({
       }
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove, { capture: true });
+    document.addEventListener('mouseup', handleMouseUp, { capture: true });
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove, { capture: true });
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true });
     };
   }, [isResizing, resizeStart, text.id, onTextUpdate, localWidth]);
 
@@ -339,6 +388,99 @@ function TextElement({
     }, 1000); // 1 second debounce for content changes
   };
 
+  // Handle mouse down for dragging
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isEditing) return; // Don't allow drag when editing
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isDraggable) {
+      setIsDragging(true);
+      setDragStartTime(Date.now());
+      setDragStart({
+        x: e.clientX,
+        y: e.clientY,
+        textX: text.x,
+        textY: text.y,
+      });
+    }
+    
+    onSelect(text.id);
+  };
+
+  // Handle double click for editing
+  const handleDoubleClick = () => {
+    if (!isEditing) {
+      onEdit(text.id);
+    }
+  };
+
+  // Handle dragging movement
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+
+      const pdfPage =
+        containerRef.current.closest('.pdf-page') ||
+        containerRef.current.closest('[data-page-number]') ||
+        containerRef.current.closest('.mb-4');
+
+      if (!pdfPage) return;
+
+      const rect = pdfPage.getBoundingClientRect();
+      
+      // Calculate movement delta adjusted for scale
+      const deltaX = (e.clientX - dragStart.x) / scale;
+      const deltaY = (e.clientY - dragStart.y) / scale;
+      
+      // Convert to percentage based on container size
+      const newX = dragStart.textX + (deltaX / (rect.width / scale)) * 100;
+      const newY = dragStart.textY + (deltaY / (rect.height / scale)) * 100;
+
+      // Constrain to bounds
+      const clampedX = Math.max(0, Math.min(95, newX));
+      const clampedY = Math.max(0, Math.min(95, newY));
+
+      // Update position immediately for smooth visual feedback (like shapes)
+      onTextUpdate(text.id, { x: clampedX, y: clampedY });
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      setIsDragging(false);
+      
+      // Check if this was a drag or just a click
+      const dragTime = Date.now() - dragStartTime;
+      const dragDistance = Math.sqrt(
+        Math.pow(e.clientX - dragStart.x, 2) + 
+        Math.pow(e.clientY - dragStart.y, 2)
+      );
+      
+      // If it was a quick click (less than 200ms and moved less than 5px), select for editing
+      if (dragTime < 200 && dragDistance < 5) {
+        setTimeout(() => {
+          onSelect(text.id);
+        }, 10);
+      }
+      
+      // Movement is completed automatically by setIsDragging(false)
+
+      // No need for force final position update since we update immediately
+    };
+
+    document.addEventListener('mousemove', handleMouseMove, { capture: true });
+    document.addEventListener('mouseup', handleMouseUp, { capture: true });
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove, { capture: true });
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true });
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, dragStart, text.id, onTextUpdate, scale]);
+
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
@@ -347,6 +489,9 @@ function TextElement({
       }
       if (contentUpdateTimeoutRef.current) {
         clearTimeout(contentUpdateTimeoutRef.current);
+      }
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current);
       }
     };
   }, []);
@@ -359,8 +504,10 @@ function TextElement({
       style={{
         left: `${text.x}%`,
         top: `${text.y}%`,
-        width: `${localWidth}px`,
+        width: `${localWidth * scale}px`,
         zIndex: 15,
+        transform: `scale(${scale})`,
+        transformOrigin: 'top left',
       }}
     >
       {/* Blue Resizable Container */}
@@ -374,17 +521,12 @@ function TextElement({
           }
         `}
         style={{ minHeight: '30px' }}
+        onMouseDown={handleMouseDown}
         onClick={(e) => {
           e.stopPropagation();
-          if (!isEditing) {
-            onSelect(text.id);
-          }
+          // Click handling is now in mouseUp to distinguish from drag
         }}
-        onDoubleClick={() => {
-          if (!isEditing) {
-            onEdit(text.id);
-          }
-        }}
+        onDoubleClick={handleDoubleClick}
       >
         {/* Text Content */}
         {isEditing ? (
