@@ -59,7 +59,6 @@ interface TextSelectionDialog {
 
 // Virtualization constants
 const PAGE_BUFFER = 3; // Number of pages to render before and after visible pages
-const PLACEHOLDER_HEIGHT = 1000; // Estimated height for unrendered pages
 
 export default function PDFViewer({
   pdfId,
@@ -91,6 +90,9 @@ export default function PDFViewer({
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
+  const [pageDimensions, setPageDimensions] = useState<
+    Map<number, { width: number; height: number }>
+  >(new Map());
   const [isInitialLoad, setIsInitialLoad] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isMousePressed, setIsMousePressed] = useState(false);
 
@@ -551,6 +553,99 @@ export default function PDFViewer({
     [highlights]
   );
 
+  // Pre-calculate all page dimensions using getViewport()
+  const preCalculatePageDimensions = useCallback(
+    async (
+      pdfDocument: {
+        getPage: (pageNum: number) => Promise<{
+          getViewport: (options: { scale: number }) => {
+            width: number;
+            height: number;
+          };
+        }>;
+      },
+      numPages: number,
+      scale: number
+    ) => {
+      console.log(
+        '🔍 Pre-calculating base page dimensions for',
+        numPages,
+        'pages at scale',
+        scale,
+        '(base dimensions will be scaled at render time)'
+      );
+      const dimensionsMap = new Map<
+        number,
+        { width: number; height: number }
+      >();
+
+      try {
+        // Calculate dimensions for all pages in parallel for better performance
+        const dimensionPromises = [];
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          dimensionPromises.push(
+            (async () => {
+              try {
+                const page = await pdfDocument.getPage(pageNum);
+                const viewport = page.getViewport({ scale });
+                return {
+                  pageNumber: pageNum,
+                  width: viewport.width,
+                  height: viewport.height,
+                };
+              } catch (error) {
+                console.error(
+                  `Error getting viewport for page ${pageNum}:`,
+                  error
+                );
+                // Fallback to reasonable dimensions if page fails
+                return {
+                  pageNumber: pageNum,
+                  width: 595, // A4 width at base scale
+                  height: 842, // A4 height at base scale
+                };
+              }
+            })()
+          );
+        }
+
+        const results = await Promise.all(dimensionPromises);
+        results.forEach(({ pageNumber, width, height }) => {
+          dimensionsMap.set(pageNumber, { width, height });
+        });
+
+        console.log(
+          '✅ Pre-calculated dimensions for',
+          dimensionsMap.size,
+          'pages'
+        );
+        setPageDimensions(dimensionsMap);
+
+        // Also update pageHeights for backward compatibility
+        const heightsMap = new Map<number, number>();
+        dimensionsMap.forEach((dims, pageNum) => {
+          heightsMap.set(pageNum, dims.height);
+        });
+        setPageHeights(heightsMap);
+      } catch (error) {
+        console.error('Error pre-calculating page dimensions:', error);
+        // Fallback: use default base dimensions
+        const fallbackDimensions = new Map<
+          number,
+          { width: number; height: number }
+        >();
+        const fallbackHeights = new Map<number, number>();
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          fallbackDimensions.set(pageNum, { width: 595, height: 842 }); // A4 at base scale
+          fallbackHeights.set(pageNum, 842);
+        }
+        setPageDimensions(fallbackDimensions);
+        setPageHeights(fallbackHeights);
+      }
+    },
+    []
+  );
+
   // Auto-extract text in background
   const autoExtractTextInBackground = useCallback(
     async (pdfId: string, numPages: number) => {
@@ -763,7 +858,17 @@ export default function PDFViewer({
   // Handle citation clicks - navigate to specific page
   const handleCitationClick = useCallback(
     (targetPage: number) => {
-      console.log('handleCitationClick called for page:', targetPage);
+      console.log('🎯 handleCitationClick called for page:', targetPage);
+
+      // Debug: Show current page dimensions state
+      const currentDimensions = pageDimensions.get(targetPage);
+      const currentHeight = getPageHeight(targetPage);
+      console.log('📏 Target page dimensions:', {
+        pageNumber: targetPage,
+        dimensions: currentDimensions,
+        calculatedHeight: currentHeight,
+        scale: calculateScale(),
+      });
 
       // If PDF isn't loaded yet or we're in the middle of loading a new PDF, queue the navigation
       if (!numPages || isLoadingPdf) {
@@ -952,7 +1057,11 @@ export default function PDFViewer({
           if (pageNumber > 0 && pageNumber <= numPages) {
             handleCitationClick(pageNumber);
           } else {
-            console.log('Invalid page number for current PDF:', { pageNumber, numPages, pdfId });
+            console.log('Invalid page number for current PDF:', {
+              pageNumber,
+              numPages,
+              pdfId,
+            });
           }
         }
         return;
@@ -995,13 +1104,13 @@ export default function PDFViewer({
           'Link parsing error, attempting internal navigation:',
           error
         );
-        
+
         // Don't process internal links if PDF is loading or not ready
         if (isLoadingPdf || !numPages) {
           console.log('PDF not ready for internal link navigation (fallback)');
           return;
         }
-        
+
         const pageMatch = href.match(/(\d+)/);
         if (pageMatch) {
           const pageNumber = parseInt(pageMatch[0]);
@@ -1009,7 +1118,11 @@ export default function PDFViewer({
             event.preventDefault();
             handleCitationClick(pageNumber);
           } else {
-            console.log('Invalid page number in fallback navigation:', { pageNumber, numPages, pdfId });
+            console.log('Invalid page number in fallback navigation:', {
+              pageNumber,
+              numPages,
+              pdfId,
+            });
           }
         }
       }
@@ -1247,6 +1360,7 @@ export default function PDFViewer({
           setCurrentPage(1);
           setPageInputValue('1');
           setVisiblePages(new Set([1]));
+          setPageDimensions(new Map());
           setPendingNavigation(null);
 
           // Check if PDF is cached
@@ -1301,6 +1415,7 @@ export default function PDFViewer({
       setPageInputValue('1');
       setVisiblePages(new Set([1]));
       setPageHeights(new Map());
+      setPageDimensions(new Map());
       setPendingNavigation(null);
       setIsLoadingPdf(false);
     }
@@ -1431,11 +1546,28 @@ export default function PDFViewer({
   }, [numPages]);
 
   const onDocumentLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
+    async ({ numPages }: { numPages: number }) => {
+      console.log('📄 PDF loaded successfully with', numPages, 'pages');
       setNumPages(numPages);
       setCurrentPage(1);
       setError(null);
       pdfDocumentRef.current = true;
+
+      // Get PDF document instance for dimension calculation
+      try {
+        const reactPdf = await import('react-pdf');
+        const pdfjs = reactPdf.pdfjs;
+
+        if (pdfFile) {
+          const loadingTask = pdfjs.getDocument(pdfFile);
+          const pdfDocument = await loadingTask.promise;
+
+          // Pre-calculate all page dimensions at base scale (1.0)
+          await preCalculatePageDimensions(pdfDocument, numPages, 1.0);
+        }
+      } catch (error) {
+        console.error('Error pre-calculating page dimensions:', error);
+      }
 
       // Initialize with first few pages visible
       const initialPages = new Set<number>();
@@ -1449,7 +1581,7 @@ export default function PDFViewer({
         autoExtractTextInBackground(pdfId, numPages);
       }
     },
-    [pdfId, autoExtractTextInBackground]
+    [pdfId, autoExtractTextInBackground, preCalculatePageDimensions, pdfFile]
   );
 
   const onDocumentLoadError = useCallback((error: Error) => {
@@ -1516,6 +1648,7 @@ export default function PDFViewer({
     } else {
       setInternalScale(newScale);
     }
+    // No need to recalculate dimensions - we use base dimensions and apply scale in render
   }, [scale, onScaleChange]);
 
   const handleZoomOut = useCallback(() => {
@@ -1525,6 +1658,7 @@ export default function PDFViewer({
     } else {
       setInternalScale(newScale);
     }
+    // No need to recalculate dimensions - we use base dimensions and apply scale in render
   }, [scale, onScaleChange]);
 
   const handleZoomReset = useCallback(() => {
@@ -1534,6 +1668,7 @@ export default function PDFViewer({
     } else {
       setInternalScale(resetScale);
     }
+    // No need to recalculate dimensions - we use base dimensions and apply scale in render
   }, [onScaleChange]);
 
   const handleTextSelect = useCallback(
@@ -1622,9 +1757,25 @@ export default function PDFViewer({
 
   const getPageHeight = useCallback(
     (pageNumber: number) => {
-      return pageHeights.get(pageNumber) || PLACEHOLDER_HEIGHT;
+      // First try to get from pre-calculated dimensions
+      const dimensions = pageDimensions.get(pageNumber);
+      if (dimensions) {
+        return dimensions.height;
+      }
+
+      // Fallback to pageHeights (for backward compatibility)
+      const height = pageHeights.get(pageNumber);
+      if (height) {
+        return height;
+      }
+
+      // Last resort: use a reasonable default for A4 pages
+      console.warn(
+        `No dimensions found for page ${pageNumber}, using default base height`
+      );
+      return 842; // A4 height at base scale (1.0)
     },
-    [pageHeights]
+    [pageDimensions, pageHeights]
   );
 
   if (!pdfId) {
@@ -2063,6 +2214,10 @@ export default function PDFViewer({
                         }}
                         data-page-number={pageNumber}
                         className='relative mb-4'
+                        style={{
+                          // Set container height immediately using pre-calculated dimensions
+                          minHeight: `${pageHeight * calculateScale()}px`,
+                        }}
                       >
                         {isPageVisible ? (
                           <>
