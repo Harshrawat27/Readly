@@ -765,18 +765,20 @@ export default function PDFViewer({
     (targetPage: number) => {
       console.log('handleCitationClick called for page:', targetPage);
 
-      // If PDF isn't loaded yet, queue the navigation
-      if (!numPages) {
+      // If PDF isn't loaded yet or we're in the middle of loading a new PDF, queue the navigation
+      if (!numPages || isLoadingPdf) {
         console.log(
-          'PDF not loaded yet, queuing navigation to page:',
-          targetPage
+          'PDF not ready yet, queuing navigation to page:',
+          targetPage,
+          { numPages, isLoadingPdf }
         );
         setPendingNavigation(targetPage);
         return;
       }
 
+      // Validate against current PDF's actual page count
       if (targetPage < 1 || targetPage > numPages) {
-        console.log('Invalid page range:', { targetPage, numPages });
+        console.log('Invalid page range:', { targetPage, numPages, pdfId });
         return;
       }
 
@@ -852,7 +854,7 @@ export default function PDFViewer({
       setCurrentPage(targetPage);
       setPageInputValue(targetPage.toString());
     },
-    [numPages]
+    [numPages, isLoadingPdf, pdfId]
   );
 
   // Page input handlers
@@ -933,6 +935,12 @@ export default function PDFViewer({
       if (href.startsWith('javascript:')) {
         event.preventDefault();
 
+        // Don't process internal links if PDF is loading or not ready
+        if (isLoadingPdf || !numPages) {
+          console.log('PDF not ready for internal link navigation');
+          return;
+        }
+
         // Extract page number from javascript calls like "javascript:this.print({bUI:true,bSilent:false,bShrinkToFit:true}); gotoPage(12);"
         const pageMatch =
           href.match(/gotoPage\s*\(\s*(\d+)\s*\)/i) ||
@@ -941,8 +949,10 @@ export default function PDFViewer({
 
         if (pageMatch) {
           const pageNumber = parseInt(pageMatch[1]);
-          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+          if (pageNumber > 0 && pageNumber <= numPages) {
             handleCitationClick(pageNumber);
+          } else {
+            console.log('Invalid page number for current PDF:', { pageNumber, numPages, pdfId });
           }
         }
         return;
@@ -985,17 +995,26 @@ export default function PDFViewer({
           'Link parsing error, attempting internal navigation:',
           error
         );
+        
+        // Don't process internal links if PDF is loading or not ready
+        if (isLoadingPdf || !numPages) {
+          console.log('PDF not ready for internal link navigation (fallback)');
+          return;
+        }
+        
         const pageMatch = href.match(/(\d+)/);
         if (pageMatch) {
           const pageNumber = parseInt(pageMatch[0]);
-          if (pageNumber > 0 && numPages && pageNumber <= numPages) {
+          if (pageNumber > 0 && pageNumber <= numPages) {
             event.preventDefault();
             handleCitationClick(pageNumber);
+          } else {
+            console.log('Invalid page number in fallback navigation:', { pageNumber, numPages, pdfId });
           }
         }
       }
     },
-    [handleCitationClick, numPages]
+    [handleCitationClick, numPages, isLoadingPdf, pdfId]
   );
 
   // Add PDF text layer link handler
@@ -1223,6 +1242,12 @@ export default function PDFViewer({
           setIsLoadingPdf(true);
           setError(null);
           setIsInitialLoad(true);
+          // Reset PDF-specific states immediately when switching PDFs
+          setNumPages(null);
+          setCurrentPage(1);
+          setPageInputValue('1');
+          setVisiblePages(new Set([1]));
+          setPendingNavigation(null);
 
           // Check if PDF is cached
           const cacheKey = `pdf_${pdfId}`;
@@ -1269,10 +1294,14 @@ export default function PDFViewer({
 
       loadPdf();
     } else {
+      // Clean up all PDF-related state when no PDF is selected
       setPdfFile(null);
       setNumPages(null);
       setCurrentPage(1);
+      setPageInputValue('1');
       setVisiblePages(new Set([1]));
+      setPageHeights(new Map());
+      setPendingNavigation(null);
       setIsLoadingPdf(false);
     }
   }, [pdfId]);
