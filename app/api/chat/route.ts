@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage && lastUserMessage.role === 'user') {
       let imageUrl = null;
-      
+
       // Upload image to S3 if present
       if (selectedImage) {
         try {
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           role: 'user',
           content: lastUserMessage.content,
           imageUrl: imageUrl,
-          imageData: imageUrl ? null : (selectedImage || null), // Fallback to base64 if S3 failed
+          imageData: imageUrl ? null : selectedImage || null, // Fallback to base64 if S3 failed
         },
       });
     }
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       // If there's a selected image, modify the last user message to include it
       const lastMessage = messages[messages.length - 1];
       const otherMessages = messages.slice(0, -1);
-      
+
       const messageWithImage = {
         role: 'user',
         content: [
@@ -194,10 +194,7 @@ export async function POST(request: NextRequest) {
         messageWithImage,
       ];
     } else {
-      chatMessages = [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ];
+      chatMessages = [{ role: 'system', content: systemPrompt }, ...messages];
     }
 
     // Create streaming response from OpenAI
@@ -207,7 +204,7 @@ export async function POST(request: NextRequest) {
         chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 10000,
     });
 
     // Create a readable stream to pipe SSE to client

@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
 } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
+import ThinkingAnimation from './ThinkingAnimation';
 
 interface ChatPanelProps {
   pdfId: string | null;
@@ -45,6 +46,7 @@ export default function ChatPanel({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
     null
   );
+  const [showThinking, setShowThinking] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
@@ -435,23 +437,10 @@ export default function ChatPanel({
 
     setInputValue('');
     setIsLoading(true);
+    setShowThinking(true);
     setIsInitialLoad(false);
 
     const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      isStreaming: true,
-    };
-
-    setMessages((prev) => {
-      const updated = [...prev, assistantMessage];
-      messagesRef.current = updated;
-      return updated;
-    });
-    setStreamingMessageId(assistantMessageId);
 
     // Scroll down 800px to create space after question and show start of answer
     // Only do this if there are existing messages (not the first message)
@@ -520,13 +509,34 @@ export default function ChatPanel({
 
                   if (data.content) {
                     accumulatedContent += data.content;
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: accumulatedContent }
-                          : msg
-                      )
-                    );
+                    setShowThinking(false);
+                    
+                    setMessages((prev) => {
+                      // Check if assistant message already exists
+                      const existingAssistantMsg = prev.find(msg => msg.id === assistantMessageId);
+                      
+                      if (!existingAssistantMsg) {
+                        // Create assistant message for the first time
+                        const assistantMessage: Message = {
+                          id: assistantMessageId,
+                          role: 'assistant',
+                          content: accumulatedContent,
+                          timestamp: new Date(),
+                          isStreaming: true,
+                        };
+                        setStreamingMessageId(assistantMessageId);
+                        const updated = [...prev, assistantMessage];
+                        messagesRef.current = updated;
+                        return updated;
+                      } else {
+                        // Update existing assistant message
+                        return prev.map((msg) =>
+                          msg.id === assistantMessageId
+                            ? { ...msg, content: accumulatedContent }
+                            : msg
+                        );
+                      }
+                    });
                   }
 
                   if (data.done) {
@@ -551,18 +561,36 @@ export default function ChatPanel({
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content:
-                  'Sorry, I encountered an error while processing your request. Please try again.',
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
+      setShowThinking(false);
+      
+      // Create or update assistant message with error
+      setMessages((prev) => {
+        const existingAssistantMsg = prev.find(msg => msg.id === assistantMessageId);
+        const errorMessage = 'Sorry, I encountered an error while processing your request. Please try again.';
+        
+        if (!existingAssistantMsg) {
+          // Create assistant message with error
+          const assistantMessage: Message = {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: errorMessage,
+            timestamp: new Date(),
+            isStreaming: false,
+          };
+          return [...prev, assistantMessage];
+        } else {
+          // Update existing assistant message with error
+          return prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? {
+                  ...msg,
+                  content: errorMessage,
+                  isStreaming: false,
+                }
+              : msg
+          );
+        }
+      });
       setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
@@ -717,10 +745,10 @@ export default function ChatPanel({
                 }`}
               >
                 <div
-                  className={`max-w-[80%] min-w-0 rounded-lg p-3 break-words overflow-hidden ${
+                  className={`min-w-0 rounded-lg p-3 break-words overflow-hidden ${
                     message.role === 'user'
-                      ? 'bg-[#0F0F0E] text-white'
-                      : 'bg-[var(--card-background)] border border-[var(--border)]'
+                      ? 'bg-[#0F0F0E] text-white max-w-[80%]'
+                      : ''
                   }`}
                 >
                   <div
@@ -796,6 +824,15 @@ export default function ChatPanel({
                 </div>
               </div>
             ))}
+
+            {/* Thinking Animation */}
+            {showThinking && (
+              <div className='flex justify-start'>
+                <div className='max-w-[80%] rounded-lg p-3'>
+                  <ThinkingAnimation />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -852,7 +889,7 @@ export default function ChatPanel({
             />
 
             <div className='flex items-center justify-between px-4 pb-3'>
-              <div className='flex items-center gap-2'>
+              {/* <div className='flex items-center gap-2'>
                 <button
                   className='flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[var(--faded-white)] transition-colors'
                   title='Add attachment'
@@ -885,112 +922,112 @@ export default function ChatPanel({
                     <path d='M12 4v16' />
                   </svg>
                 </button>
-              </div>
+              </div> */}
 
-              <div className='flex items-center gap-2'>
-                <div className='relative'>
-                  <button
-                    onClick={() => setShowModelDropdown(!showModelDropdown)}
-                    className='flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+              {/* <div className='flex items-center gap-2'> */}
+
+              <div className='relative'>
+                <button
+                  onClick={() => setShowModelDropdown(!showModelDropdown)}
+                  className='flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
+                >
+                  <span>{selectedModel}</span>
+                  <svg
+                    className='w-4 h-4 text-[var(--text-muted)]'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
                   >
-                    <span>{selectedModel}</span>
-                    <svg
-                      className='w-4 h-4 text-[var(--text-muted)]'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                    >
-                      <path d='M6 9l6 6 6-6' />
-                    </svg>
-                  </button>
+                    <path d='M6 9l6 6 6-6' />
+                  </svg>
+                </button>
 
-                  {showModelDropdown && (
-                    <div className='absolute right-0 bottom-full mb-2 w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg z-50'>
-                      <div className='p-3'>
-                        <div
-                          className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
-                          onClick={() => {
-                            setSelectedModel('Claude Opus 4');
-                            setShowModelDropdown(false);
-                          }}
-                        >
-                          <div className='flex-1'>
-                            <div className='font-medium text-[var(--text-primary)]'>
-                              Claude Opus 4
-                            </div>
-                            <div className='text-sm text-[var(--text-muted)]'>
-                              Powerful, large model for complex challenges
-                            </div>
+                {showModelDropdown && (
+                  <div className='absolute left-0 bottom-full mb-2 w-80 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg z-50'>
+                    <div className='p-3'>
+                      <div
+                        className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
+                        onClick={() => {
+                          setSelectedModel('Claude Opus 4');
+                          setShowModelDropdown(false);
+                        }}
+                      >
+                        <div className='flex-1'>
+                          <div className='font-medium text-[var(--text-primary)]'>
+                            Claude Opus 4
                           </div>
-                        </div>
-
-                        <div
-                          className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
-                          onClick={() => {
-                            setSelectedModel('Claude Sonnet 4');
-                            setShowModelDropdown(false);
-                          }}
-                        >
-                          <div className='flex-1'>
-                            <div className='font-medium text-[var(--text-primary)] flex items-center gap-2'>
-                              Claude Sonnet 4
-                              {selectedModel === 'Claude Sonnet 4' && (
-                                <svg
-                                  className='w-4 h-4 text-blue-500'
-                                  viewBox='0 0 24 24'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  strokeWidth='2'
-                                >
-                                  <path d='M20 6L9 17l-5-5' />
-                                </svg>
-                              )}
-                            </div>
-                            <div className='text-sm text-[var(--text-muted)]'>
-                              Smart, efficient model for everyday use
-                            </div>
+                          <div className='text-sm text-[var(--text-muted)]'>
+                            Powerful, large model for complex challenges
                           </div>
-                        </div>
-
-                        <div className='flex items-center gap-2 p-3 text-[var(--text-muted)] hover:bg-[var(--faded-white)] cursor-pointer transition-colors rounded-lg'>
-                          <span className='text-sm'>More models</span>
-                          <svg
-                            className='w-4 h-4'
-                            viewBox='0 0 24 24'
-                            fill='none'
-                            stroke='currentColor'
-                            strokeWidth='2'
-                          >
-                            <path d='M9 18l6-6-6-6' />
-                          </svg>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
 
-                <button
-                  onClick={sendMessage}
-                  disabled={!inputValue.trim() || !pdfId || isLoading}
-                  className='flex items-center justify-center w-8 h-8 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isLoading ? (
-                    <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
-                  ) : (
-                    <svg
-                      className='w-4 h-4'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                    >
-                      <path d='M22 2L11 13' />
-                      <path d='M22 2l-7 20-4-9-9-4z' />
-                    </svg>
-                  )}
-                </button>
+                      <div
+                        className='flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--faded-white)] cursor-pointer transition-colors'
+                        onClick={() => {
+                          setSelectedModel('Claude Sonnet 4');
+                          setShowModelDropdown(false);
+                        }}
+                      >
+                        <div className='flex-1'>
+                          <div className='font-medium text-[var(--text-primary)] flex items-center gap-2'>
+                            Claude Sonnet 4
+                            {selectedModel === 'Claude Sonnet 4' && (
+                              <svg
+                                className='w-4 h-4 text-blue-500'
+                                viewBox='0 0 24 24'
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='2'
+                              >
+                                <path d='M20 6L9 17l-5-5' />
+                              </svg>
+                            )}
+                          </div>
+                          <div className='text-sm text-[var(--text-muted)]'>
+                            Smart, efficient model for everyday use
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className='flex items-center gap-2 p-3 text-[var(--text-muted)] hover:bg-[var(--faded-white)] cursor-pointer transition-colors rounded-lg'>
+                        <span className='text-sm'>More models</span>
+                        <svg
+                          className='w-4 h-4'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                        >
+                          <path d='M9 18l6-6-6-6' />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <button
+                onClick={sendMessage}
+                disabled={!inputValue.trim() || !pdfId || isLoading}
+                className='flex items-center justify-center w-8 h-8 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+              >
+                {isLoading ? (
+                  <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                ) : (
+                  <svg
+                    className='w-4 h-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                  >
+                    <path d='M22 2L11 13' />
+                    <path d='M22 2l-7 20-4-9-9-4z' />
+                  </svg>
+                )}
+              </button>
             </div>
           </div>
 
