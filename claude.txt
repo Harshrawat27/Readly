@@ -111,20 +111,19 @@ Chat API error: SyntaxError: Invalid regular expression: /(~400/g: Unterminated 
 
 before launch focus on this. 
 
--- upload doc via main domain, working --- but url on domain is not working! 
+DONE -- upload doc via main domain, working --- but url on domain is not working! 
 -- subscription should work
--- maybe remove shapes. 
--- i'm able to upload doc using url but chunks are not being sent to DB from main domain and no summarisation working. 
--- ⁠sound can play in my website. 
+DONE -- i'm able to upload doc using url but chunks are not being sent to DB from main domain and no summarisation working. 
+DONE -- ⁠sound can play in my website. 
 •⁠  ⁠⁠model switch
 •⁠  ⁠⁠upgrade card if hit any limit
--- allow home page access to free users -- create home page.
+DONE -- allow home page access to free users -- create home page.
 -- comment all console log
 -- option where user can listen the text, add input in speaking way. 
--- in brush tool drawings are not scaling properly.
--- screenshot asking! 
--- some spin animation when generating answers. **
--- change in page not working properly, unloaded pages are not in good shape for sure. **important**
--- we have to main point-even: none or auto -- i'll do in the morning! 
--- scale issue of shapes. they will change their scale with scale in pdf. 
+DONE -- in brush tool drawings are not scaling properly.
+DONE -- screenshot asking! 
+DONE -- some spin animation when generating answers. **
+DONE -- change in page not working properly, unloaded pages are not in good shape for sure. **important**
+DONE -- we have to main point-even: none or auto -- i'll do in the morning! 
+DONE -- scale issue of shapes. they will change their scale with scale in pdf. 
 -- deselect shapes when pressing on normal area. 
