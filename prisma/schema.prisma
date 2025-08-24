@@ -150,6 +150,7 @@ model Message {
   role      String
   imageData String?  // Legacy base64 data (for backwards compatibility)
   imageUrl  String?  // S3 key for image analysis messages
+  citations Json?    // Store citations as JSON array
   createdAt DateTime @default(now())
   chatId    String
   userId    String

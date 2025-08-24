@@ -7,14 +7,15 @@ import {
   useCallback,
   useLayoutEffect,
 } from 'react';
-import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
+import { MessageWithCitations } from './MessageWithCitations';
 
 interface ChatPanelProps {
   pdfId: string | null;
   selectedText: string;
   selectedImage?: string;
   onTextSubmit: () => void;
+  onNavigateToPage?: (pageNumber: number) => void;
 }
 
 interface Message {
@@ -25,6 +26,12 @@ interface Message {
   imageUrl?: string; // S3 URL (preferred)
   timestamp: Date;
   isStreaming?: boolean;
+  citations?: Array<{
+    id: string;
+    pageNumber: number;
+    text: string;
+    chunkId?: string;
+  }>;
 }
 
 export default function ChatPanel({
@@ -32,6 +39,7 @@ export default function ChatPanel({
   selectedText,
   selectedImage = '',
   onTextSubmit,
+  onNavigateToPage,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
@@ -58,6 +66,63 @@ export default function ChatPanel({
 
   // *** NEW: explicit ref to the scrollable messages container ***
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Citation parsing function (same as backend)
+  const parseCitations = (content: string): { cleanContent: string; citations: Array<{
+    id: string;
+    pageNumber: number;
+    text: string;
+    chunkId?: string;
+  }> } => {
+    if (!content) return { cleanContent: '', citations: [] };
+    
+    const citations: Array<{
+      id: string;
+      pageNumber: number;
+      text: string;
+      chunkId?: string;
+    }> = [];
+    let citationCounter = 1;
+    
+    // Regex to match [CITE:page:chunk:text] format
+    const citationRegex = /\[CITE:(\d+):([\w-]+):(.*?)\]/g;
+    
+    console.log('🔍 Parsing citations from content length:', content.length);
+    console.log('📄 Sample content:', content.substring(0, 200) + '...');
+    
+    // Test if regex finds matches
+    const matches = Array.from(content.matchAll(citationRegex));
+    console.log('🎯 Found citation matches:', matches.length);
+    
+    const cleanContent = content.replace(citationRegex, (match, pageNum, chunkId, quotedText) => {
+      const pageNumber = parseInt(pageNum);
+      
+      console.log('📋 Processing citation:', { pageNum, chunkId, quotedText: quotedText.substring(0, 50) });
+      
+      const citation = {
+        id: `cite_${citationCounter}`,
+        pageNumber,
+        text: quotedText.trim(),
+        chunkId,
+      };
+      
+      citations.push(citation);
+      
+      // Replace with clickable citation marker showing page number
+      return `<sup class="citation-marker" data-citation-id="${citation.id}" data-page-number="${pageNumber}" title="${quotedText.trim()}">[${pageNumber}]</sup>`;
+    });
+    
+    console.log('✨ Final result:', { 
+      originalLength: content.length, 
+      cleanLength: cleanContent.length, 
+      citationsCount: citations.length 
+    });
+    
+    return {
+      cleanContent,
+      citations,
+    };
+  };
 
   // track whether user is already scrolled to bottom (so we don't yank them)
   const isUserAtBottomRef = useRef(true);
@@ -314,6 +379,12 @@ export default function ChatPanel({
               imageData?: string;
               imageUrl?: string;
               createdAt: string;
+              citations?: Array<{
+                id: string;
+                pageNumber: number;
+                text: string;
+                chunkId?: string;
+              }>;
             }) => ({
               id: msg.id,
               role: msg.role,
@@ -321,6 +392,7 @@ export default function ChatPanel({
               imageData: msg.imageData,
               imageUrl: msg.imageUrl,
               timestamp: new Date(msg.createdAt),
+              citations: msg.citations,
             })
           );
 
@@ -540,10 +612,31 @@ export default function ChatPanel({
                   }
 
                   if (data.done) {
+                    console.log('🔄 Stream done, processing final content:', { 
+                      hasFinalContent: !!data.finalContent, 
+                      accumulatedLength: accumulatedContent.length,
+                      hasCitations: !!data.citations 
+                    });
+                    
+                    // Always parse the accumulated content for citations
+                    const { cleanContent, citations } = parseCitations(accumulatedContent);
+                    
+                    console.log('📝 Parsed citations:', { 
+                      originalContent: accumulatedContent.substring(0, 100) + '...', 
+                      cleanContent: cleanContent.substring(0, 100) + '...',
+                      citationsCount: citations.length,
+                      citations 
+                    });
+                    
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessageId
-                          ? { ...msg, isStreaming: false }
+                          ? { 
+                              ...msg, 
+                              content: cleanContent,
+                              citations: citations.length > 0 ? citations : undefined,
+                              isStreaming: false 
+                            }
                           : msg
                       )
                     );
@@ -763,11 +856,11 @@ export default function ChatPanel({
                     }}
                   >
                     {message.role === 'assistant' ? (
-                      <EnhancedMarkdownRenderer
-                        markdownText={message.content}
-                        compact={true}
-                        className='chat-message'
-                        fontSize={15}
+                      <MessageWithCitations
+                        content={message.content}
+                        citations={message.citations}
+                        role={message.role}
+                        onNavigateToPage={onNavigateToPage}
                       />
                     ) : (
                       <div className='space-y-2'>

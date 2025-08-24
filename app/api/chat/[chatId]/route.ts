@@ -27,6 +27,16 @@ export async function GET(
           orderBy: {
             createdAt: 'asc',
           },
+          select: {
+            id: true,
+            content: true,
+            role: true,
+            citations: true,
+            createdAt: true,
+            userId: true,
+            imageUrl: true,
+            imageData: true,
+          },
         },
         pdf: {
           select: {

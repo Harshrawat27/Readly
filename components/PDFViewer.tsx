@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
 import FigmaToolbar, { ToolType } from './FigmaToolbar';
 import CommentSystem from './CommentSystem';
@@ -60,7 +60,11 @@ interface TextSelectionDialog {
 // Virtualization constants
 const PAGE_BUFFER = 3; // Number of pages to render before and after visible pages
 
-export default function PDFViewer({
+interface PDFViewerRef {
+  goToPage: (pageNumber: number) => void;
+}
+
+const PDFViewer = forwardRef<PDFViewerRef, PDFViewerProps>(({
   pdfId,
   onTextSelect,
   onImageAnalyse,
@@ -68,7 +72,7 @@ export default function PDFViewer({
   scale: externalScale,
   onScaleChange,
   currentUser,
-}: PDFViewerProps) {
+}, ref) => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInputValue, setPageInputValue] = useState('1');
@@ -168,6 +172,7 @@ export default function PDFViewer({
   // Pen drawings management
   const { getDrawingsForPage, saveDrawingsForPage, updateDrawingsForPage } =
     usePenDrawings(pdfId);
+
 
   // Shape tool state
   const [shapeColor, setShapeColor] = useState('#000000');
@@ -962,6 +967,17 @@ export default function PDFViewer({
     [numPages, isLoadingPdf, pdfId]
   );
 
+  // Update the goToPage function to use handleCitationClick now that it's defined
+  const goToPageFunction = useCallback((pageNumber: number) => {
+    console.log('🔗 goToPage called via ref:', pageNumber);
+    handleCitationClick(pageNumber);
+  }, [handleCitationClick]);
+
+  // Expose goToPage method through ref
+  useImperativeHandle(ref, () => ({
+    goToPage: goToPageFunction
+  }), [goToPageFunction]);
+
   // Page input handlers
   const handlePageInputChange = useCallback((value: string) => {
     setPageInputValue(value);
@@ -1001,25 +1017,6 @@ export default function PDFViewer({
     }
   }, [numPages, pendingNavigation, handleCitationClick]);
 
-  // Add global citation click handler
-  useEffect(() => {
-    const handleGlobalCitationClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const citation = target.closest('[data-citation-page]');
-
-      if (citation) {
-        e.preventDefault();
-        const pageNum = parseInt(
-          citation.getAttribute('data-citation-page') || '1'
-        );
-        handleCitationClick(pageNum);
-      }
-    };
-
-    document.addEventListener('click', handleGlobalCitationClick);
-    return () =>
-      document.removeEventListener('click', handleGlobalCitationClick);
-  }, [handleCitationClick]);
 
   const handleLinkClick = useCallback(
     (event: Event) => {
@@ -2451,4 +2448,7 @@ export default function PDFViewer({
       )}
     </div>
   );
-}
+});
+
+PDFViewer.displayName = 'PDFViewer';
+export default PDFViewer;

@@ -9,6 +9,7 @@ import {
   incrementQuestionUsage,
 } from '@/lib/subscription-utils';
 import { uploadImageToS3 } from '@/lib/s3';
+import { Citation } from '@/types/citations';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -129,8 +130,8 @@ export async function POST(request: NextRequest) {
       relevantChunks.length > 0
         ? `\n\nRelevant content from "${pdf.title}":\n\n${relevantChunks
             .map(
-              (chunk, index) =>
-                `[Page ${chunk.pageNumber}, Section ${index + 1}]\n${
+              (chunk) =>
+                `[Page ${chunk.pageNumber}, Chunk ID: ${chunk.id}]\n${
                   chunk.content
                 }`
             )
@@ -146,8 +147,16 @@ export async function POST(request: NextRequest) {
     - Provide summaries and insights
     - Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
     - Support markdown formatting for better readability
-    - Reference specific page numbers when citing content
+    - Reference specific page numbers when citing content with citations
     - don't add in math formulas starting and ending \`( and \`) instead add $$ and $$ if iniline then single $ start and end if separete line $$ start and end
+
+    IMPORTANT CITATION FORMAT:
+    When referencing information from the PDF, always include citations in this exact format at the end of sentences or paragraphs:
+    [CITE:page_number:chunk_id:quoted_text]
+    
+    For example:
+    - "The concept of machine learning is defined as..." [CITE:5:chunk_123:machine learning is defined as a subset of artificial intelligence]
+    - "According to the study, 85% of participants..." [CITE:12:chunk_456:85% of participants showed significant improvement]
 
     Guidelines:
     - Use **markdown formatting** in your responses
@@ -158,14 +167,14 @@ export async function POST(request: NextRequest) {
     - Format your responses with proper headings, lists, and emphasis
     - Use code blocks for code examples: \`\`\`language\n...\`\`\`
     - Use > for quotes and important notes
-    - When referencing content, include page numbers: "On page X, the document states..."
+    - ALWAYS include citations when referencing specific content from the PDF
     - If you're unsure about something, be honest about limitations
     - Focus on the specific PDF context when available
 
     ${
       pdfContext
-        ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. Always cite page numbers when referencing specific information.${pdfContext}`
-        : 'When users select text from the PDF, help them understand or elaborate on that specific content.'
+        ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. ALWAYS include citations using the [CITE:page:chunk:text] format when referencing this content.${pdfContext}`
+        : 'When users select text from the PDF, help them understand or elaborate on that specific content with proper citations.'
     }`;
 
     // Prepare messages with system prompt and handle image if present
@@ -230,12 +239,16 @@ export async function POST(request: NextRequest) {
 
           // Save assistant response to database
           if (assistantResponse.trim()) {
+            // Parse citations from the response
+            const { cleanContent, citations } = parseCitations(assistantResponse.trim(), relevantChunks);
+            
             await prisma.message.create({
               data: {
                 chatId: currentChatId,
                 userId: userId,
                 role: 'assistant',
-                content: assistantResponse.trim(),
+                content: cleanContent,
+                citations: citations.length > 0 ? JSON.parse(JSON.stringify(citations)) : null,
               },
             });
 
@@ -243,11 +256,14 @@ export async function POST(request: NextRequest) {
             await incrementQuestionUsage(userId);
           }
 
-          // Send completion signal
+          // Send completion signal with parsed content and citations
+          const { cleanContent: finalCleanContent, citations: finalCitations } = parseCitations(assistantResponse.trim(), relevantChunks);
           const finalData = JSON.stringify({
             content: '',
             done: true,
             chatId: currentChatId,
+            finalContent: finalCleanContent,
+            citations: finalCitations,
           });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
 
@@ -338,4 +354,44 @@ function getRelevantChunks(
     .filter((chunk) => chunk.relevanceScore > 0)
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, limit);
+}
+
+// Function to parse citations from AI response
+function parseCitations(content: string, availableChunks: Array<{id: string; pageNumber: number; content: string}>): {
+  cleanContent: string;
+  citations: Citation[];
+} {
+  const citations: Citation[] = [];
+  let citationCounter = 1;
+  
+  // Regex to match [CITE:page:chunk:text] format
+  const citationRegex = /\[CITE:(\d+):([\w-]+):(.*?)\]/g;
+  
+  const cleanContent = content.replace(citationRegex, (match, pageNum, chunkId, quotedText) => {
+    const pageNumber = parseInt(pageNum);
+    
+    // Find the chunk in available chunks
+    const chunk = availableChunks.find(c => c.id === chunkId);
+    
+    if (chunk) {
+      const citation: Citation = {
+        id: `cite_${citationCounter}`,
+        pageNumber,
+        text: quotedText.trim(),
+        chunkId,
+      };
+      
+      citations.push(citation);
+      
+      // Replace with clickable citation marker
+      return `<sup class="citation-marker" data-citation-id="${citation.id}">[${citationCounter++}]</sup>`;
+    }
+    
+    return match; // Keep original if chunk not found
+  });
+  
+  return {
+    cleanContent,
+    citations,
+  };
 }

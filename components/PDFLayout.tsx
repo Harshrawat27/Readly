@@ -74,6 +74,18 @@ const PDFLayout = memo(function PDFLayout({
     window.history.replaceState(null, '', `/pdf/${id}`);
   }, []);
 
+  // Handle page navigation from citations
+  const [pdfViewerRef, setPdfViewerRef] = useState<any>(null);
+  
+  const handleNavigateToPage = useCallback((pageNumber: number) => {
+    console.log('🔗 Navigate to page:', pageNumber);
+    if (pdfViewerRef && pdfViewerRef.goToPage) {
+      pdfViewerRef.goToPage(pageNumber);
+    } else {
+      console.warn('PDF viewer ref not available for navigation');
+    }
+  }, [pdfViewerRef]);
+
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
       {/* Main Three-Panel Layout - Full height */}
@@ -104,6 +116,7 @@ const PDFLayout = memo(function PDFLayout({
           style={{ minWidth: '400px' }}
         >
           <PDFViewer
+            ref={setPdfViewerRef}
             pdfId={currentPdfId}
             onTextSelect={onTextSelect}
             onImageAnalyse={onImageSelect}
@@ -138,6 +151,7 @@ const PDFLayout = memo(function PDFLayout({
             selectedText={selectedText}
             selectedImage={selectedImage}
             onTextSubmit={onTextSubmit}
+            onNavigateToPage={handleNavigateToPage}
           />
         </div>
       </div>

@@ -126,4 +126,4 @@ DONE -- some spin animation when generating answers. **
 DONE -- change in page not working properly, unloaded pages are not in good shape for sure. **important**
 DONE -- we have to main point-even: none or auto -- i'll do in the morning! 
 DONE -- scale issue of shapes. they will change their scale with scale in pdf. 
--- deselect shapes when pressing on normal area. 
+-- deselect shapes when pressing on normal area.
