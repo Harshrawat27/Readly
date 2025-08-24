@@ -32,6 +32,58 @@ interface EnhancedMarkdownRendererProps {
 const components: Components = {
   code: CodeBlock as Components['code'],
   pre: ({ children }) => <>{children}</>,
+  h1: ({ children, ...props }) => (
+    <h1
+      className='text-2xl font-bold mb-4 mt-6 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }) => (
+    <h2
+      className='text-xl font-bold mb-3 mt-5 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }) => (
+    <h3
+      className='text-lg font-bold mb-2 mt-4 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h3>
+  ),
+  h4: ({ children, ...props }) => (
+    <h4
+      className='text-base font-bold mb-2 mt-3 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h4>
+  ),
+  h5: ({ children, ...props }) => (
+    <h5
+      className='text-sm font-bold mb-1 mt-2 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h5>
+  ),
+  h6: ({ children, ...props }) => (
+    <h6
+      className='text-xs font-bold mb-1 mt-2 text-[var(--text-primary)]'
+      {...props}
+    >
+      {children}
+    </h6>
+  ),
+  br: () => <br className='my-2' />,
+  hr: ({ ...props }) => (
+    <hr className='border-none h-0.5 bg-[var(--border)] my-6' {...props} />
+  ),
 };
 
 function CodeBlock({ children, className, ...props }: CodeComponentProps) {
@@ -154,8 +206,8 @@ const EnhancedMarkdownRenderer = memo(
     }, [blocks, onRenderComplete]);
 
     const proseClasses = compact
-      ? 'prose prose-sm dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none'
-      : 'prose prose-base dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none';
+      ? 'prose prose-sm dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none prose-p:mb-5 prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-headings:mb-4 prose-headings:mt-6'
+      : 'prose prose-base dark:prose-invert max-w-none w-full prose-code:before:content-none prose-code:after:content-none prose-p:mb-6 prose-headings:font-bold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-h4:text-lg prose-headings:mb-4 prose-headings:mt-8';
 
     return (
       <MarkdownSizeContext.Provider value={size}>
@@ -327,10 +379,61 @@ const EnhancedMarkdownRenderer = memo(
           }
 
           .unified-markdown-content .rendered-content p {
-            margin-bottom: 1.5rem;
-            line-height: 1.8;
+            margin-bottom: 1.5rem !important;
+            line-height: 1.8 !important;
             display: block;
             margin-top: 0;
+          }
+
+          /* Additional targeting for Tailwind prose override */
+          .prose p {
+            margin-bottom: 1.5rem !important;
+            line-height: 1.8 !important;
+          }
+
+          .prose.prose-sm p {
+            margin-bottom: 1.25rem !important;
+            line-height: 1.7 !important;
+          }
+
+          /* Heading overrides for prose */
+          .prose h1,
+          .prose h2,
+          .prose h3,
+          .prose h4,
+          .prose h5,
+          .prose h6 {
+            font-weight: 700 !important;
+            color: var(--text-primary) !important;
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+            display: block !important;
+          }
+
+          .prose.prose-sm h1,
+          .prose.prose-sm h2,
+          .prose.prose-sm h3,
+          .prose.prose-sm h4,
+          .prose.prose-sm h5,
+          .prose.prose-sm h6 {
+            font-weight: 700 !important;
+            color: var(--text-primary) !important;
+            margin-top: 1.5rem !important;
+            margin-bottom: 0.75rem !important;
+            display: block !important;
+          }
+
+          .prose.prose-sm h1 {
+            font-size: 1.5rem !important;
+          }
+          .prose.prose-sm h2 {
+            font-size: 1.25rem !important;
+          }
+          .prose.prose-sm h3 {
+            font-size: 1.125rem !important;
+          }
+          .prose.prose-sm h4 {
+            font-size: 1rem !important;
           }
 
           .unified-markdown-content .rendered-content strong,
@@ -494,12 +597,25 @@ const EnhancedMarkdownRenderer = memo(
 
           /* Horizontal rules */
           .unified-markdown-content .rendered-content hr {
-            border: none;
-            height: 3px;
-            background-color: var(--border-color);
-            margin: 3rem 0;
+            border: none !important;
+            height: 2px !important;
+            background-color: var(--border-color) !important;
+            margin: 2rem 0 !important;
             border-radius: 1px;
-            display: block;
+            display: block !important;
+          }
+
+          /* Prose HR overrides */
+          .prose hr {
+            border: none !important;
+            height: 2px !important;
+            background-color: var(--border) !important;
+            margin: 2rem 0 !important;
+            display: block !important;
+          }
+
+          .prose.prose-sm hr {
+            margin: 1.5rem 0 !important;
           }
 
           /* Lists */
@@ -624,27 +740,43 @@ const EnhancedMarkdownRenderer = memo(
           .unified-markdown-content.compact-mode .rendered-content h4,
           .unified-markdown-content.compact-mode .rendered-content h5,
           .unified-markdown-content.compact-mode .rendered-content h6 {
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
+            margin-top: 1.5rem !important;
+            margin-bottom: 0.75rem !important;
+            font-weight: 700 !important;
+            color: var(--text-primary) !important;
+            display: block !important;
           }
 
           .unified-markdown-content.compact-mode .rendered-content h1 {
-            font-size: calc(var(--font-size) * 1.6);
+            font-size: 1.5rem !important;
             border-bottom: 2px solid var(--border-color);
-            margin-bottom: 1rem;
+            margin-bottom: 1rem !important;
+            padding-bottom: 0.25rem;
           }
 
           .unified-markdown-content.compact-mode .rendered-content h2 {
-            font-size: calc(var(--font-size) * 1.4);
+            font-size: 1.25rem !important;
           }
 
           .unified-markdown-content.compact-mode .rendered-content h3 {
-            font-size: calc(var(--font-size) * 1.2);
+            font-size: 1.125rem !important;
+          }
+
+          .unified-markdown-content.compact-mode .rendered-content h4 {
+            font-size: 1rem !important;
+          }
+
+          .unified-markdown-content.compact-mode .rendered-content h5 {
+            font-size: 0.875rem !important;
+          }
+
+          .unified-markdown-content.compact-mode .rendered-content h6 {
+            font-size: 0.8rem !important;
           }
 
           .unified-markdown-content.compact-mode .rendered-content p {
-            margin-bottom: 1rem;
-            line-height: 1.6;
+            margin-bottom: 1.25rem !important;
+            line-height: 1.7 !important;
           }
 
           .unified-markdown-content.compact-mode .rendered-content ul,
