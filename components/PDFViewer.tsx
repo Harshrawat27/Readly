@@ -48,6 +48,7 @@ interface PDFViewerProps {
     name: string;
     image?: string;
   };
+  onNavigateToPageRef?: React.MutableRefObject<((pageNumber: number) => void) | null>;
 }
 
 interface TextSelectionDialog {
@@ -68,6 +69,7 @@ export default function PDFViewer({
   scale: externalScale,
   onScaleChange,
   currentUser,
+  onNavigateToPageRef,
 }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -961,6 +963,13 @@ export default function PDFViewer({
     },
     [numPages, isLoadingPdf, pdfId]
   );
+
+  // Expose the navigation function to parent component
+  useEffect(() => {
+    if (onNavigateToPageRef) {
+      onNavigateToPageRef.current = handleCitationClick;
+    }
+  }, [onNavigateToPageRef, handleCitationClick]);
 
   // Page input handlers
   const handlePageInputChange = useCallback((value: string) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo, useEffect } from 'react';
+import { useState, useCallback, memo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import PDFSidebar from '@/components/PDFSidebar';
 import ChatPanel from '@/components/ChatPanel';
@@ -51,6 +51,9 @@ const PDFLayout = memo(function PDFLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
   const [currentPdfId, setCurrentPdfId] = useState(pdfId);
+  
+  // Create a ref to hold the PDF navigation function
+  const pdfNavigationRef = useRef<((pageNumber: number) => void) | null>(null);
 
   // Use service worker for PDF caching
   const { clearPDFCache } = usePDFServiceWorker();
@@ -72,6 +75,16 @@ const PDFLayout = memo(function PDFLayout({
     setCurrentPdfId(id);
     // Update URL without navigation/remounting
     window.history.replaceState(null, '', `/pdf/${id}`);
+  }, []);
+
+  // Handle citation navigation
+  const handleNavigateToPage = useCallback((pageNumber: number) => {
+    console.log('PDFLayout: Navigating to page', pageNumber);
+    if (pdfNavigationRef.current) {
+      pdfNavigationRef.current(pageNumber);
+    } else {
+      console.warn('PDF navigation function not available yet');
+    }
   }, []);
 
   return (
@@ -113,6 +126,7 @@ const PDFLayout = memo(function PDFLayout({
               name: session.user.name,
               image: session.user.image || undefined,
             }}
+            onNavigateToPageRef={pdfNavigationRef}
           />
         </div>
 
@@ -138,6 +152,7 @@ const PDFLayout = memo(function PDFLayout({
             selectedText={selectedText}
             selectedImage={selectedImage}
             onTextSubmit={onTextSubmit}
+            onNavigateToPage={handleNavigateToPage}
           />
         </div>
       </div>

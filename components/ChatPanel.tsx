@@ -15,6 +15,7 @@ interface ChatPanelProps {
   selectedText: string;
   selectedImage?: string;
   onTextSubmit: () => void;
+  onNavigateToPage?: (pageNumber: number) => void;
 }
 
 interface Message {
@@ -32,6 +33,7 @@ export default function ChatPanel({
   selectedText,
   selectedImage = '',
   onTextSubmit,
+  onNavigateToPage,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
@@ -768,6 +770,7 @@ export default function ChatPanel({
                         compact={true}
                         className='chat-message'
                         fontSize={15}
+                        onNavigateToPage={onNavigateToPage}
                       />
                     ) : (
                       <div className='space-y-2'>

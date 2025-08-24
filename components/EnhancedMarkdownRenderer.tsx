@@ -1,7 +1,7 @@
 // components/EnhancedMarkdownRenderer.tsx
 'use client';
 
-import { memo, useMemo, useState, createContext, useContext } from 'react';
+import React, { memo, useMemo, useState, createContext, useContext } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -11,12 +11,92 @@ import ShikiHighlighter from 'react-shiki';
 import type { ComponentProps } from 'react';
 import type { ExtraProps } from 'react-markdown';
 import { Check, Copy } from 'lucide-react';
+import Citation from './Citation';
 
 type CodeComponentProps = ComponentProps<'code'> & ExtraProps;
 type MarkdownSize = 'default' | 'small';
 
 // Context to pass size down to components
 const MarkdownSizeContext = createContext<MarkdownSize>('default');
+
+// Context to pass navigation handler down to components
+const NavigationContext = createContext<((pageNumber: number) => void) | undefined>(undefined);
+
+// Custom text component that handles citations
+function TextWithCitations({ children }: { children?: React.ReactNode }) {
+  const onNavigateToPage = useContext(NavigationContext);
+  
+  console.log('TextWithCitations called with:', typeof children, children);
+  
+  // Handle different children types
+  if (React.isValidElement(children)) {
+    return <>{children}</>;
+  }
+  
+  if (Array.isArray(children)) {
+    return <>{children.map((child, index) => 
+      typeof child === 'string' ? 
+        <TextWithCitations key={index}>{child}</TextWithCitations> : 
+        child
+    )}</>;
+  }
+  
+  if (typeof children !== 'string') {
+    return <>{children}</>;
+  }
+  
+  const text = children;
+  const citationPattern = /\[cite:(\d+):([^\]]+)\]/g;
+  
+  // Check if this text contains citations
+  if (!citationPattern.test(text)) {
+    return <>{text}</>;
+  }
+  
+  console.log('Found citations in text:', text);
+  
+  // Reset the regex
+  citationPattern.lastIndex = 0;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = citationPattern.exec(text)) !== null) {
+    console.log('Processing citation match:', match);
+    
+    // Add text before citation
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    
+    // Add citation component
+    const pageNum = parseInt(match[1], 10);
+    const previewText = match[2].trim();
+    
+    const navigationHandler = onNavigateToPage || ((page: number) => {
+      console.log('Citation clicked - navigate to page:', page);
+      alert(`Navigate to page ${page} - ${previewText}`);
+    });
+    
+    parts.push(
+      <Citation
+        key={`citation-${match.index}-${pageNum}`}
+        pageNumber={pageNum}
+        previewText={previewText}
+        onNavigateToPage={navigationHandler}
+      />
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  
+  return <>{parts}</>;
+}
 
 interface EnhancedMarkdownRendererProps {
   markdownText: string;
@@ -27,17 +107,25 @@ interface EnhancedMarkdownRendererProps {
   ) => void;
   className?: string;
   compact?: boolean;
+  onNavigateToPage?: (pageNumber: number) => void;
 }
+
 
 const components: Components = {
   code: CodeBlock as Components['code'],
   pre: ({ children }) => <>{children}</>,
+  // Add custom text processing for citations
+  p: ({ children, ...props }) => (
+    <p {...props}>
+      <TextWithCitations>{children}</TextWithCitations>
+    </p>
+  ),
   h1: ({ children, ...props }) => (
     <h1
       className='text-2xl font-bold mb-4 mt-6 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h1>
   ),
   h2: ({ children, ...props }) => (
@@ -45,7 +133,7 @@ const components: Components = {
       className='text-xl font-bold mb-3 mt-5 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h2>
   ),
   h3: ({ children, ...props }) => (
@@ -53,7 +141,7 @@ const components: Components = {
       className='text-lg font-bold mb-2 mt-4 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h3>
   ),
   h4: ({ children, ...props }) => (
@@ -61,7 +149,7 @@ const components: Components = {
       className='text-base font-bold mb-2 mt-3 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h4>
   ),
   h5: ({ children, ...props }) => (
@@ -69,7 +157,7 @@ const components: Components = {
       className='text-sm font-bold mb-1 mt-2 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h5>
   ),
   h6: ({ children, ...props }) => (
@@ -77,8 +165,24 @@ const components: Components = {
       className='text-xs font-bold mb-1 mt-2 text-[var(--text-primary)]'
       {...props}
     >
-      {children}
+      <TextWithCitations>{children}</TextWithCitations>
     </h6>
+  ),
+  // Add citation support to other text elements
+  li: ({ children, ...props }) => (
+    <li {...props}>
+      <TextWithCitations>{children}</TextWithCitations>
+    </li>
+  ),
+  strong: ({ children, ...props }) => (
+    <strong {...props}>
+      <TextWithCitations>{children}</TextWithCitations>
+    </strong>
+  ),
+  em: ({ children, ...props }) => (
+    <em {...props}>
+      <TextWithCitations>{children}</TextWithCitations>
+    </em>
   ),
   br: () => <br className='my-2' />,
   hr: ({ ...props }) => (
@@ -188,6 +292,7 @@ const EnhancedMarkdownRenderer = memo(
     onRenderComplete,
     className = '',
     compact = false,
+    onNavigateToPage,
   }: EnhancedMarkdownRendererProps) => {
     const blocks = useMemo(
       () => parseMarkdownIntoBlocks(markdownText),
@@ -211,25 +316,26 @@ const EnhancedMarkdownRenderer = memo(
 
     return (
       <MarkdownSizeContext.Provider value={size}>
-        <div
-          className={`${proseClasses} ${className}`}
-          style={{
-            fontSize: `${fontSize}px`,
-            lineHeight: 1.7,
-            wordWrap: 'break-word',
-            minWidth: 0,
-            overflow: 'hidden',
-            maxWidth: '100%',
-            position: 'relative',
-          }}
-        >
-          {blocks.map((block, index) => (
-            <MarkdownRendererBlock
-              content={block}
-              key={`markdown-block-${index}`}
-            />
-          ))}
-        </div>
+        <NavigationContext.Provider value={onNavigateToPage}>
+          <div
+            className={`${proseClasses} ${className}`}
+            style={{
+              fontSize: `${fontSize}px`,
+              lineHeight: 1.7,
+              wordWrap: 'break-word',
+              minWidth: 0,
+              overflow: 'hidden',
+              maxWidth: '100%',
+              position: 'relative',
+            }}
+          >
+            {blocks.map((block, index) => (
+              <MarkdownRendererBlock
+                content={block}
+                key={`markdown-block-${index}`}
+              />
+            ))}
+          </div>
 
         {/* Enhanced styles for unified processing */}
         <style jsx global>{`
@@ -874,6 +980,7 @@ const EnhancedMarkdownRenderer = memo(
             color: var(--accent-color, #8975ea) !important;
           }
         `}</style>
+        </NavigationContext.Provider>
       </MarkdownSizeContext.Provider>
     );
   }

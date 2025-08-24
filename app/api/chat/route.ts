@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
     - Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
     - Support markdown formatting for better readability
     - Reference specific page numbers when citing content
+    - Add citations inline within your responses
     - don't add in math formulas starting and ending \`( and \`) instead add $$ and $$ if iniline then single $ start and end if separete line $$ start and end
 
     Guidelines:
@@ -158,7 +159,12 @@ export async function POST(request: NextRequest) {
     - Format your responses with proper headings, lists, and emphasis
     - Use code blocks for code examples: \`\`\`language\n...\`\`\`
     - Use > for quotes and important notes
-    - When referencing content, include page numbers: "On page X, the document states..."
+    - **IMPORTANT: Add citations throughout your response using this format: [cite:pageNumber:previewText]**
+      - Example: "The study found productivity increased by 23% [cite:5:Key findings from quarterly analysis] after implementation."
+      - Add citations inline within sentences, not at the end
+      - Use meaningful preview text that describes the source material
+      - Only cite actual page numbers from the provided PDF content
+    - When referencing content, include both page numbers and citations
     - If you're unsure about something, be honest about limitations
     - Focus on the specific PDF context when available
 
