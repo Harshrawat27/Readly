@@ -9,6 +9,7 @@ import {
 } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
+import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 interface ChatPanelProps {
   pdfId: string | null;
@@ -284,15 +285,18 @@ export default function ChatPanel({
       setShowChatContent(false);
 
       try {
-        // backend returns last 50 messages by default
-        const response = await fetch(
-          `/api/chat/recent?pdfId=${pdfId}&limit=50`
-        );
-
-        if (!mounted) return;
-
-        if (!response.ok) {
-          if (response.status === 404) {
+        // Use cache for instant loading - 30 second TTL
+        const cacheKey = cacheKeys.chatHistory(pdfId);
+        let data;
+        
+        try {
+          data = await fetchWithCache<{chat: {id: string; messages: Array<{id: string; role: 'user' | 'assistant'; content: string; imageData?: string; imageUrl?: string; createdAt: string}>}; pagination?: {hasMore: boolean; nextCursor: string | null}}>(
+            `/api/chat/recent?pdfId=${pdfId}&limit=50`,
+            cacheKey,
+            30 // 30 second cache for chat history
+          );
+        } catch (error: unknown) {
+          if (error instanceof Error && error.message?.includes('404')) {
             console.log(
               `💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`
             );
@@ -302,10 +306,10 @@ export default function ChatPanel({
             setNextCursor(null);
             return;
           }
-          throw new Error(`API failed: ${response.status}`);
+          throw error;
         }
 
-        const data = await response.json();
+        if (!mounted) return;
 
         if (data.chat && data.chat.messages) {
           const allMessages = data.chat.messages.map(
@@ -421,6 +425,11 @@ export default function ChatPanel({
   // Send message. Use messagesRef to ensure we send latest messages and avoid stale state.
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isLoading) return;
+
+    // Invalidate chat cache when sending new message
+    if (pdfId) {
+      clientCache.delete(cacheKeys.chatHistory(pdfId));
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),

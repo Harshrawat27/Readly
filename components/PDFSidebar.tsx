@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 interface PDFSidebarProps {
   onPdfSelect: (pdfId: string) => void;
@@ -20,6 +21,14 @@ interface PDFItem {
   fileName: string;
   uploadedAt: Date;
   lastAccessedAt: Date;
+}
+
+interface APIResponsePDFItem {
+  id: string;
+  title: string;
+  fileName: string;
+  uploadedAt: string;
+  lastAccessedAt: string;
 }
 
 const PDFSidebar = ({
@@ -52,38 +61,48 @@ const PDFSidebar = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load PDFs only once on mount - no caching, no refreshing
+  // Load PDFs with aggressive caching for instant loading
   useEffect(() => {
     const loadInitialPdfs = async () => {
       try {
         setIsLoadingPdfs(true);
-        const response = await fetch('/api/pdf/list');
-        if (response.ok) {
-          const pdfs = await response.json();
-          const processedPdfs = pdfs.map(
-            (pdf: {
-              id: string;
-              title: string;
-              fileName: string;
-              uploadedAt: string;
-              lastAccessedAt: string;
-            }) => ({
-              ...pdf,
-              uploadedAt: new Date(pdf.uploadedAt),
-              lastAccessedAt: new Date(pdf.lastAccessedAt),
-            })
-          );
-          setPdfHistory(processedPdfs);
-        }
+        
+        // Use cache with 60 second TTL
+        const cacheKey = cacheKeys.pdfList(userId);
+        const pdfs = await fetchWithCache<APIResponsePDFItem[]>(
+          '/api/pdf/list',
+          cacheKey,
+          60 // 60 second cache
+        );
+
+        const processedPdfs = pdfs.map(
+          (pdf: APIResponsePDFItem) => ({
+            ...pdf,
+            uploadedAt: new Date(pdf.uploadedAt),
+            lastAccessedAt: new Date(pdf.lastAccessedAt),
+          })
+        );
+        
+        setPdfHistory(processedPdfs);
       } catch (error) {
         console.error('Error loading PDFs:', error);
+        // Fallback to cache if available (even if stale)
+        const cachedPdfs = clientCache.get<APIResponsePDFItem[]>(cacheKeys.pdfList(userId));
+        if (cachedPdfs) {
+          const processedPdfs = cachedPdfs.map((pdf: APIResponsePDFItem) => ({
+            ...pdf,
+            uploadedAt: new Date(pdf.uploadedAt),
+            lastAccessedAt: new Date(pdf.lastAccessedAt),
+          }));
+          setPdfHistory(processedPdfs);
+        }
       } finally {
         setIsLoadingPdfs(false);
       }
     };
 
     loadInitialPdfs();
-  }, []); // Only run once on mount, never again
+  }, [userId]); // Depend on userId for cache key
 
   // No scrolling needed since list doesn't refresh
 
@@ -237,6 +256,9 @@ const PDFSidebar = ({
         console.log(`✅ [PDFSidebar] Upload completed! PDF ID: ${result.id}`);
         setUploadProgress('Upload successful!');
 
+        // Invalidate PDF list cache since we added a new PDF
+        clientCache.delete(cacheKeys.pdfList(userId));
+
         // Add the new PDF to the history
         setPdfHistory((prev) => [
           ...prev,
@@ -326,6 +348,9 @@ const PDFSidebar = ({
       }
 
       const result = await response.json();
+      
+      // Invalidate PDF list cache since we added a new PDF
+      clientCache.delete(cacheKeys.pdfList(userId));
       
       // Add the new PDF to the history
       setPdfHistory((prev) => [

@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find the chat first
+    // OPTIMIZED: Single query using the new [userId, pdfId] index
+    // Get chat with messages in one go using Prisma's include
     const chat = await prisma.chat.findFirst({
       where: {
         userId: session.user.id,
@@ -38,6 +39,25 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        messages: {
+          where: cursor ? {
+            createdAt: {
+              lt: new Date(cursor),
+            },
+          } : undefined,
+          orderBy: {
+            createdAt: 'desc', // Newest first
+          },
+          take: limit,
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            imageData: true,
+            imageUrl: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -48,39 +68,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build where clause for cursor-based pagination
-    const whereClause: {
-      chatId: string;
-      createdAt?: {
-        lt: Date;
-      };
-    } = {
-      chatId: chat.id,
-    };
-
-    // If cursor is provided, fetch messages older than cursor
-    if (cursor) {
-      whereClause.createdAt = {
-        lt: new Date(cursor),
-      };
-    }
-
-    // Fetch messages with cursor-based pagination
-    const messages = await prisma.message.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: 'desc', // Newest first
-      },
-      take: limit,
-      select: {
-        id: true,
-        role: true,
-        content: true,
-        imageData: true,
-        imageUrl: true,
-        createdAt: true,
-      },
-    });
+    const messages = chat.messages;
 
     // Reverse to show oldest first (chronological order)
     const messagesAsc = [...messages].reverse();
@@ -122,7 +110,7 @@ export async function GET(request: NextRequest) {
     const hasMore = messages.length === limit;
     const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       chat: {
         id: chat.id,
         messages: messagesWithSignedUrls,
@@ -133,6 +121,11 @@ export async function GET(request: NextRequest) {
         limit,
       },
     });
+
+    // Add caching headers - cache for 10 seconds for instant loading
+    response.headers.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=30');
+    
+    return response;
   } catch (error) {
     console.error('Chat recent error:', error);
     return NextResponse.json(

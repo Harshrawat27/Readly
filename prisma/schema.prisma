@@ -110,6 +110,7 @@ model PDF {
   shapes         Shape[]
 
   @@index([userId, uploadedAt])
+  @@index([userId, lastAccessedAt(sort: Desc)])
   @@map("pdf")
 }
 
@@ -141,6 +142,9 @@ model Chat {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
 
+  @@index([userId, pdfId])
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([pdfId, updatedAt(sort: Desc)])
   @@map("chat")
 }
 
