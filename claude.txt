@@ -129,3 +129,39 @@ DONE -- scale issue of shapes. they will change their scale with scale in pdf.
 -- deselect shapes when pressing on normal area. 
 -- add NOTES: functionality! 
 -- first load of chat is slow, is there any queue or something that chat for first time is loading slow? only first chat after reload, then on swithching chats are loading good. 
+
+
+
+
+solution 
+
+📝 Why It's Failing:
+
+  The citation regex pattern in your code is:
+  const citationPattern = /\[cite:(\d+):([^\]]+)\]/g;
+
+  This pattern expects:
+  - \d+ = Only pure numbers (like 45, 18, 10)
+
+  But the second message has:
+  - Page6, Page18, Page10 = Text + numbers
+
+  The regex \d+ matches only digits, so it fails to match Page6 because "Page" contains letters.
+
+  🤔 What's Happening:
+
+  1. First message: [cite:45:...] → \d+ matches 45 ✅
+  2. Second message: [cite:Page6:...] → \d+ cannot match Page6 ❌
+
+  The TextWithCitations component finds no matches in the second message, so it just returns the raw
+   text without processing.
+
+  💡 The Fix Would Be:
+
+  Change the regex from (\d+) to ([^:]+) to match any characters (not just numbers):
+  const citationPattern = /\[cite:([^:]+):([^\]]+)\]/g;
+
+  This would match both 45 and Page6 formats.
+
+  Root Cause: Your LLM is generating inconsistent citation formats - sometimes pure numbers,
+  sometimes "PageX" format. The regex only handles the pure number format.
