@@ -127,3 +127,5 @@ DONE -- change in page not working properly, unloaded pages are not in good shap
 DONE -- we have to main point-even: none or auto -- i'll do in the morning! 
 DONE -- scale issue of shapes. they will change their scale with scale in pdf. 
 -- deselect shapes when pressing on normal area. 
+-- add NOTES: functionality! 
+-- first load of chat is slow, is there any queue or something that chat for first time is loading slow? only first chat after reload, then on swithching chats are loading good. 
