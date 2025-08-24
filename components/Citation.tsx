@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-
 interface CitationProps {
   pageNumber: number;
   previewText: string;
@@ -10,7 +8,6 @@ interface CitationProps {
 
 export default function Citation({
   pageNumber,
-  previewText,
   onNavigateToPage,
 }: CitationProps) {
   const handleClick = (e: React.MouseEvent) => {
