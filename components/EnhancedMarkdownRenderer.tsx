@@ -218,7 +218,7 @@ function CodeBlock({ children, className, ...props }: CodeComponentProps) {
           <ShikiHighlighter
             language={lang}
             theme={'material-theme-darker'}
-            className='text-sm font-mono rounded-none'
+            className='text-sm font-mono rounded-none bg-black'
             showLanguage={false}
           >
             {String(children)}
@@ -256,15 +256,15 @@ function Codebar({ lang, codeString }: { lang: string; codeString: string }) {
   };
 
   return (
-    <div className='flex justify-between items-center px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-t-md border-b border-gray-300 dark:border-gray-600'>
+    <div className='flex justify-between items-center px-4 py-3 bg-black text-gray-100 rounded-t-md border-gray-600'>
       <span className='text-sm font-mono font-medium'>{lang}</span>
       <button
         onClick={copyToClipboard}
-        className='text-sm cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 p-1 rounded transition-colors'
+        className='text-sm cursor-pointer hover:bg-gray-700 p-1 rounded transition-colors'
         title={copied ? 'Copied!' : 'Copy code'}
       >
         {copied ? (
-          <Check className='w-4 h-4 text-green-600 dark:text-green-400' />
+          <Check className='w-4 h-4 text-green-400' />
         ) : (
           <Copy className='w-4 h-4' />
         )}

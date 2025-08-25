@@ -250,3 +250,7 @@ li {
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+
+.shiki.material-theme-darker {
+  background-color: black !important;
+}
