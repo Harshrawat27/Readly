@@ -331,191 +331,146 @@ export default function MessageActions({
     setIsPlaying(false);
 
     try {
-      console.log('🎵 Starting MediaSource streaming...');
+      console.log('🎵 Starting MediaSource TTS streaming...');
 
-      // Create MediaSource for progressive loading
-      const mediaSource = new MediaSource();
-      const audioUrl = URL.createObjectURL(mediaSource);
-      audioRef.current = new Audio(audioUrl);
-
-      let sourceBuffer: SourceBuffer | null = null;
-      const chunks: Uint8Array[] = [];
-      let streamStarted = false;
-
-      // MediaSource event handlers
-      mediaSource.onsourceopen = async () => {
-        console.log('📺 MediaSource opened, setting up SourceBuffer');
-        
-        try {
-          sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-          
-          sourceBuffer.onupdateend = () => {
-            console.log('📦 SourceBuffer updated, duration:', mediaSource.duration);
-            
-            // Start playing once we have some content and audio is ready
-            if (!streamStarted && audioRef.current && audioRef.current.readyState >= 2) {
-              streamStarted = true;
-              console.log('▶️ Starting playback');
-              setIsLoadingTTS(false);
-              setIsPlaying(true);
-              audioRef.current.play().catch(console.error);
-            }
-          };
-
-          sourceBuffer.onerror = (e) => {
-            console.error('❌ SourceBuffer error:', e);
-            setIsLoadingTTS(false);
-            setIsPlaying(false);
-          };
-
-          // Start streaming from TTS API
-          await startTTSStream();
-
-        } catch (error) {
-          console.error('❌ MediaSource setup error:', error);
-          setIsLoadingTTS(false);
-          setIsPlaying(false);
-        }
-      };
-
-      mediaSource.onsourceclose = () => {
-        console.log('📺 MediaSource closed');
-      };
-
-      mediaSource.addEventListener('error', (e) => {
-        console.error('❌ MediaSource error:', e);
-        setIsLoadingTTS(false);
-        setIsPlaying(false);
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: messageContent,
+        }),
       });
 
-      // Audio element event handlers
-      audioRef.current.oncanplay = () => {
-        console.log('✅ Audio ready to play');
-        if (!streamStarted && sourceBuffer && chunks.length > 0) {
-          streamStarted = true;
-          setIsLoadingTTS(false);
-          setIsPlaying(true);
-          audioRef.current!.play().catch(console.error);
-        }
-      };
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('TTS API Error:', errorData);
+        throw new Error(
+          `TTS API failed: ${errorData.error || 'Unknown error'}`
+        );
+      }
 
-      audioRef.current.onended = () => {
-        console.log('🏁 Audio ended');
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-      };
+      if (!response.body) {
+        throw new Error('No response body for streaming');
+      }
 
-      audioRef.current.onerror = (event) => {
-        console.error('❌ Audio error:', event);
-        setIsPlaying(false);
-        setIsLoadingTTS(false);
-      };
+      console.log('TTS streaming response received, setting up audio...');
 
-      // Function to start TTS streaming
-      const startTTSStream = async () => {
-        const response = await fetch('/api/tts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: messageContent,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`TTS API failed: ${errorData.error || 'Unknown error'}`);
-        }
-
-        if (!response.body) {
-          throw new Error('No response body for streaming');
-        }
-
-        const reader = response.body.getReader();
-        const appendQueue: Uint8Array[] = [];
-        let isAppending = false;
-
-        const appendToBuffer = async () => {
-          if (isAppending || appendQueue.length === 0 || !sourceBuffer) {
-            return;
-          }
-
-          isAppending = true;
-          
-          while (appendQueue.length > 0 && sourceBuffer && !sourceBuffer.updating) {
-            const chunk = appendQueue.shift()!;
-            
-            try {
-              sourceBuffer.appendBuffer(chunk);
-              console.log(`📦 Appended chunk (${chunk.length} bytes), queue: ${appendQueue.length}`);
-              
-              // Wait for append to complete
-              await new Promise<void>((resolve, reject) => {
-                const onUpdateEnd = () => {
-                  sourceBuffer!.removeEventListener('updateend', onUpdateEnd);
-                  sourceBuffer!.removeEventListener('error', onError);
-                  resolve();
-                };
-                
-                const onError = (e: Event) => {
-                  sourceBuffer!.removeEventListener('updateend', onUpdateEnd);
-                  sourceBuffer!.removeEventListener('error', onError);
-                  reject(e);
-                };
-                
-                sourceBuffer!.addEventListener('updateend', onUpdateEnd);
-                sourceBuffer!.addEventListener('error', onError);
-              });
-
-            } catch (error) {
-              console.error('❌ Failed to append chunk:', error);
-              break;
-            }
-          }
-          
-          isAppending = false;
-        };
-
-        // Read stream chunks
+      // PROGRESSIVE STREAMING: Collect chunks and start playing early
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let hasStartedPlaying = false;
+      
+      console.log('🎵 Starting progressive streaming...');
+      
+      // Function to play audio with accumulated chunks
+      const playAccumulatedAudio = async () => {
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-              console.log(`✅ Stream complete, finalizing MediaSource`);
-              
-              // Append any remaining chunks
-              await appendToBuffer();
-              
-              // End the stream
-              if (mediaSource.readyState === 'open') {
-                mediaSource.endOfStream();
-              }
-              
-              break;
-            }
-
-            if (value && sourceBuffer) {
-              chunks.push(value);
-              appendQueue.push(value);
-              
-              // Start appending chunks immediately
-              appendToBuffer();
-            }
+          if (chunks.length === 0) return;
+          
+          console.log(`🎵 Playing with ${chunks.length} chunks`);
+          
+          // Combine all chunks into complete MP3
+          const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+          const combinedArray = new Uint8Array(totalLength);
+          let offset = 0;
+          
+          for (const chunk of chunks) {
+            combinedArray.set(chunk, offset);
+            offset += chunk.length;
           }
-        } catch (streamError) {
-          console.error('❌ Stream reading error:', streamError);
-          throw streamError;
+          
+          // Clean up previous audio
+          if (audioRef.current) {
+            URL.revokeObjectURL(audioRef.current.src);
+            audioRef.current = null;
+          }
+          
+          // Create audio with accumulated chunks
+          const audioBlob = new Blob([combinedArray], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioRef.current = new Audio(audioUrl);
+          
+          audioRef.current.onloadedmetadata = () => {
+            console.log('📊 Audio duration:', audioRef.current?.duration);
+          };
+          
+          audioRef.current.oncanplay = () => {
+            console.log('✅ Audio ready to play');
+            setIsLoadingTTS(false);
+          };
+          
+          audioRef.current.onplay = () => {
+            console.log('▶️ Audio started playing');
+            setIsPlaying(true);
+          };
+          
+          audioRef.current.onended = () => {
+            console.log('🏁 Audio playback ended');
+            setIsPlaying(false);
+            if (audioRef.current) {
+              URL.revokeObjectURL(audioRef.current.src);
+              audioRef.current = null;
+            }
+          };
+          
+          audioRef.current.onerror = (event) => {
+            console.error('❌ Audio error:', event);
+            setIsPlaying(false);
+            setIsLoadingTTS(false);
+          };
+          
+          await audioRef.current.play();
+          
+        } catch (error) {
+          console.error('❌ Playback error:', error);
+          setIsPlaying(false);
+          setIsLoadingTTS(false);
         }
       };
+      
 
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) {
+            console.log('✅ Stream complete!');
+            // Play final audio with all chunks if not started yet
+            if (!hasStartedPlaying) {
+              await playAccumulatedAudio();
+            }
+            break;
+          }
+          
+          if (value) {
+            chunks.push(value);
+            const totalSize = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+            console.log(`📦 Chunk ${chunks.length}: ${value.length} bytes (total: ${totalSize} bytes)`);
+            
+            // Start playing when we have enough chunks (30 chunks or 200KB)
+            if (!hasStartedPlaying && (chunks.length >= 30 || totalSize >= 200000)) {
+              console.log(`🚀 Starting playback with ${chunks.length} chunks`);
+              hasStartedPlaying = true;
+              await playAccumulatedAudio();
+            }
+          }
+        }
+        
+      } catch (streamError) {
+        console.error('❌ Streaming error:', streamError);
+        setIsLoadingTTS(false);
+        setIsPlaying(false);
+      }
+      
     } catch (error) {
       console.error('Failed to play speech:', error);
       setIsLoadingTTS(false);
       setIsPlaying(false);
       
+      // Show user-friendly error message
       alert(`TTS Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };

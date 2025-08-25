@@ -9,6 +9,8 @@ export async function POST(request: NextRequest) {
   try {
     const { text } = await request.json();
 
+    console.log('TTS Request received for text length:', text?.length);
+
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
         { error: 'Text is required and must be a string' },
@@ -23,37 +25,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate speech using OpenAI TTS
-    const mp3 = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: "coral",
+    console.log('Calling OpenAI TTS API with streaming...');
+
+    // Use MP3 format for MediaSource streaming compatibility
+    const response = await openai.audio.speech.create({
+      model: 'gpt-4o-mini-tts', // Faster model optimized for streaming
+      voice: 'coral',
       input: text,
-      response_format: "mp3",
+      response_format: 'mp3', // MP3 for better MediaSource compatibility
       speed: 1.0,
     });
 
-    // Convert the response to a buffer
-    const buffer = Buffer.from(await mp3.arrayBuffer());
+    console.log('OpenAI TTS streaming response received, forwarding stream...');
 
-    // Return the audio file as a response
-    return new NextResponse(buffer, {
+    // PROPER streaming - forward the OpenAI stream correctly
+    console.log('OpenAI response ready, streaming to frontend...');
+
+    // Return the OpenAI stream directly - no manipulation
+    return new NextResponse(response.body, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': buffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Cache-Control': 'public, max-age=3600',
+        'Transfer-Encoding': 'chunked',
       },
     });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Text-to-speech error:', error);
 
     // Handle OpenAI API errors
-    if (error?.status) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'status' in error &&
+      typeof error.status === 'number'
+    ) {
       return NextResponse.json(
-        { 
-          error: 'OpenAI API error', 
-          details: error.message || 'Unknown API error' 
+        {
+          error: 'OpenAI API error',
+          details:
+            (error as { message?: string }).message || 'Unknown API error',
         },
         { status: error.status }
       );

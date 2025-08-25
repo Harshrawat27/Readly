@@ -76,13 +76,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Message feedback error:', error);
 
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }
     );
@@ -126,11 +126,11 @@ export async function DELETE(request: NextRequest) {
       message: 'Feedback removed successfully',
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete message feedback error:', error);
 
     // If the feedback doesn't exist, that's okay
-    if (error.code === 'P2025') {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
       return NextResponse.json({
         success: true,
         message: 'Feedback already removed or does not exist',
@@ -140,7 +140,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }
     );
@@ -184,13 +184,13 @@ export async function GET(request: NextRequest) {
       feedback: feedback || null,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get message feedback error:', error);
 
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }
     );
