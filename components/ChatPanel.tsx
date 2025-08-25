@@ -9,6 +9,7 @@ import {
 } from 'react';
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
+import MessageActions from './MessageActions';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 interface ChatPanelProps {
@@ -756,7 +757,7 @@ export default function ChatPanel({
                 }`}
               >
                 <div
-                  className={`min-w-0 rounded-lg p-3 break-words overflow-hidden ${
+                  className={`min-w-0 rounded-lg p-3 break-words overflow-hidden group ${
                     message.role === 'user'
                       ? 'bg-[#0F0F0E] text-white max-w-[80%]'
                       : ''
@@ -833,6 +834,20 @@ export default function ChatPanel({
                   >
                     {formatTime(message.timestamp)}
                   </div>
+
+                  {/* Message Actions for Assistant Messages Only */}
+                  {message.role === 'assistant' && !message.isStreaming && (
+                    <MessageActions
+                      messageId={message.id}
+                      messageContent={message.content}
+                      onLike={(id, liked) => {
+                        console.log(`Message ${id} ${liked ? 'liked' : 'unliked'}`);
+                      }}
+                      onDislike={(id, disliked, reason) => {
+                        console.log(`Message ${id} ${disliked ? 'disliked' : 'undisliked'}${reason ? ` - ${reason}` : ''}`);
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}

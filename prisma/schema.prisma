@@ -41,6 +41,7 @@ model User {
   highlights     Highlight[]
   subscriptions  Subscription[]
   shapes         Shape[]
+  messageFeedback MessageFeedback[]
 
   @@map("user")
 }
@@ -159,6 +160,7 @@ model Message {
   userId    String
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedback  MessageFeedback[]
 
   @@index([chatId, createdAt])
   @@index([userId, createdAt])
@@ -310,4 +312,22 @@ model Shape {
   
   @@index([pdfId, pageNumber])
   @@map("shape")
+}
+
+model MessageFeedback {
+  id            String   @id @default(cuid())
+  messageId     String
+  userId        String
+  feedbackType  String   // "like" or "dislike"
+  dislikeReason String?  // Only populated for dislikes
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId], name: "message_user_feedback")
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_feedback")
 }
