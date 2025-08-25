@@ -60,7 +60,7 @@ function TextWithCitations({ children }: { children?: React.ReactNode }) {
   }
 
   const text = children;
-  const citationPattern = /\[cite:(\d+):([^\]]+)\]/g;
+  const citationPattern = /\[cite:([^:]+):([^\]]+)\]/g;
 
   // Check if this text contains citations
   if (!citationPattern.test(text)) {

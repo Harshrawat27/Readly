@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     - Format your responses with proper headings, lists, and emphasis
     - Use code blocks for code examples: \`\`\`language\n...\`\`\`
     - Use > for quotes and important notes
-    - **IMPORTANT: Add citations throughout your response using this format: [cite:pageNumber:previewText]**
+    - **IMPORTANT: Add citations throughout your response using this format: [cite:pageNumber:previewText] >> example [cite:18:Introduction of the iMac] in place of pageNumber add number directly don't write page54 like this**
       - Example: "The study found productivity increased by 23% [cite:5:Key findings from quarterly analysis] after implementation."
       - Add citations inline within sentences, not at the end
       - Use meaningful preview text that describes the source material
