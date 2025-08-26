@@ -165,3 +165,9 @@ solution
 
   Root Cause: Your LLM is generating inconsistent citation formats - sometimes pure numbers,
   sometimes "PageX" format. The regex only handles the pure number format.
+
+
+  -- home page design 
+  -- model swithching
+  -- subscription should working
+  
