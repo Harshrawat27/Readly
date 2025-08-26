@@ -3,6 +3,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useLimitHandler } from '@/hooks/useLimitHandler';
+import LimitReachedPopup from '@/components/LimitReachedPopup';
 
 interface PDFSidebarProps {
   onPdfSelect: (pdfId: string) => void;
@@ -44,6 +47,18 @@ const PDFSidebar = ({
   const router = useRouter();
   const pathname = usePathname();
   const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([]);
+  
+  // Subscription and limit handling
+  const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
+  const currentPlan = subscriptionData?.plan?.name || 'free';
+  const {
+    isLimitPopupOpen,
+    currentLimitType,
+    closeLimitPopup,
+    handleUpgrade,
+    handlePdfUpload,
+    handleApiError: handleLimitError,
+  } = useLimitHandler(currentPlan);
   const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -175,13 +190,23 @@ const PDFSidebar = ({
         `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
       );
 
-      if (file.size > 100 * 1024 * 1024) {
-        // 100MB limit (much higher than Vercel's 4.5MB)
-        console.log(`❌ [PDFSidebar] File too large: ${fileSizeMB} MB`);
-        setToast({
-          message: 'File size must be less than 100MB.',
-          type: 'error',
-        });
+      // Check subscription limits before proceeding
+      const currentPdfCount = pdfHistory.length;
+      const uploadSuccess = handlePdfUpload(
+        {
+          currentPdfCount,
+          fileSize: file.size,
+          // We'll estimate pageCount or get it later, for now assume reasonable default
+          pageCount: 10,
+        },
+        () => {
+          // This callback will be called if limits are OK
+          console.log('✅ [PDFSidebar] Subscription limits OK, proceeding with upload');
+        }
+      );
+
+      if (!uploadSuccess) {
+        console.log('❌ [PDFSidebar] Upload blocked by subscription limits');
         return false;
       }
 
@@ -302,20 +327,28 @@ const PDFSidebar = ({
         return true;
       } catch (error) {
         console.error('Error uploading PDF:', error);
-        setToast({
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Error uploading PDF file. Please try again.',
-          type: 'error',
-        });
+        
+        // Check if it's a limit-related error
+        const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
+        
+        if (!isLimitError) {
+          // Only show toast for non-limit errors
+          setToast({
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Error uploading PDF file. Please try again.',
+            type: 'error',
+          });
+        }
+        
         setUploadProgress('');
         return false;
       } finally {
         setIsUploading(false);
       }
     },
-    [userId, onPdfSelect, router]
+    [userId, onPdfSelect, router, pdfHistory.length, handlePdfUpload, handleLimitError, handleSubscriptionError]
   );
 
   const handleFileSelect = useCallback(() => {
@@ -335,6 +368,24 @@ const PDFSidebar = ({
       new URL(urlInput);
     } catch {
       setToast({ message: 'Please enter a valid URL', type: 'error' });
+      return;
+    }
+
+    // Check subscription limits before proceeding
+    const currentPdfCount = pdfHistory.length;
+    const uploadSuccess = handlePdfUpload(
+      {
+        currentPdfCount,
+        fileSize: 10 * 1024 * 1024, // Estimate 10MB for URL conversion
+        pageCount: 20, // Estimate reasonable page count
+      },
+      () => {
+        console.log('✅ [PDFSidebar] Subscription limits OK for URL conversion');
+      }
+    );
+
+    if (!uploadSuccess) {
+      console.log('❌ [PDFSidebar] URL conversion blocked by subscription limits');
       return;
     }
 
@@ -381,13 +432,20 @@ const PDFSidebar = ({
       setUrlInput(''); // Clear the input
     } catch (error) {
       console.error('Error converting URL to PDF:', error);
-      setToast({
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to convert URL to PDF',
-        type: 'error',
-      });
+      
+      // Check if it's a limit-related error
+      const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
+      
+      if (!isLimitError) {
+        // Only show toast for non-limit errors
+        setToast({
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to convert URL to PDF',
+          type: 'error',
+        });
+      }
     } finally {
       setIsConvertingUrl(false);
     }
@@ -1398,6 +1456,15 @@ const PDFSidebar = ({
           </div>
         </div>
       )}
+
+      {/* Limit Reached Popup */}
+      <LimitReachedPopup
+        isOpen={isLimitPopupOpen}
+        onClose={closeLimitPopup}
+        currentPlan={currentPlan}
+        limitType={currentLimitType || 'pdfs'}
+        onUpgrade={handleUpgrade}
+      />
     </div>
   );
 };

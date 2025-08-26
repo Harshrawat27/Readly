@@ -11,6 +11,9 @@ import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
 import MessageActions from './MessageActions';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useLimitHandler } from '@/hooks/useLimitHandler';
+import LimitReachedPopup from '@/components/LimitReachedPopup';
 
 interface ChatPanelProps {
   pdfId: string | null;
@@ -39,6 +42,18 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
+  
+  // Subscription and limit handling
+  const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
+  const currentPlan = subscriptionData?.plan?.name || 'free';
+  const {
+    isLimitPopupOpen,
+    currentLimitType,
+    closeLimitPopup,
+    handleUpgrade,
+    handleQuestion,
+    handleApiError: handleLimitError,
+  } = useLimitHandler(currentPlan);
   // keep messagesRef synced
   useEffect(() => {
     messagesRef.current = messages;
@@ -440,6 +455,17 @@ export default function ChatPanel({
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    // Check question limits before sending
+    const monthlyQuestionsUsed = subscriptionData?.usage?.monthlyQuestionsUsed || 0;
+    const canSendQuestion = handleQuestion(monthlyQuestionsUsed, () => {
+      console.log('✅ [ChatPanel] Question limit OK, proceeding with message');
+    });
+
+    if (!canSendQuestion) {
+      console.log('❌ [ChatPanel] Question blocked by subscription limits');
+      return;
+    }
+
     // Invalidate chat cache when sending new message
     if (pdfId) {
       clientCache.delete(cacheKeys.chatHistory(pdfId));
@@ -590,43 +616,52 @@ export default function ChatPanel({
       console.error('Error sending message:', error);
       setShowThinking(false);
 
-      // Create or update assistant message with error
-      setMessages((prev) => {
-        const existingAssistantMsg = prev.find(
-          (msg) => msg.id === assistantMessageId
-        );
-        const errorMessage =
-          'Sorry, I encountered an error while processing your request. Please try again.';
+      // Check if it's a limit-related error
+      const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
 
-        if (!existingAssistantMsg) {
-          // Create assistant message with error
-          const assistantMessage: Message = {
-            id: assistantMessageId,
-            role: 'assistant',
-            content: errorMessage,
-            timestamp: new Date(),
-            isStreaming: false,
-          };
-          return [...prev, assistantMessage];
-        } else {
-          // Update existing assistant message with error
-          return prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: errorMessage,
-                  isStreaming: false,
-                }
-              : msg
+      if (!isLimitError) {
+        // Only show error message for non-limit errors
+        // Create or update assistant message with error
+        setMessages((prev) => {
+          const existingAssistantMsg = prev.find(
+            (msg) => msg.id === assistantMessageId
           );
-        }
-      });
+          const errorMessage =
+            'Sorry, I encountered an error while processing your request. Please try again.';
+
+          if (!existingAssistantMsg) {
+            // Create assistant message with error
+            const assistantMessage: Message = {
+              id: assistantMessageId,
+              role: 'assistant',
+              content: errorMessage,
+              timestamp: new Date(),
+              isStreaming: false,
+            };
+            return [...prev, assistantMessage];
+          } else {
+            // Update existing assistant message with error
+            return prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? {
+                    ...msg,
+                    content: errorMessage,
+                    isStreaming: false,
+                  }
+                : msg
+            );
+          }
+        });
+      } else {
+        // For limit errors, remove the user message since it wasn't processed
+        setMessages((prev) => prev.filter(msg => msg.id !== userMessage.id));
+      }
       setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
       onTextSubmit();
     }
-  }, [inputValue, isLoading, pdfId, currentChatId, onTextSubmit]);
+  }, [inputValue, isLoading, pdfId, currentChatId, onTextSubmit, subscriptionData, handleQuestion, handleLimitError, handleSubscriptionError, selectedImage, messages.length, scrollDownForNewMessage]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -1090,6 +1125,15 @@ export default function ChatPanel({
           )}
         </div>
       </div>
+
+      {/* Limit Reached Popup */}
+      <LimitReachedPopup
+        isOpen={isLimitPopupOpen}
+        onClose={closeLimitPopup}
+        currentPlan={currentPlan}
+        limitType={currentLimitType || 'questions'}
+        onUpgrade={handleUpgrade}
+      />
     </div>
   );
 }
