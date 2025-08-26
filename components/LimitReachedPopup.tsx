@@ -76,7 +76,7 @@ const LimitReachedPopup: React.FC<LimitReachedPopupProps> = ({
               {limitMessages[limitType]}
             </h3>
             <p className='text-[var(--text-muted)] mb-6'>
-              You're already on our highest plan. Thank you for being an Ultimate subscriber!
+              You&apos;re already on our highest plan. Thank you for being an Ultimate subscriber!
             </p>
             <button
               onClick={onClose}
