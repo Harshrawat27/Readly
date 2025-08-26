@@ -119,7 +119,7 @@ DONE -- ⁠sound can play in my website.
 •⁠  ⁠⁠upgrade card if hit any limit
 DONE -- allow home page access to free users -- create home page.
 -- comment all console log
--- option where user can listen the text, add input in speaking way. 
+DONE -- option where user can listen the text, add input in speaking way. 
 DONE -- in brush tool drawings are not scaling properly.
 DONE -- screenshot asking! 
 DONE -- some spin animation when generating answers. **
