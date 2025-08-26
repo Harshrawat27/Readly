@@ -29,7 +29,6 @@ export default function ChatsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
-  const [selectedText, setSelectedText] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Chat-specific state
