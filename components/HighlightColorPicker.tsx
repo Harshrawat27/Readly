@@ -78,12 +78,12 @@ export default function HighlightColorPicker({
           top: Math.max(10, y - 10),
         }}
       >
-        <div
+        {/* <div
           className='text-xs text-gray-600 mb-2 max-w-xs truncate'
           title={selectedText}
         >
           &quot;{selectedText}&quot;
-        </div>
+        </div> */}
 
         {/* Color options */}
         <div className='flex gap-2 mb-3'>

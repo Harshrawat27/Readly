@@ -172,3 +172,5 @@ solution
   -- subscription should working
   -- MCQs and flashcards as per page
   -- search bar for pdf 
+  -- keep the signed URL for 24hours?
+  -- font family for some headings!!
