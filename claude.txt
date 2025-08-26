@@ -170,4 +170,5 @@ solution
   -- home page design 
   -- model swithching
   -- subscription should working
-  
+  -- MCQs and flashcards as per page
+  -- search bar for pdf 
