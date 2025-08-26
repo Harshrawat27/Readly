@@ -171,6 +171,7 @@ li {
   background: var(--text-secondary);
 }
 
+
 /* Blinking cursor animation for text tool */
 @keyframes blink {
   0%,

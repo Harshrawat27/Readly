@@ -82,7 +82,7 @@ class ClientCache {
   }
 
   // Check if data is stale (beyond TTL but not expired due to stale-while-revalidate)
-  isStale(key: string): boolean {
+  isStale(key: string, staleTtlSeconds: number = 300): boolean {
     if (!this.storage) return true;
 
     try {
@@ -91,8 +91,8 @@ class ClientCache {
 
       const entry: CacheEntry<unknown> = JSON.parse(item);
       
-      // Consider stale if older than 15 seconds
-      return (Date.now() - entry.timestamp) > 15000;
+      // Consider stale based on the provided staleTtlSeconds (default 5 minutes)
+      return (Date.now() - entry.timestamp) > (staleTtlSeconds * 1000);
     } catch {
       return true;
     }
@@ -118,7 +118,7 @@ export async function fetchWithCache<T>(
 ): Promise<T> {
   // Try cache first
   const cached = clientCache.get<T>(cacheKey);
-  if (cached && !clientCache.isStale(cacheKey)) {
+  if (cached && !clientCache.isStale(cacheKey, ttlSeconds * 0.8)) {
     return cached;
   }
 

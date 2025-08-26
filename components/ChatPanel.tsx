@@ -289,9 +289,22 @@ export default function ChatPanel({
         // Use cache for instant loading - 30 second TTL
         const cacheKey = cacheKeys.chatHistory(pdfId);
         let data;
-        
+
         try {
-          data = await fetchWithCache<{chat: {id: string; messages: Array<{id: string; role: 'user' | 'assistant'; content: string; imageData?: string; imageUrl?: string; createdAt: string}>}; pagination?: {hasMore: boolean; nextCursor: string | null}}>(
+          data = await fetchWithCache<{
+            chat: {
+              id: string;
+              messages: Array<{
+                id: string;
+                role: 'user' | 'assistant';
+                content: string;
+                imageData?: string;
+                imageUrl?: string;
+                createdAt: string;
+              }>;
+            };
+            pagination?: { hasMore: boolean; nextCursor: string | null };
+          }>(
             `/api/chat/recent?pdfId=${pdfId}&limit=50`,
             cacheKey,
             30 // 30 second cache for chat history
@@ -522,11 +535,13 @@ export default function ChatPanel({
                   if (data.content) {
                     accumulatedContent += data.content;
                     setShowThinking(false);
-                    
+
                     setMessages((prev) => {
                       // Check if assistant message already exists
-                      const existingAssistantMsg = prev.find(msg => msg.id === assistantMessageId);
-                      
+                      const existingAssistantMsg = prev.find(
+                        (msg) => msg.id === assistantMessageId
+                      );
+
                       if (!existingAssistantMsg) {
                         // Create assistant message for the first time
                         const assistantMessage: Message = {
@@ -574,12 +589,15 @@ export default function ChatPanel({
     } catch (error) {
       console.error('Error sending message:', error);
       setShowThinking(false);
-      
+
       // Create or update assistant message with error
       setMessages((prev) => {
-        const existingAssistantMsg = prev.find(msg => msg.id === assistantMessageId);
-        const errorMessage = 'Sorry, I encountered an error while processing your request. Please try again.';
-        
+        const existingAssistantMsg = prev.find(
+          (msg) => msg.id === assistantMessageId
+        );
+        const errorMessage =
+          'Sorry, I encountered an error while processing your request. Please try again.';
+
         if (!existingAssistantMsg) {
           // Create assistant message with error
           const assistantMessage: Message = {
@@ -841,10 +859,16 @@ export default function ChatPanel({
                       messageId={message.id}
                       messageContent={message.content}
                       onLike={(id, liked) => {
-                        console.log(`Message ${id} ${liked ? 'liked' : 'unliked'}`);
+                        console.log(
+                          `Message ${id} ${liked ? 'liked' : 'unliked'}`
+                        );
                       }}
                       onDislike={(id, disliked, reason) => {
-                        console.log(`Message ${id} ${disliked ? 'disliked' : 'undisliked'}${reason ? ` - ${reason}` : ''}`);
+                        console.log(
+                          `Message ${id} ${
+                            disliked ? 'disliked' : 'undisliked'
+                          }${reason ? ` - ${reason}` : ''}`
+                        );
                       }}
                     />
                   )}
@@ -899,7 +923,7 @@ export default function ChatPanel({
         )}
 
         <div className='relative'>
-          <div className='border border-[var(--border)] rounded-xl bg-[var(--input-background)] focus-within:border-[var(--accent)] transition-colors'>
+          <div className='border border-[var(--border)] rounded-xl bg-[var(--input-background)] focus-within:border-[var(--border)]transition-colors'>
             <textarea
               ref={textareaRef}
               value={inputValue}

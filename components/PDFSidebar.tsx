@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 interface PDFSidebarProps {
@@ -42,6 +42,7 @@ const PDFSidebar = ({
   isCollapsed,
 }: PDFSidebarProps) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([]);
   const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -66,28 +67,28 @@ const PDFSidebar = ({
     const loadInitialPdfs = async () => {
       try {
         setIsLoadingPdfs(true);
-        
-        // Use cache with 60 second TTL
+
+        // Use cache with 10 minute TTL - only refresh if data is stale or user explicitly refreshes
         const cacheKey = cacheKeys.pdfList(userId);
         const pdfs = await fetchWithCache<APIResponsePDFItem[]>(
           '/api/pdf/list',
           cacheKey,
-          60 // 60 second cache
+          600 // 10 minute cache (600 seconds)
         );
 
-        const processedPdfs = pdfs.map(
-          (pdf: APIResponsePDFItem) => ({
-            ...pdf,
-            uploadedAt: new Date(pdf.uploadedAt),
-            lastAccessedAt: new Date(pdf.lastAccessedAt),
-          })
-        );
-        
+        const processedPdfs = pdfs.map((pdf: APIResponsePDFItem) => ({
+          ...pdf,
+          uploadedAt: new Date(pdf.uploadedAt),
+          lastAccessedAt: new Date(pdf.lastAccessedAt),
+        }));
+
         setPdfHistory(processedPdfs);
       } catch (error) {
         console.error('Error loading PDFs:', error);
         // Fallback to cache if available (even if stale)
-        const cachedPdfs = clientCache.get<APIResponsePDFItem[]>(cacheKeys.pdfList(userId));
+        const cachedPdfs = clientCache.get<APIResponsePDFItem[]>(
+          cacheKeys.pdfList(userId)
+        );
         if (cachedPdfs) {
           const processedPdfs = cachedPdfs.map((pdf: APIResponsePDFItem) => ({
             ...pdf,
@@ -166,11 +167,13 @@ const PDFSidebar = ({
 
       const fileSizeKB = (file.size / 1024).toFixed(2);
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      
+
       console.log(`🚀 [PDFSidebar] Starting upload process`);
       console.log(`📁 [PDFSidebar] File: ${file.name}`);
       console.log(`📊 [PDFSidebar] Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
-      console.log(`🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`);
+      console.log(
+        `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
+      );
 
       if (file.size > 100 * 1024 * 1024) {
         // 100MB limit (much higher than Vercel's 4.5MB)
@@ -189,7 +192,7 @@ const PDFSidebar = ({
         // Step 1: Get presigned upload URL
         console.log(`🔑 [PDFSidebar] Requesting presigned upload URL...`);
         setUploadProgress('Getting upload URL...');
-        
+
         const urlResponse = await fetch('/api/pdf/upload-url', {
           method: 'POST',
           headers: {
@@ -224,8 +227,12 @@ const PDFSidebar = ({
         });
 
         if (!s3Response.ok) {
-          console.error(`❌ [PDFSidebar] S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
-          throw new Error(`S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
+          console.error(
+            `❌ [PDFSidebar] S3 upload failed: ${s3Response.status} ${s3Response.statusText}`
+          );
+          throw new Error(
+            `S3 upload failed: ${s3Response.status} ${s3Response.statusText}`
+          );
         }
 
         console.log(`✅ [PDFSidebar] S3 upload successful!`);
@@ -332,7 +339,7 @@ const PDFSidebar = ({
     }
 
     setIsConvertingUrl(true);
-    
+
     try {
       const response = await fetch('/api/pdf/convert-url', {
         method: 'POST',
@@ -348,10 +355,10 @@ const PDFSidebar = ({
       }
 
       const result = await response.json();
-      
+
       // Invalidate PDF list cache since we added a new PDF
       clientCache.delete(cacheKeys.pdfList(userId));
-      
+
       // Add the new PDF to the history
       setPdfHistory((prev) => [
         {
@@ -366,14 +373,20 @@ const PDFSidebar = ({
 
       // Select the new PDF
       onPdfSelect(result.id);
-      
-      setToast({ message: 'URL converted to PDF successfully!', type: 'success' });
+
+      setToast({
+        message: 'URL converted to PDF successfully!',
+        type: 'success',
+      });
       setUrlInput(''); // Clear the input
     } catch (error) {
       console.error('Error converting URL to PDF:', error);
-      setToast({ 
-        message: error instanceof Error ? error.message : 'Failed to convert URL to PDF', 
-        type: 'error' 
+      setToast({
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to convert URL to PDF',
+        type: 'error',
       });
     } finally {
       setIsConvertingUrl(false);
@@ -690,7 +703,8 @@ const PDFSidebar = ({
         onDrop={handleDrop}
       >
         {/* Header with Logo and Title */}
-        <div className='p-4 border-b border-[var(--border)]'>
+        {/* <div className='p-4 border-b border-[var(--border)]'> */}
+        <div className='p-4'>
           <div className='flex items-center justify-between mb-6'>
             <div className='flex items-center gap-3'>
               <div className='w-6 h-6 bg-[var(--accent)] rounded-md flex items-center justify-center'>
@@ -769,7 +783,9 @@ const PDFSidebar = ({
 
           {/* URL Upload Section */}
           <div className='mb-6 space-y-2'>
-            <p className='text-sm text-[var(--text-muted)] font-medium'>Upload URL</p>
+            <p className='text-sm text-[var(--text-muted)] font-medium'>
+              Upload URL
+            </p>
             <div className='flex gap-2'>
               <input
                 type='url'
@@ -816,7 +832,14 @@ const PDFSidebar = ({
 
           {/* Navigation Sections */}
           <div className='space-y-1'>
-            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
+            <button 
+              onClick={() => router.push('/chats')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
+                pathname === '/chats' 
+                  ? 'bg-[#0F0F0E] text-white' 
+                  : 'hover:bg-[var(--faded-white)] text-[var(--text-primary)]'
+              }`}
+            >
               <svg
                 className='w-4 h-4'
                 viewBox='0 0 24 24'
@@ -824,13 +847,19 @@ const PDFSidebar = ({
                 stroke='currentColor'
                 strokeWidth='2'
               >
-                <path d='M22 11.08V12a10 10 0 1 1-5.93-9.14' />
-                <polyline points='22,4 12,14.01 9,11.01' />
+                <path 
+                  d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
+                  className='transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]'
+                />
+                <path 
+                  d='M14 8H8m6 4H8'
+                  className='transition-transform group-hover:translate-x-[0.5px] group-hover:-translate-y-[0.5px]'
+                />
               </svg>
               <span className='text-sm'>Chats</span>
             </button>
 
-            <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
+            {/* <button className='w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--faded-white)] transition-colors text-[var(--text-primary)]'>
               <svg
                 className='w-4 h-4'
                 viewBox='0 0 24 24'
@@ -857,13 +886,14 @@ const PDFSidebar = ({
                 <path d='m12 1 0 6m0 6 0 6m11-7-6 0m-6 0-6 0' />
               </svg>
               <span className='text-sm'>Artifacts</span>
-            </button>
+            </button> */}
           </div>
         </div>
 
         {/* Recents Section */}
         <div className='flex-1 overflow-hidden flex flex-col'>
-          <div className='px-4 py-3 border-b border-[var(--border)]'>
+          {/* <div className='px-4 py-3 border-b border-[var(--border)]'> */}
+          <div className='px-4 py-2'>
             <h3 className='text-sm font-medium text-[var(--text-muted)]'>
               Recents
             </h3>
@@ -876,7 +906,7 @@ const PDFSidebar = ({
               </div>
             ) : pdfHistory.length > 0 ? (
               <div className='px-2 py-2'>
-                {pdfHistory.map((pdf) => (
+                {pdfHistory.slice(0, 15).map((pdf) => (
                   <div
                     key={pdf.id}
                     onClick={() => onPdfSelect(pdf.id)}
@@ -1025,6 +1055,34 @@ const PDFSidebar = ({
                     </div>
                   </div>
                 ))}
+                
+                {/* Show "All Chats" button if there are more than 15 PDFs */}
+                {pdfHistory.length > 15 && (
+                  <div className='px-3 py-2'>
+                    <button
+                      onClick={() => router.push('/chats')}
+                      className='w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-[var(--text-muted)] hover:bg-[var(--faded-white)] hover:text-[var(--text-primary)] transition-colors group'
+                    >
+                      <svg
+                        className='w-4 h-4'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                      >
+                        <path 
+                          d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
+                          className='transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]'
+                        />
+                        <path 
+                          d='M14 8H8m6 4H8'
+                          className='transition-transform group-hover:translate-x-[0.5px] group-hover:-translate-y-[0.5px]'
+                        />
+                      </svg>
+                      All Chats
+                    </button>
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
