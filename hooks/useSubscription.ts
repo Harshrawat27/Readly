@@ -22,10 +22,26 @@ export function useSubscription() {
 
   const fetchSubscriptionData = async () => {
     try {
+      // Check cache first to prevent duplicate calls
+      const cacheKey = 'subscription_status';
+      const cached = sessionStorage.getItem(cacheKey);
+      const cacheTime = sessionStorage.getItem(`${cacheKey}_time`);
+      
+      // Use 2-minute cache for subscription data
+      if (cached && cacheTime && (Date.now() - parseInt(cacheTime)) < 2 * 60 * 1000) {
+        setSubscriptionData(JSON.parse(cached));
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/subscription/status');
       if (response.ok) {
         const data = await response.json();
         setSubscriptionData(data);
+        
+        // Cache the result
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
+        sessionStorage.setItem(`${cacheKey}_time`, Date.now().toString());
       }
     } catch (error) {
       console.error('Failed to fetch subscription data:', error);

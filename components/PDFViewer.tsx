@@ -164,28 +164,39 @@ export default function PDFViewer({
   >(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // State to control when secondary data should load (shapes, pen drawings)
+  const [loadSecondaryData, setLoadSecondaryData] = useState(false);
 
-  // Load highlights with caching
+  // Load data with priority: highlights, then comments/texts, then shapes/pen drawings
   useEffect(() => {
-    const loadHighlights = async () => {
+    const loadDataWithPriority = async () => {
       if (!pdfId) {
         setHighlights([]);
         return;
       }
 
       try {
-        const data = await fetchWithCache<Array<Record<string, unknown>>>(
+        // Priority 1: Load highlights first (most visible to users)
+        const highlightsData = await fetchWithCache<Array<Record<string, unknown>>>(
           `/api/highlights?pdfId=${pdfId}`,
           cacheKeys.pdfHighlights(pdfId),
           120 // Cache for 2 minutes
         );
-        setHighlights(data);
+        setHighlights(highlightsData);
+
+        // Priority 2: Enable secondary data loading after highlights load
+        setTimeout(() => {
+          // Enable shapes and pen drawings loading
+          setLoadSecondaryData(true);
+        }, 1000); // 1 second delay to let critical data (PDF, chat, highlights) load first
+
       } catch (error) {
         console.error('Failed to load highlights:', error);
       }
     };
 
-    loadHighlights();
+    loadDataWithPriority();
   }, [pdfId]);
 
   const {
@@ -200,13 +211,13 @@ export default function PDFViewer({
     deleteText,
   } = usePDFData(pdfId);
 
-  // Shapes management
+  // Shapes management - only load when secondary data is ready
   const { getShapesForPage, addShape, updateShape, deleteShape } =
-    useShapes(pdfId);
+    useShapes(loadSecondaryData ? pdfId : null);
 
-  // Pen drawings management
+  // Pen drawings management - only load when secondary data is ready
   const { getDrawingsForPage, saveDrawingsForPage, updateDrawingsForPage } =
-    usePenDrawings(pdfId);
+    usePenDrawings(loadSecondaryData ? pdfId : null);
 
   // Shape tool state
   const [shapeColor, setShapeColor] = useState('#000000');
