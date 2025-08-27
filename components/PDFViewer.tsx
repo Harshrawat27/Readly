@@ -48,7 +48,9 @@ interface PDFViewerProps {
     name: string;
     image?: string;
   };
-  onNavigateToPageRef?: React.MutableRefObject<((pageNumber: number) => void) | null>;
+  onNavigateToPageRef?: React.MutableRefObject<
+    ((pageNumber: number) => void) | null
+  >;
 }
 
 interface TextSelectionDialog {
@@ -128,6 +130,21 @@ export default function PDFViewer({
 
   // Background audio management
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // PDF Search functionality
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<
+    Array<{
+      pageNumber: number;
+      textContent: string;
+      matches: Array<{ start: number; end: number }>;
+    }>
+  >([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchHighlights, setSearchHighlights] = useState<Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number}>}>>>(new Map());
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Load highlights
   useEffect(() => {
@@ -851,6 +868,254 @@ export default function PDFViewer({
     },
     [pdfFile]
   );
+
+  // Create search highlights function
+  const createSearchHighlights = useCallback(async (results: Array<{pageNumber: number; textContent: string; matches: Array<{start: number; end: number}>}>, query: string) => {
+    if (!pdfFile) return;
+    
+    try {
+      const reactPdf = await import('react-pdf');
+      const pdfjs = reactPdf.pdfjs;
+      const loadingTask = pdfjs.getDocument(pdfFile);
+      const pdfDocument = await loadingTask.promise;
+      
+      const highlightsByPage = new Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number}>}>>();
+      
+      for (const result of results) {
+        try {
+          const page = await pdfDocument.getPage(result.pageNumber);
+          const textContent = await page.getTextContent();
+          const viewport = page.getViewport({ scale: 1.0 });
+          
+          // Get the page container for this page to calculate relative positions
+          const pageContainer = document.querySelector(`[data-page-number="${result.pageNumber}"] canvas`);
+          if (!pageContainer) continue;
+          
+          const highlightRects: Array<{x: number; y: number; width: number; height: number}> = [];
+          
+          // Find text items that match our search query
+          const items = textContent.items.filter(item => 'str' in item) as Array<{str: string; transform: number[]; width: number; height: number}>;
+          
+          for (const item of items) {
+            const itemText = item.str;
+            const lowerItemText = itemText.toLowerCase();
+            const lowerQuery = query.toLowerCase();
+            
+            let searchStart = 0;
+            while (true) {
+              const foundIndex = lowerItemText.indexOf(lowerQuery, searchStart);
+              if (foundIndex === -1) break;
+              
+              // Calculate position using PDF.js text item transform
+              const x = (item.transform[4] / viewport.width) * 100;
+              const y = ((viewport.height - item.transform[5]) / viewport.height) * 100;
+              const width = (item.width / viewport.width) * 100;
+              const height = (item.height / viewport.height) * 100;
+              
+              highlightRects.push({
+                x: Math.max(0, x),
+                y: Math.max(0, y),
+                width: Math.min(100 - x, width),
+                height: Math.min(100 - y, height)
+              });
+              
+              searchStart = foundIndex + 1;
+            }
+          }
+          
+          if (highlightRects.length > 0) {
+            highlightsByPage.set(result.pageNumber, [{
+              id: `search_${result.pageNumber}_${Date.now()}`,
+              text: query,
+              rects: highlightRects
+            }]);
+          }
+        } catch (pageError) {
+          console.error(`Error creating highlights for page ${result.pageNumber}:`, pageError);
+        }
+      }
+      
+      setSearchHighlights(highlightsByPage);
+    } catch (error) {
+      console.error('Error creating search highlights:', error);
+    }
+  }, [pdfFile]);
+
+  // Search functionality
+  const performSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim() || !pdfFile || !numPages) return;
+
+      setIsSearching(true);
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      setSearchHighlights(new Map());
+
+      try {
+        const reactPdf = await import('react-pdf');
+        const pdfjs = reactPdf.pdfjs;
+        const loadingTask = pdfjs.getDocument(pdfFile);
+        const pdfDocument = await loadingTask.promise;
+
+        const results: Array<{
+          pageNumber: number;
+          textContent: string;
+          matches: Array<{ start: number; end: number }>;
+        }> = [];
+
+        // Search through all pages
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          try {
+            const page = await pdfDocument.getPage(pageNum);
+            const textContent = await page.getTextContent();
+
+            const pageText = textContent.items
+              .map((item) => ('str' in item ? item.str : '') || '')
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            if (pageText) {
+              const lowerPageText = pageText.toLowerCase();
+              const lowerQuery = query.toLowerCase();
+              const matches: Array<{ start: number; end: number }> = [];
+
+              let searchIndex = 0;
+              while (true) {
+                const foundIndex = lowerPageText.indexOf(
+                  lowerQuery,
+                  searchIndex
+                );
+                if (foundIndex === -1) break;
+
+                matches.push({
+                  start: foundIndex,
+                  end: foundIndex + query.length,
+                });
+                searchIndex = foundIndex + 1;
+              }
+
+              if (matches.length > 0) {
+                results.push({
+                  pageNumber: pageNum,
+                  textContent: pageText,
+                  matches,
+                });
+              }
+            }
+          } catch (pageError) {
+            console.error(`Error searching page ${pageNum}:`, pageError);
+          }
+        }
+
+        setSearchResults(results);
+        
+        // Create search highlights for visual feedback
+        await createSearchHighlights(results, query);
+        
+        if (results.length > 0) {
+          setCurrentSearchIndex(0);
+          // Navigate to first result - we'll handle this in useEffect
+          setPendingNavigation(results[0].pageNumber);
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [pdfFile, numPages, createSearchHighlights]
+  );
+
+  const navigateSearchResult = useCallback(
+    (direction: 'prev' | 'next') => {
+      if (searchResults.length === 0) return;
+
+      let newIndex;
+      if (direction === 'next') {
+        newIndex =
+          currentSearchIndex < searchResults.length - 1
+            ? currentSearchIndex + 1
+            : 0;
+      } else {
+        newIndex =
+          currentSearchIndex > 0
+            ? currentSearchIndex - 1
+            : searchResults.length - 1;
+      }
+
+      setCurrentSearchIndex(newIndex);
+      setPendingNavigation(searchResults[newIndex].pageNumber);
+    },
+    [searchResults, currentSearchIndex]
+  );
+
+  const handleSearchToggle = useCallback(() => {
+    setIsSearchOpen(!isSearchOpen);
+    if (!isSearchOpen) {
+      // Auto-focus the input when opening
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    } else {
+      // Clear search when closing
+      setSearchQuery('');
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      setSearchHighlights(new Map());
+    }
+  }, [isSearchOpen]);
+
+  const handleSearchInputChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      if (value.trim()) {
+        // Debounce search
+        const timeoutId = setTimeout(() => {
+          performSearch(value);
+        }, 500);
+        return () => clearTimeout(timeoutId);
+      } else {
+        setSearchResults([]);
+        setCurrentSearchIndex(-1);
+        setSearchHighlights(new Map());
+      }
+    },
+    [performSearch]
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+          performSearch(searchQuery);
+        }
+      } else if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        setCurrentSearchIndex(-1);
+        setSearchHighlights(new Map());
+      }
+    },
+    [searchQuery, performSearch]
+  );
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.search-container')) {
+        if (isSearchOpen && searchQuery === '') {
+          setIsSearchOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSearchOpen, searchQuery]);
 
   // Queue for navigation attempts before PDF is loaded
   const [pendingNavigation, setPendingNavigation] = useState<number | null>(
@@ -2151,6 +2416,109 @@ export default function PDFViewer({
                 <path d='M8 11h6' />
               </svg>
             </button>
+
+            {/* Search functionality */}
+            <div className='relative search-container'>
+              <button
+                onClick={handleSearchToggle}
+                className={`p-2 rounded-lg transition-colors ${
+                  isSearchOpen || searchResults.length > 0
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--faded-white)] hover:bg-[var(--border)]'
+                }`}
+                title='Search in PDF'
+              >
+                <svg
+                  className='w-4 h-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <circle cx='11' cy='11' r='8' />
+                  <path d='M21 21l-4.35-4.35' />
+                </svg>
+              </button>
+
+              {/* Search dropdown */}
+              {isSearchOpen && (
+                <div className='absolute top-full right-0 mt-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg p-3 min-w-[280px] z-50'>
+                  <div className='flex items-center gap-2'>
+                    <div className='flex-1 relative'>
+                      <input
+                        ref={searchInputRef}
+                        type='text'
+                        value={searchQuery}
+                        onChange={(e) =>
+                          handleSearchInputChange(e.target.value)
+                        }
+                        onKeyDown={handleSearchKeyDown}
+                        placeholder='Search in PDF...'
+                        className='w-full px-3 py-2 text-sm border border-[var(--border)] rounded bg-[var(--input-background)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-white'
+                      />
+                      {isSearching && (
+                        <div className='absolute right-2 top-1/2 transform -translate-y-1/2'>
+                          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--accent)]'></div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Navigation arrows */}
+                    <div className='flex items-center gap-1'>
+                      <button
+                        onClick={() => navigateSearchResult('prev')}
+                        disabled={searchResults.length === 0}
+                        className='p-1.5 rounded bg-[var(--faded-white)] hover:bg-[var(--border)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                        title='Previous result'
+                      >
+                        <svg
+                          className='w-3 h-3'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                        >
+                          <path d='M15 18l-6-6 6-6' />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={() => navigateSearchResult('next')}
+                        disabled={searchResults.length === 0}
+                        className='p-1.5 rounded bg-[var(--faded-white)] hover:bg-[var(--border)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                        title='Next result'
+                      >
+                        <svg
+                          className='w-3 h-3'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                        >
+                          <path d='M9 18l6-6-6-6' />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search results info */}
+                  {searchQuery && (
+                    <div className='text-xs text-[var(--text-muted)] mt-1'>
+                      {isSearching
+                        ? 'Searching...'
+                        : searchResults.length > 0
+                        ? `${currentSearchIndex + 1} of ${searchResults.reduce(
+                            (total, result) => total + result.matches.length,
+                            0
+                          )} results found`
+                        : searchQuery.trim()
+                        ? 'No results found'
+                        : null}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -2389,6 +2757,32 @@ export default function PDFViewer({
                                 </div>
                               )
                             )}
+                            
+                            {/* Search Highlights Overlay */}
+                            {searchHighlights.has(pageNumber) && 
+                              searchHighlights.get(pageNumber)?.map((searchHighlight) => (
+                                <div key={searchHighlight.id}>
+                                  {searchHighlight.rects.map((rect, rectIndex) => (
+                                    <div
+                                      key={`${searchHighlight.id}-${rectIndex}`}
+                                      className='absolute pointer-events-none'
+                                      style={{
+                                        left: `${rect.x}%`,
+                                        top: `${rect.y}%`,
+                                        width: `${rect.width}%`,
+                                        height: `${rect.height}%`,
+                                        backgroundColor: '#ffff00',
+                                        opacity: 0.4,
+                                        mixBlendMode: 'multiply',
+                                        borderRadius: '1px',
+                                        zIndex: 1,
+                                      }}
+                                      title={`Search: ${searchHighlight.text}`}
+                                    />
+                                  ))}
+                                </div>
+                              ))
+                            }
                           </>
                         ) : (
                           <div
