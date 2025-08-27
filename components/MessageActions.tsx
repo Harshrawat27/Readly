@@ -15,6 +15,7 @@ interface MessageActionsProps {
   messageContent: string;
   initialLiked?: boolean;
   initialDisliked?: boolean;
+  feedbackData?: { success: boolean; feedback?: { feedbackType: string } | null } | null;
   onLike?: (messageId: string, liked: boolean) => void;
   onDislike?: (messageId: string, disliked: boolean, reason?: string) => void;
 }
@@ -174,6 +175,7 @@ export default function MessageActions({
   messageContent,
   initialLiked = false,
   initialDisliked = false,
+  feedbackData = null,
   onLike,
   onDislike,
 }: MessageActionsProps) {
@@ -520,25 +522,17 @@ export default function MessageActions({
     }
   };
 
-  // Load initial feedback state from API
+  // Initialize feedback state from props or fallback to initial values
   useEffect(() => {
-    const loadFeedbackState = async () => {
-      try {
-        const response = await fetch(`/api/message-feedback?messageId=${messageId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.feedback) {
-            setLiked(data.feedback.feedbackType === 'like');
-            setDisliked(data.feedback.feedbackType === 'dislike');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load feedback state:', error);
-      }
-    };
-
-    loadFeedbackState();
-  }, [messageId]);
+    if (feedbackData && feedbackData.success && feedbackData.feedback) {
+      setLiked(feedbackData.feedback.feedbackType === 'like');
+      setDisliked(feedbackData.feedback.feedbackType === 'dislike');
+    } else {
+      // Use initial props if no feedback data provided
+      setLiked(initialLiked);
+      setDisliked(initialDisliked);
+    }
+  }, [feedbackData, initialLiked, initialDisliked]);
 
   // Cleanup audio when component unmounts
   useEffect(() => {

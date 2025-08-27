@@ -33,6 +33,13 @@ interface Message {
   isStreaming?: boolean;
 }
 
+interface MessageFeedbackData {
+  [messageId: string]: {
+    success: boolean;
+    feedback?: { feedbackType: string } | null;
+  } | null;
+}
+
 export default function ChatPanel({
   pdfId,
   selectedText,
@@ -42,6 +49,7 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
+  const [messageFeedback, setMessageFeedback] = useState<MessageFeedbackData>({});
   
   // Subscription and limit handling
   const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
@@ -273,6 +281,16 @@ export default function ChatPanel({
         setMessages((prev) => [...olderMessages, ...prev]);
         setHasMoreMessages(data.pagination?.hasMore || false);
         setNextCursor(data.pagination?.nextCursor || null);
+        
+        // Load feedback for new assistant messages
+        const assistantMessageIds = olderMessages
+          .filter((msg: Message) => msg.role === 'assistant')
+          .map((msg: Message) => msg.id);
+        
+        if (assistantMessageIds.length > 0) {
+          const feedbackData = await loadMessageFeedback(assistantMessageIds);
+          setMessageFeedback(prev => ({ ...prev, ...feedbackData }));
+        }
       }
     } catch (error) {
       console.error('Failed to load more messages:', error);
@@ -280,6 +298,24 @@ export default function ChatPanel({
       setIsLoadingMore(false);
     }
   }, [nextCursor, currentChatId, pdfId, isLoadingMore]);
+
+  // Load batch message feedback
+  const loadMessageFeedback = useCallback(async (messageIds: string[]) => {
+    if (messageIds.length === 0) return {};
+    
+    try {
+      const response = await fetch(`/api/message-feedback?messageIds=${messageIds.join(',')}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.batch) {
+          return data.results || {};
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load message feedback:', error);
+    }
+    return {};
+  }, []);
 
   // Load chat history (optimized with pagination). Scroll handled by the effects above.
   useEffect(() => {
@@ -293,6 +329,7 @@ export default function ChatPanel({
         setShowChatContent(true);
         setHasMoreMessages(false);
         setNextCursor(null);
+        setMessageFeedback({});
         return;
       }
 
@@ -364,6 +401,16 @@ export default function ChatPanel({
           setHasMoreMessages(data.pagination?.hasMore || false);
           setNextCursor(data.pagination?.nextCursor || null);
 
+          // Load feedback for all assistant messages
+          const assistantMessageIds = allMessages
+            .filter(msg => msg.role === 'assistant')
+            .map(msg => msg.id);
+          
+          if (assistantMessageIds.length > 0) {
+            const feedbackData = await loadMessageFeedback(assistantMessageIds);
+            setMessageFeedback(feedbackData);
+          }
+
           // mark initial load finished in next tick to allow scroll effects to run first
           requestAnimationFrame(() => {
             setIsInitialLoad(false);
@@ -379,6 +426,7 @@ export default function ChatPanel({
           setShowChatContent(true);
           setHasMoreMessages(false);
           setNextCursor(null);
+          setMessageFeedback({});
         }
       } catch (error) {
         console.error('Failed to load chat history:', error);
@@ -388,6 +436,7 @@ export default function ChatPanel({
         setShowChatContent(true);
         setHasMoreMessages(false);
         setNextCursor(null);
+        setMessageFeedback({});
       } finally {
         if (mounted) setIsLoadingHistory(false);
       }
@@ -398,7 +447,7 @@ export default function ChatPanel({
     return () => {
       mounted = false;
     };
-  }, [pdfId]);
+  }, [pdfId, loadMessageFeedback]);
 
   // Auto-resize textarea
   const adjustTextareaHeight = useCallback(() => {
@@ -601,6 +650,11 @@ export default function ChatPanel({
                       )
                     );
                     setStreamingMessageId(null);
+                    
+                    // Load feedback for the new assistant message
+                    loadMessageFeedback([assistantMessageId]).then(feedbackData => {
+                      setMessageFeedback(prev => ({ ...prev, ...feedbackData }));
+                    });
                   }
                 } catch (e) {
                   console.error('Error parsing SSE data:', e);
@@ -678,6 +732,7 @@ export default function ChatPanel({
     messagesRef.current = [];
     setCurrentChatId(null);
     setIsInitialLoad(true);
+    setMessageFeedback({});
   }, []);
 
   const formatTime = (date: Date) => {
@@ -893,10 +948,19 @@ export default function ChatPanel({
                     <MessageActions
                       messageId={message.id}
                       messageContent={message.content}
+                      feedbackData={messageFeedback[message.id]}
                       onLike={(id, liked) => {
                         console.log(
                           `Message ${id} ${liked ? 'liked' : 'unliked'}`
                         );
+                        // Update local feedback state
+                        setMessageFeedback(prev => ({
+                          ...prev,
+                          [id]: {
+                            success: true,
+                            feedback: liked ? { feedbackType: 'like' } : null
+                          }
+                        }));
                       }}
                       onDislike={(id, disliked, reason) => {
                         console.log(
@@ -904,6 +968,14 @@ export default function ChatPanel({
                             disliked ? 'disliked' : 'undisliked'
                           }${reason ? ` - ${reason}` : ''}`
                         );
+                        // Update local feedback state
+                        setMessageFeedback(prev => ({
+                          ...prev,
+                          [id]: {
+                            success: true,
+                            feedback: disliked ? { feedbackType: 'dislike' } : null
+                          }
+                        }));
                       }}
                     />
                   )}

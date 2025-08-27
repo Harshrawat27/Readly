@@ -118,11 +118,7 @@ export default function FigmaToolbar({
 
   const getCurrentToolIcon = (group: ToolGroup) => {
     const currentTool = getCurrentTool(group);
-    const allTools = [
-      ...moveTools,
-      ...shapeTools,
-      ...commentTools,
-    ];
+    const allTools = [...moveTools, ...shapeTools, ...commentTools];
     return allTools.find((tool) => tool.id === currentTool)?.icon;
   };
 
@@ -186,7 +182,7 @@ export default function FigmaToolbar({
 
   return (
     <div
-      className='fixed bottom-[10px] left-1/2 transform -translate-x-1/2 z-40 figma-toolbar'
+      className='fixed bottom-[10px] left-1/2 transform -translate-x-1/2 z-51 figma-toolbar'
       ref={dropdownRef}
     >
       <div className='bg-[var(--card-background)] rounded-xl shadow-2xl border border-[var(--border)] p-1 flex items-center gap-1'>
@@ -515,7 +511,6 @@ const PenIcon = () => (
     <path d='M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z' />
   </svg>
 );
-
 
 const TextIcon = () => (
   <svg

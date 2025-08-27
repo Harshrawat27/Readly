@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const messageId = searchParams.get('messageId');
+    const messageIds = searchParams.get('messageIds');
 
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -162,9 +163,53 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
+    // Support batch requests with messageIds parameter (comma-separated)
+    if (messageIds) {
+      const ids = messageIds.split(',').filter(id => id.trim().length > 0);
+      
+      if (ids.length === 0) {
+        return NextResponse.json(
+          { error: 'messageIds parameter cannot be empty' },
+          { status: 400 }
+        );
+      }
+
+      // Get feedback for multiple messages
+      const feedbacks = await prisma.messageFeedback.findMany({
+        where: {
+          messageId: {
+            in: ids
+          },
+          userId,
+        },
+      });
+
+      // Create a map for easy lookup
+      const feedbackMap = feedbacks.reduce((acc, feedback) => {
+        acc[feedback.messageId] = feedback;
+        return acc;
+      }, {} as Record<string, typeof feedbacks[0]>);
+
+      // Return results for all requested message IDs
+      const results = ids.reduce((acc, id) => {
+        acc[id] = {
+          success: true,
+          feedback: feedbackMap[id] || null,
+        };
+        return acc;
+      }, {} as Record<string, { success: boolean; feedback: typeof feedbacks[0] | null }>);
+
+      return NextResponse.json({
+        success: true,
+        batch: true,
+        results,
+      });
+    }
+
+    // Single message request (legacy support)
     if (!messageId) {
       return NextResponse.json(
-        { error: 'messageId is required' },
+        { error: 'messageId or messageIds is required' },
         { status: 400 }
       );
     }
