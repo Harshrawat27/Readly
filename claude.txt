@@ -174,3 +174,5 @@ solution
   -- search bar for pdf 
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
+  -- id and pass not working
+  -- not counting page for url upload, even free user is able to upload big docs
