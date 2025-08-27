@@ -175,6 +175,7 @@ solution
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
   -- not counting page for url upload, even free user is able to upload big docs
+  -- make some pdf star
 
 
   -- when someone change pdf we'll reset search functionality. 
