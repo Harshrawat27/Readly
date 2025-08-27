@@ -170,7 +170,6 @@ solution
   -- home page design 
   -- model swithching
   -- subscription should working
-  -- MCQs and flashcards as per page
   DONE -- search bar for pdf 
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
@@ -179,3 +178,7 @@ solution
 
 
   -- when someone change pdf we'll reset search functionality. 
+
+  later stage. 
+
+  -- MCQs and flashcards as per page
