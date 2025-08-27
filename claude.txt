@@ -171,10 +171,9 @@ solution
   -- model swithching
   -- subscription should working
   -- MCQs and flashcards as per page
-  -- search bar for pdf 
+  DONE -- search bar for pdf 
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
-  -- id and pass not working
   -- not counting page for url upload, even free user is able to upload big docs
 
 
