@@ -176,3 +176,6 @@ solution
   -- font family for some headings!!
   -- id and pass not working
   -- not counting page for url upload, even free user is able to upload big docs
+
+
+  -- when someone change pdf we'll reset search functionality. 

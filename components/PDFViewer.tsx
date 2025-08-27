@@ -137,14 +137,17 @@ export default function PDFViewer({
   const [searchResults, setSearchResults] = useState<
     Array<{
       pageNumber: number;
-      textContent: string;
-      matches: Array<{ start: number; end: number }>;
+      wordIndex: number;
+      word: string;
+      rect: { x: number; y: number; width: number; height: number };
+      globalIndex: number;
     }>
   >([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHighlights, setSearchHighlights] = useState<Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number}>}>>>(new Map());
+  const [searchHighlights, setSearchHighlights] = useState<Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number; isCurrentResult?: boolean}>}>>>(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load highlights
   useEffect(() => {
@@ -869,79 +872,37 @@ export default function PDFViewer({
     [pdfFile]
   );
 
-  // Create search highlights function
-  const createSearchHighlights = useCallback(async (results: Array<{pageNumber: number; textContent: string; matches: Array<{start: number; end: number}>}>, query: string) => {
-    if (!pdfFile) return;
+  // Create search highlights function with accurate positioning and current result highlighting
+  const createSearchHighlights = useCallback(async (results: Array<{pageNumber: number; wordIndex: number; word: string; rect: {x: number; y: number; width: number; height: number}; globalIndex: number}>, currentIndex: number) => {
+    const highlightsByPage = new Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number; isCurrentResult?: boolean}>}>>();
     
-    try {
-      const reactPdf = await import('react-pdf');
-      const pdfjs = reactPdf.pdfjs;
-      const loadingTask = pdfjs.getDocument(pdfFile);
-      const pdfDocument = await loadingTask.promise;
-      
-      const highlightsByPage = new Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number}>}>>();
-      
-      for (const result of results) {
-        try {
-          const page = await pdfDocument.getPage(result.pageNumber);
-          const textContent = await page.getTextContent();
-          const viewport = page.getViewport({ scale: 1.0 });
-          
-          // Get the page container for this page to calculate relative positions
-          const pageContainer = document.querySelector(`[data-page-number="${result.pageNumber}"] canvas`);
-          if (!pageContainer) continue;
-          
-          const highlightRects: Array<{x: number; y: number; width: number; height: number}> = [];
-          
-          // Find text items that match our search query
-          const items = textContent.items.filter(item => 'str' in item) as Array<{str: string; transform: number[]; width: number; height: number}>;
-          
-          for (const item of items) {
-            const itemText = item.str;
-            const lowerItemText = itemText.toLowerCase();
-            const lowerQuery = query.toLowerCase();
-            
-            let searchStart = 0;
-            while (true) {
-              const foundIndex = lowerItemText.indexOf(lowerQuery, searchStart);
-              if (foundIndex === -1) break;
-              
-              // Calculate position using PDF.js text item transform
-              const x = (item.transform[4] / viewport.width) * 100;
-              const y = ((viewport.height - item.transform[5]) / viewport.height) * 100;
-              const width = (item.width / viewport.width) * 100;
-              const height = (item.height / viewport.height) * 100;
-              
-              highlightRects.push({
-                x: Math.max(0, x),
-                y: Math.max(0, y),
-                width: Math.min(100 - x, width),
-                height: Math.min(100 - y, height)
-              });
-              
-              searchStart = foundIndex + 1;
-            }
-          }
-          
-          if (highlightRects.length > 0) {
-            highlightsByPage.set(result.pageNumber, [{
-              id: `search_${result.pageNumber}_${Date.now()}`,
-              text: query,
-              rects: highlightRects
-            }]);
-          }
-        } catch (pageError) {
-          console.error(`Error creating highlights for page ${result.pageNumber}:`, pageError);
-        }
+    // Group results by page
+    const resultsByPage = new Map<number, Array<{pageNumber: number; wordIndex: number; word: string; rect: {x: number; y: number; width: number; height: number}; globalIndex: number}>>();
+    results.forEach(result => {
+      if (!resultsByPage.has(result.pageNumber)) {
+        resultsByPage.set(result.pageNumber, []);
       }
+      resultsByPage.get(result.pageNumber)!.push(result);
+    });
+    
+    // Create highlights for each page
+    resultsByPage.forEach((pageResults, pageNumber) => {
+      const rects = pageResults.map(result => ({
+        ...result.rect,
+        isCurrentResult: result.globalIndex === currentIndex
+      }));
       
-      setSearchHighlights(highlightsByPage);
-    } catch (error) {
-      console.error('Error creating search highlights:', error);
-    }
-  }, [pdfFile]);
+      highlightsByPage.set(pageNumber, [{
+        id: `search_highlights_${pageNumber}`,
+        text: pageResults[0].word,
+        rects
+      }]);
+    });
+    
+    setSearchHighlights(highlightsByPage);
+  }, []);
 
-  // Search functionality
+  // Enhanced search functionality with word-level precision
   const performSearch = useCallback(
     async (query: string) => {
       if (!query.trim() || !pdfFile || !numPages) return;
@@ -957,66 +918,182 @@ export default function PDFViewer({
         const loadingTask = pdfjs.getDocument(pdfFile);
         const pdfDocument = await loadingTask.promise;
 
-        const results: Array<{
+        const allResults: Array<{
           pageNumber: number;
-          textContent: string;
-          matches: Array<{ start: number; end: number }>;
+          wordIndex: number;
+          word: string;
+          rect: { x: number; y: number; width: number; height: number };
+          globalIndex: number;
         }> = [];
 
-        // Search through all pages
+        let globalWordIndex = 0;
+
+        // Search through all pages with precise text positioning
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
           try {
             const page = await pdfDocument.getPage(pageNum);
             const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale: 1.0 });
 
-            const pageText = textContent.items
-              .map((item) => ('str' in item ? item.str : '') || '')
-              .join(' ')
-              .replace(/\s+/g, ' ')
-              .trim();
+            const items = textContent.items.filter(item => 'str' in item) as Array<{
+              str: string;
+              transform: number[];
+              width: number;
+              height: number;
+              fontName: string;
+            }>;
 
-            if (pageText) {
-              const lowerPageText = pageText.toLowerCase();
-              const lowerQuery = query.toLowerCase();
-              const matches: Array<{ start: number; end: number }> = [];
-
-              let searchIndex = 0;
-              while (true) {
-                const foundIndex = lowerPageText.indexOf(
-                  lowerQuery,
-                  searchIndex
-                );
-                if (foundIndex === -1) break;
-
-                matches.push({
-                  start: foundIndex,
-                  end: foundIndex + query.length,
-                });
-                searchIndex = foundIndex + 1;
+            // First, create a complete text representation of the page with item positions
+            const pageTextWithPositions: Array<{
+              text: string;
+              item: {
+                str: string;
+                transform: number[];
+                width: number;
+                height: number;
+                fontName: string;
+              };
+              startIndex: number;
+              endIndex: number;
+            }> = [];
+            
+            let fullPageText = '';
+            for (const item of items) {
+              const startIndex = fullPageText.length;
+              const text = item.str;
+              fullPageText += (fullPageText.length > 0 ? ' ' : '') + text;
+              const endIndex = fullPageText.length;
+              
+              pageTextWithPositions.push({
+                text,
+                item,
+                startIndex,
+                endIndex
+              });
+            }
+            
+            // Search for the query in the full page text
+            const lowerPageText = fullPageText.toLowerCase();
+            const lowerQuery = query.toLowerCase();
+            let searchIndex = 0;
+            let matchIndex = 0;
+            
+            while (true) {
+              const foundIndex = lowerPageText.indexOf(lowerQuery, searchIndex);
+              if (foundIndex === -1) break;
+              
+              const matchEndIndex = foundIndex + query.length;
+              
+              // Find which text items contain this match
+              const matchingItems: Array<{
+                item: {
+                  str: string;
+                  transform: number[];
+                  width: number;
+                  height: number;
+                  fontName: string;
+                };
+                startInItem: number;
+                endInItem: number;
+                startInMatch: number;
+                endInMatch: number;
+              }> = [];
+              
+              for (const itemWithPos of pageTextWithPositions) {
+                const itemStart = itemWithPos.startIndex;
+                const itemEnd = itemWithPos.endIndex;
+                
+                // Check if this item overlaps with the match
+                if (itemStart < matchEndIndex && itemEnd > foundIndex) {
+                  const startInItem = Math.max(0, foundIndex - itemStart);
+                  const endInItem = Math.min(itemWithPos.text.length, matchEndIndex - itemStart);
+                  const startInMatch = Math.max(0, itemStart - foundIndex);
+                  const endInMatch = Math.min(query.length, itemEnd - foundIndex);
+                  
+                  if (endInItem > startInItem) {
+                    matchingItems.push({
+                      item: itemWithPos.item,
+                      startInItem,
+                      endInItem,
+                      startInMatch,
+                      endInMatch
+                    });
+                  }
+                }
               }
+              
+              // Create highlight rectangles for this match
+              if (matchingItems.length > 0) {
+                // For phrase matches, we'll create one result that spans the entire phrase
+                // We'll use the first item for positioning and calculate the span
+                const firstItem = matchingItems[0];
+                
+                // Calculate position using the first item's transform matrix
+                const baseX = firstItem.item.transform[4];
+                const baseY = firstItem.item.transform[5];
+                const baseWidth = firstItem.item.width;
+                const baseHeight = firstItem.item.height;
+                
+                // For single items or simple cases, use character-based positioning
+                let startRatio = 0;
+                let widthRatio = 1;
+                
+                if (matchingItems.length === 1) {
+                  // Match is within a single text item
+                  const item = firstItem;
+                  startRatio = item.startInItem / item.item.str.length;
+                  widthRatio = (item.endInItem - item.startInItem) / item.item.str.length;
+                } else {
+                  // Match spans multiple items - use full width of first item as approximation
+                  startRatio = firstItem.startInItem / firstItem.item.str.length;
+                  // For multi-item matches, we'll approximate the width
+                  const totalCharsInMatch = query.length;
+                  const avgCharWidth = baseWidth / firstItem.item.str.length;
+                  widthRatio = Math.min(1, (totalCharsInMatch * avgCharWidth) / baseWidth);
+                }
+                
+                // Calculate final position
+                const wordX = baseX + (baseWidth * startRatio);
+                const wordWidth = Math.max(baseWidth * widthRatio, baseWidth * 0.1);
+                
+                // Convert to percentage coordinates
+                const x = (wordX / viewport.width) * 100;
+                const y = ((viewport.height - baseY - baseHeight) / viewport.height) * 100;
+                const width = (wordWidth / viewport.width) * 100;
+                const height = (baseHeight / viewport.height) * 100;
 
-              if (matches.length > 0) {
-                results.push({
+                allResults.push({
                   pageNumber: pageNum,
-                  textContent: pageText,
-                  matches,
+                  wordIndex: matchIndex,
+                  word: query, // Use the full query as the "word"
+                  rect: {
+                    x: Math.max(0, Math.min(95, x)),
+                    y: Math.max(0, Math.min(95, y)),
+                    width: Math.max(0.5, Math.min(30, width)), // Increased max width for phrases
+                    height: Math.max(0.5, Math.min(5, height))
+                  },
+                  globalIndex: globalWordIndex
                 });
+                
+                globalWordIndex++;
+                matchIndex++;
               }
+              
+              searchIndex = foundIndex + 1;
             }
           } catch (pageError) {
             console.error(`Error searching page ${pageNum}:`, pageError);
           }
         }
 
-        setSearchResults(results);
+        setSearchResults(allResults);
         
-        // Create search highlights for visual feedback
-        await createSearchHighlights(results, query);
-        
-        if (results.length > 0) {
+        if (allResults.length > 0) {
           setCurrentSearchIndex(0);
-          // Navigate to first result - we'll handle this in useEffect
-          setPendingNavigation(results[0].pageNumber);
+          // Create highlights with first result as current
+          await createSearchHighlights(allResults, 0);
+          // Navigate to first result page
+          setPendingNavigation(allResults[0].pageNumber);
         }
       } catch (error) {
         console.error('Search error:', error);
@@ -1028,7 +1105,7 @@ export default function PDFViewer({
   );
 
   const navigateSearchResult = useCallback(
-    (direction: 'prev' | 'next') => {
+    async (direction: 'prev' | 'next') => {
       if (searchResults.length === 0) return;
 
       let newIndex;
@@ -1045,9 +1122,12 @@ export default function PDFViewer({
       }
 
       setCurrentSearchIndex(newIndex);
+      // Update highlights to show current result
+      await createSearchHighlights(searchResults, newIndex);
+      // Navigate to the page containing the current result
       setPendingNavigation(searchResults[newIndex].pageNumber);
     },
-    [searchResults, currentSearchIndex]
+    [searchResults, currentSearchIndex, createSearchHighlights]
   );
 
   const handleSearchToggle = useCallback(() => {
@@ -1063,19 +1143,30 @@ export default function PDFViewer({
       setSearchResults([]);
       setCurrentSearchIndex(-1);
       setSearchHighlights(new Map());
+      // Clear any pending search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
     }
   }, [isSearchOpen]);
 
   const handleSearchInputChange = useCallback(
     (value: string) => {
       setSearchQuery(value);
+      
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
       if (value.trim()) {
-        // Debounce search
-        const timeoutId = setTimeout(() => {
+        // Debounce search - wait for user to stop typing
+        searchTimeoutRef.current = setTimeout(() => {
           performSearch(value);
-        }, 500);
-        return () => clearTimeout(timeoutId);
+        }, 300); // Reduced to 300ms for better responsiveness
       } else {
+        // Clear results immediately when query is empty
         setSearchResults([]);
         setCurrentSearchIndex(-1);
         setSearchHighlights(new Map());
@@ -1088,6 +1179,12 @@ export default function PDFViewer({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        // Clear any pending debounced search
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+          searchTimeoutRef.current = null;
+        }
+        // Perform search immediately
         if (searchQuery.trim()) {
           performSearch(searchQuery);
         }
@@ -1097,6 +1194,11 @@ export default function PDFViewer({
         setSearchResults([]);
         setCurrentSearchIndex(-1);
         setSearchHighlights(new Map());
+        // Clear any pending search timeout
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+          searchTimeoutRef.current = null;
+        }
       }
     },
     [searchQuery, performSearch]
@@ -1116,6 +1218,15 @@ export default function PDFViewer({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isSearchOpen, searchQuery]);
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Queue for navigation attempts before PDF is loaded
   const [pendingNavigation, setPendingNavigation] = useState<number | null>(
@@ -2507,10 +2618,7 @@ export default function PDFViewer({
                       {isSearching
                         ? 'Searching...'
                         : searchResults.length > 0
-                        ? `${currentSearchIndex + 1} of ${searchResults.reduce(
-                            (total, result) => total + result.matches.length,
-                            0
-                          )} results found`
+                        ? `${currentSearchIndex + 1} of ${searchResults.length} results found`
                         : searchQuery.trim()
                         ? 'No results found'
                         : null}
@@ -2771,11 +2879,12 @@ export default function PDFViewer({
                                         top: `${rect.y}%`,
                                         width: `${rect.width}%`,
                                         height: `${rect.height}%`,
-                                        backgroundColor: '#ffff00',
-                                        opacity: 0.4,
-                                        mixBlendMode: 'multiply',
-                                        borderRadius: '1px',
-                                        zIndex: 1,
+                                        backgroundColor: rect.isCurrentResult ? 'var(--accent)' : '#ffff00',
+                                        opacity: rect.isCurrentResult ? 0.7 : 0.4,
+                                        mixBlendMode: rect.isCurrentResult ? 'normal' : 'multiply',
+                                        borderRadius: '2px',
+                                        zIndex: rect.isCurrentResult ? 2 : 1,
+                                        border: rect.isCurrentResult ? '1px solid var(--accent)' : 'none',
                                       }}
                                       title={`Search: ${searchHighlight.text}`}
                                     />
