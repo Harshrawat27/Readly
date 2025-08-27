@@ -1,22 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Shape } from '@/components/ShapeTool';
+import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 export function useShapes(pdfId: string | null) {
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load shapes for a PDF
+  // Load shapes for a PDF with caching
   const loadShapes = useCallback(async (pdfId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/shapes?pdfId=${pdfId}`);
-      if (response.ok) {
-        const shapesData = await response.json();
-        setShapes(shapesData);
-      } else {
-        console.error('Failed to load shapes');
-        setShapes([]);
-      }
+      const shapesData = await fetchWithCache<Shape[]>(
+        `/api/shapes?pdfId=${pdfId}`,
+        cacheKeys.pdfShapes(pdfId),
+        120 // Cache for 2 minutes
+      );
+      setShapes(shapesData);
     } catch (error) {
       console.error('Error loading shapes:', error);
       setShapes([]);

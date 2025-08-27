@@ -9,12 +9,14 @@ import {
   Square,
   Loader2,
 } from 'lucide-react';
+import { clientCache, cacheKeys } from '@/lib/clientCache';
 
 interface MessageActionsProps {
   messageId: string;
   messageContent: string;
   initialLiked?: boolean;
   initialDisliked?: boolean;
+  feedbackData?: { success: boolean; feedback?: { feedbackType: string } | null } | null;
   onLike?: (messageId: string, liked: boolean) => void;
   onDislike?: (messageId: string, disliked: boolean, reason?: string) => void;
 }
@@ -174,6 +176,7 @@ export default function MessageActions({
   messageContent,
   initialLiked = false,
   initialDisliked = false,
+  feedbackData = null,
   onLike,
   onDislike,
 }: MessageActionsProps) {
@@ -235,6 +238,9 @@ export default function MessageActions({
           method: 'DELETE',
         });
       }
+      
+      // Invalidate cache after successful API call
+      clientCache.delete(cacheKeys.messageFeedback(messageId));
     } catch (error) {
       console.error('Failed to save like feedback:', error);
       // Revert the state if API call failed
@@ -257,6 +263,9 @@ export default function MessageActions({
         await fetch(`/api/message-feedback?messageId=${messageId}`, {
           method: 'DELETE',
         });
+        
+        // Invalidate cache after successful API call
+        clientCache.delete(cacheKeys.messageFeedback(messageId));
       } catch (error) {
         console.error('Failed to remove dislike feedback:', error);
         // Revert the state if API call failed
@@ -299,6 +308,9 @@ export default function MessageActions({
           dislikeReason: reason,
         }),
       });
+      
+      // Invalidate cache after successful API call
+      clientCache.delete(cacheKeys.messageFeedback(messageId));
     } catch (error) {
       console.error('Failed to save dislike feedback:', error);
       // Revert the state if API call failed
@@ -520,25 +532,16 @@ export default function MessageActions({
     }
   };
 
-  // Load initial feedback state from API
+  // Set initial feedback state from props
   useEffect(() => {
-    const loadFeedbackState = async () => {
-      try {
-        const response = await fetch(`/api/message-feedback?messageId=${messageId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.feedback) {
-            setLiked(data.feedback.feedbackType === 'like');
-            setDisliked(data.feedback.feedbackType === 'dislike');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load feedback state:', error);
-      }
-    };
-
-    loadFeedbackState();
-  }, [messageId]);
+    if (feedbackData?.success && feedbackData.feedback) {
+      setLiked(feedbackData.feedback.feedbackType === 'like');
+      setDisliked(feedbackData.feedback.feedbackType === 'dislike');
+    } else {
+      setLiked(initialLiked);
+      setDisliked(initialDisliked);
+    }
+  }, [feedbackData, initialLiked, initialDisliked]);
 
   // Cleanup audio when component unmounts
   useEffect(() => {

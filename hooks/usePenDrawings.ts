@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 
 interface Point {
   x: number;
@@ -27,18 +28,16 @@ export function usePenDrawings(pdfId: string | null) {
   const [drawings, setDrawings] = useState<PenDrawing[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load drawings for a PDF
+  // Load drawings for a PDF with caching
   const loadDrawings = useCallback(async (pdfId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/pen-drawings?pdfId=${pdfId}`);
-      if (response.ok) {
-        const drawingsData = await response.json();
-        setDrawings(drawingsData);
-      } else {
-        console.error('Failed to load pen drawings');
-        setDrawings([]);
-      }
+      const drawingsData = await fetchWithCache<PenDrawing[]>(
+        `/api/pen-drawings?pdfId=${pdfId}`,
+        cacheKeys.pdfPenDrawings(pdfId),
+        120 // Cache for 2 minutes
+      );
+      setDrawings(drawingsData);
     } catch (error) {
       console.error('Error loading pen drawings:', error);
       setDrawings([]);

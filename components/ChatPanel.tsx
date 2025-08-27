@@ -10,7 +10,7 @@ import {
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
 import MessageActions from './MessageActions';
-import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
+import { fetchWithCache, cacheKeys, clientCache, batchLoadMessageFeedback } from '@/lib/clientCache';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLimitHandler } from '@/hooks/useLimitHandler';
 import LimitReachedPopup from '@/components/LimitReachedPopup';
@@ -42,6 +42,7 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, { success: boolean; feedback?: { feedbackType: string } | null }>>({});
   
   // Subscription and limit handling
   const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
@@ -273,6 +274,19 @@ export default function ChatPanel({
         setMessages((prev) => [...olderMessages, ...prev]);
         setHasMoreMessages(data.pagination?.hasMore || false);
         setNextCursor(data.pagination?.nextCursor || null);
+
+        // Batch load feedback for new assistant messages
+        const newAssistantMessageIds = olderMessages
+          .filter((msg: { role: string; id: string }) => msg.role === 'assistant')
+          .map((msg: { id: string }) => msg.id);
+        
+        if (newAssistantMessageIds.length > 0) {
+          batchLoadMessageFeedback(newAssistantMessageIds).then(feedback => {
+            setMessageFeedback(prev => ({ ...prev, ...feedback }));
+          }).catch(error => {
+            console.error('Failed to load batch feedback for older messages:', error);
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load more messages:', error);
@@ -363,6 +377,19 @@ export default function ChatPanel({
           setCurrentChatId(data.chat.id);
           setHasMoreMessages(data.pagination?.hasMore || false);
           setNextCursor(data.pagination?.nextCursor || null);
+
+          // Batch load feedback for all assistant messages
+          const assistantMessageIds = allMessages
+            .filter(msg => msg.role === 'assistant')
+            .map(msg => msg.id);
+          
+          if (assistantMessageIds.length > 0) {
+            batchLoadMessageFeedback(assistantMessageIds).then(feedback => {
+              setMessageFeedback(feedback);
+            }).catch(error => {
+              console.error('Failed to load batch feedback:', error);
+            });
+          }
 
           // mark initial load finished in next tick to allow scroll effects to run first
           requestAnimationFrame(() => {
@@ -893,10 +920,19 @@ export default function ChatPanel({
                     <MessageActions
                       messageId={message.id}
                       messageContent={message.content}
+                      feedbackData={messageFeedback[message.id] || null}
                       onLike={(id, liked) => {
                         console.log(
                           `Message ${id} ${liked ? 'liked' : 'unliked'}`
                         );
+                        // Update local feedback state
+                        setMessageFeedback(prev => ({
+                          ...prev,
+                          [id]: {
+                            success: true,
+                            feedback: liked ? { feedbackType: 'like' } : null
+                          }
+                        }));
                       }}
                       onDislike={(id, disliked, reason) => {
                         console.log(
@@ -904,6 +940,14 @@ export default function ChatPanel({
                             disliked ? 'disliked' : 'undisliked'
                           }${reason ? ` - ${reason}` : ''}`
                         );
+                        // Update local feedback state
+                        setMessageFeedback(prev => ({
+                          ...prev,
+                          [id]: {
+                            success: true,
+                            feedback: disliked ? { feedbackType: 'dislike' } : null
+                          }
+                        }));
                       }}
                     />
                   )}
