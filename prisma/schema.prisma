@@ -57,6 +57,9 @@ model Session {
   userAgent String?
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([userId, expiresAt])
+  @@index([token, expiresAt])
   @@map("session")
 }
 
@@ -76,6 +79,8 @@ model Account {
   updatedAt             DateTime
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([accountId, providerId])
   @@map("account")
 }
 
