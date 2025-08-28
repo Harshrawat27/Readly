@@ -173,7 +173,7 @@ solution
   DONE -- search bar for pdf 
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
-  -- not counting page for url upload, even free user is able to upload big docs
+  DONE -- not counting page for url upload, even free user is able to upload big docs
   -- make some pdf star
 
 
