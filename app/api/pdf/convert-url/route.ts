@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { uploadPdfToS3 } from '@/lib/s3';
 import { incrementPdfUpload } from '@/lib/subscription-utils';
+import { canUploadPdf } from '@/lib/subscription-plans';
 // Import puppeteer conditionally based on environment
 async function createBrowser() {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -78,6 +79,39 @@ export async function POST(request: NextRequest) {
     console.log(`🔗 [URL-to-PDF] URL: ${url}`);
     console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
 
+    // FIRST: Check current PDF count and subscription limits BEFORE processing
+    console.log(`🔍 [URL-to-PDF] Checking user's current PDF count and subscription limits...`);
+    
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        pdfs: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
+    const currentPlan = user.subscriptionPlan || 'free';
+    const currentPdfCount = user.pdfs.length;
+
+    console.log(`📊 [URL-to-PDF] User has ${currentPdfCount} PDFs on ${currentPlan} plan`);
+
+    // Check PDF count limit first (before page count since we don't know it yet)
+    // We'll do a preliminary check with estimated values, then final check after PDF generation
+    const preliminaryCheck = canUploadPdf(currentPdfCount, 10 * 1024 * 1024, 1, currentPlan); // 10MB, 1 page estimates
+    
+    if (!preliminaryCheck.allowed) {
+      console.log(`❌ [URL-to-PDF] Upload blocked by PDF count limit: ${preliminaryCheck.reason}`);
+      return NextResponse.json(
+        { error: preliminaryCheck.reason },
+        { status: 403 }
+      );
+    }
+
+    console.log(`✅ [URL-to-PDF] Preliminary limits OK, proceeding with PDF generation`);
+
     // Launch Puppeteer (serverless-optimized for production)
     console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
 
@@ -139,6 +173,22 @@ export async function POST(request: NextRequest) {
       console.log(
         `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
       );
+
+      // Get EXACT page count using pdf-lib on the generated PDF buffer
+      console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
+      let actualPageCount = 1;
+      try {
+        const { PDFDocument } = await import('pdf-lib');
+        const doc = await PDFDocument.load(pdfBuffer);
+        actualPageCount = doc.getPageCount();
+        console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
+      } catch (error) {
+        console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
+        actualPageCount = 1; // Fallback to 1 if we can't detect
+      }
+      
+      // Store the EXACT page count for later use
+      (global as { lastGeneratedPdfPageCount?: number }).lastGeneratedPdfPageCount = actualPageCount;
     } finally {
       console.log(`🔐 [URL-to-PDF] Closing browser...`);
       await browser.close();
@@ -154,6 +204,31 @@ export async function POST(request: NextRequest) {
     console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
 
     const fileBuffer = Buffer.from(pdfBuffer);
+    
+    // Use the page count calculated during PDF generation
+    console.log(`📄 [URL-to-PDF] Using calculated page count...`);
+    const globalObj = global as { lastGeneratedPdfPageCount?: number };
+    const actualPageCount = globalObj.lastGeneratedPdfPageCount || 1;
+    console.log(`✅ [URL-to-PDF] Using ${actualPageCount} pages from content analysis`);
+    
+    // Clean up global variable
+    delete globalObj.lastGeneratedPdfPageCount;
+
+    // Final check: subscription limits with actual page count and file size
+    console.log(`🔍 [URL-to-PDF] Final validation with actual PDF data...`);
+    
+    const limitCheck = canUploadPdf(currentPdfCount, pdfBuffer.byteLength, actualPageCount, currentPlan);
+    
+    if (!limitCheck.allowed) {
+      console.log(`❌ [URL-to-PDF] Upload blocked: ${limitCheck.reason}`);
+      return NextResponse.json(
+        { error: limitCheck.reason },
+        { status: 403 }
+      );
+    }
+
+    console.log(`✅ [URL-to-PDF] Subscription limits OK for ${currentPlan} plan`);
+
     const s3Key = await uploadPdfToS3(fileBuffer, fileName, session.user.id);
 
     console.log(`✅ [URL-to-PDF] S3 upload successful! S3 key: ${s3Key}`);
@@ -166,7 +241,7 @@ export async function POST(request: NextRequest) {
         fileName: fileName,
         fileUrl: s3Key, // Store S3 key in fileUrl field
         fileSize: pdfBuffer.byteLength,
-        pageCount: 1, // Will be updated later when PDF is processed
+        pageCount: actualPageCount,
         userId: session.user.id,
       },
     });

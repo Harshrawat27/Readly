@@ -6,6 +6,7 @@ import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLimitHandler } from '@/hooks/useLimitHandler';
 import LimitReachedPopup from '@/components/LimitReachedPopup';
+import { getPdfPageCount } from '@/utils/getPdfPageCount';
 
 interface PDFSidebarProps {
   onPdfSelect: (pdfId: string) => void;
@@ -47,9 +48,10 @@ const PDFSidebar = ({
   const router = useRouter();
   const pathname = usePathname();
   const [pdfHistory, setPdfHistory] = useState<PDFItem[]>([]);
-  
+
   // Subscription and limit handling
-  const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
+  const { subscriptionData, handleApiError: handleSubscriptionError } =
+    useSubscription();
   const currentPlan = subscriptionData?.plan?.name || 'free';
   const {
     isLimitPopupOpen,
@@ -76,6 +78,26 @@ const PDFSidebar = ({
   const [isConvertingUrl, setIsConvertingUrl] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to update both cache and state
+  const updatePdfList = useCallback(
+    (updatedList: PDFItem[]) => {
+      // Update state immediately
+      setPdfHistory(updatedList);
+
+      // Update cache with the same data
+      const cacheKey = cacheKeys.pdfList(userId);
+      const cacheData = updatedList.map((pdf) => ({
+        id: pdf.id,
+        title: pdf.title,
+        fileName: pdf.fileName,
+        uploadedAt: pdf.uploadedAt.toISOString(),
+        lastAccessedAt: pdf.lastAccessedAt.toISOString(),
+      }));
+      clientCache.set(cacheKey, cacheData, 600); // 10 minute cache
+    },
+    [userId]
+  );
 
   // Load PDFs with aggressive caching for instant loading
   useEffect(() => {
@@ -186,35 +208,58 @@ const PDFSidebar = ({
       console.log(`🚀 [PDFSidebar] Starting upload process`);
       console.log(`📁 [PDFSidebar] File: ${file.name}`);
       console.log(`📊 [PDFSidebar] Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
-      console.log(
-        `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
-      );
-
-      // Check subscription limits before proceeding
-      const currentPdfCount = pdfHistory.length;
-      const uploadSuccess = handlePdfUpload(
-        {
-          currentPdfCount,
-          fileSize: file.size,
-          // We'll estimate pageCount or get it later, for now assume reasonable default
-          pageCount: 10,
-        },
-        () => {
-          // This callback will be called if limits are OK
-          console.log('✅ [PDFSidebar] Subscription limits OK, proceeding with upload');
-        }
-      );
-
-      if (!uploadSuccess) {
-        console.log('❌ [PDFSidebar] Upload blocked by subscription limits');
-        return false;
-      }
 
       setIsUploading(true);
-      setUploadProgress('Preparing upload...');
+      setUploadProgress('Checking PDF...');
 
       try {
-        // Step 1: Get presigned upload URL
+        // Step 1: Check page count locally before doing anything
+        console.log(`📄 [PDFSidebar] Checking PDF page count...`);
+        let pageCount;
+        try {
+          pageCount = await getPdfPageCount(file);
+          console.log(`✅ [PDFSidebar] PDF has ${pageCount} pages`);
+        } catch (pageCountError) {
+          console.error('Error checking PDF page count:', pageCountError);
+          setIsUploading(false);
+          setUploadProgress('');
+          setToast({
+            message:
+              "Failed to read PDF file. Please make sure it's a valid PDF.",
+            type: 'error',
+          });
+          return false;
+        }
+
+        // Step 2: Check subscription limits with actual page count
+        const currentPdfCount = pdfHistory.length;
+        const uploadSuccess = handlePdfUpload(
+          {
+            currentPdfCount,
+            fileSize: file.size,
+            pageCount: pageCount, // Use actual page count
+          },
+          () => {
+            console.log(
+              '✅ [PDFSidebar] Subscription limits OK, proceeding with upload'
+            );
+          }
+        );
+
+        if (!uploadSuccess) {
+          console.log('❌ [PDFSidebar] Upload blocked by subscription limits');
+          setIsUploading(false);
+          setUploadProgress('');
+          return false;
+        }
+
+        console.log(
+          `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
+        );
+
+        setUploadProgress('Preparing upload...');
+
+        // Step 3: Get presigned upload URL
         console.log(`🔑 [PDFSidebar] Requesting presigned upload URL...`);
         setUploadProgress('Getting upload URL...');
 
@@ -288,29 +333,17 @@ const PDFSidebar = ({
         console.log(`✅ [PDFSidebar] Upload completed! PDF ID: ${result.id}`);
         setUploadProgress('Upload successful!');
 
-        // Invalidate PDF list cache since we added a new PDF
-        clientCache.delete(cacheKeys.pdfList(userId));
+        // Add new PDF to both state and cache immediately
+        const newPdf = {
+          id: result.id,
+          title: file.name.replace('.pdf', ''), // Use file name as title
+          fileName: file.name,
+          uploadedAt: new Date(),
+          lastAccessedAt: new Date(),
+        };
 
-        // Add the new PDF to the history
-        setPdfHistory((prev) => [
-          ...prev,
-          {
-            id: result.id,
-            title: file.name, // Use file name as title
-            fileName: file.name,
-            uploadedAt: new Date(),
-            lastAccessedAt: new Date(),
-          },
-        ]);
-
-        // Sort by last accessed for the sidebar
-        setPdfHistory((prev) =>
-          [...prev].sort(
-            (a, b) =>
-              new Date(b.lastAccessedAt).getTime() -
-              new Date(a.lastAccessedAt).getTime()
-          )
-        );
+        const updatedList = [newPdf, ...pdfHistory];
+        updatePdfList(updatedList);
 
         // Show success toast
         setToast({
@@ -327,10 +360,11 @@ const PDFSidebar = ({
         return true;
       } catch (error) {
         console.error('Error uploading PDF:', error);
-        
+
         // Check if it's a limit-related error
-        const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
-        
+        const isLimitError =
+          handleLimitError(error) || handleSubscriptionError(error);
+
         if (!isLimitError) {
           // Only show toast for non-limit errors
           setToast({
@@ -341,14 +375,23 @@ const PDFSidebar = ({
             type: 'error',
           });
         }
-        
+
         setUploadProgress('');
         return false;
       } finally {
         setIsUploading(false);
       }
     },
-    [userId, onPdfSelect, router, pdfHistory.length, handlePdfUpload, handleLimitError, handleSubscriptionError]
+    [
+      userId,
+      onPdfSelect,
+      router,
+      pdfHistory,
+      handlePdfUpload,
+      handleLimitError,
+      handleSubscriptionError,
+      updatePdfList,
+    ]
   );
 
   const handleFileSelect = useCallback(() => {
@@ -371,25 +414,50 @@ const PDFSidebar = ({
       return;
     }
 
-    // Check subscription limits before proceeding
-    const currentPdfCount = pdfHistory.length;
-    const uploadSuccess = handlePdfUpload(
-      {
-        currentPdfCount,
-        fileSize: 10 * 1024 * 1024, // Estimate 10MB for URL conversion
-        pageCount: 20, // Estimate reasonable page count
-      },
-      () => {
-        console.log('✅ [PDFSidebar] Subscription limits OK for URL conversion');
-      }
-    );
+    // Get real PDF count from server first
+    setIsConvertingUrl(true);
+    setUploadProgress('Checking limits...');
 
-    if (!uploadSuccess) {
-      console.log('❌ [PDFSidebar] URL conversion blocked by subscription limits');
+    try {
+      // First, check PDF count limit by getting real count from server
+      const pdfListResponse = await fetch('/api/pdf/list');
+      if (!pdfListResponse.ok) {
+        throw new Error('Failed to get PDF count');
+      }
+      const currentPdfs = await pdfListResponse.json();
+      const currentPdfCount = currentPdfs.length;
+      console.log(`📊 [URL Upload] Current PDF count: ${currentPdfCount}`);
+
+      // Check PDF count limit (but not page count yet - we'll get that after conversion)
+      const uploadSuccess = handlePdfUpload(
+        {
+          currentPdfCount,
+          fileSize: 10 * 1024 * 1024, // Estimate 10MB for URL conversion
+          pageCount: 1, // Don't limit on page count yet - will check after conversion
+        },
+        () => {
+          console.log('✅ [PDFSidebar] PDF count limit OK for URL conversion');
+        }
+      );
+
+      if (!uploadSuccess) {
+        console.log(
+          '❌ [PDFSidebar] URL conversion blocked by PDF count limit'
+        );
+        setIsConvertingUrl(false);
+        return;
+      }
+
+      setUploadProgress('Converting URL to PDF...');
+    } catch (error) {
+      console.error('❌ [PDFSidebar] Failed to check PDF count:', error);
+      setIsConvertingUrl(false);
+      setToast({
+        message: 'Failed to check upload limits. Please try again.',
+        type: 'error',
+      });
       return;
     }
-
-    setIsConvertingUrl(true);
 
     try {
       const response = await fetch('/api/pdf/convert-url', {
@@ -407,20 +475,17 @@ const PDFSidebar = ({
 
       const result = await response.json();
 
-      // Invalidate PDF list cache since we added a new PDF
-      clientCache.delete(cacheKeys.pdfList(userId));
+      // Add new PDF to both state and cache immediately
+      const newPdf = {
+        id: result.id,
+        title: result.title || new URL(urlInput).hostname,
+        fileName: result.fileName,
+        uploadedAt: new Date(),
+        lastAccessedAt: new Date(),
+      };
 
-      // Add the new PDF to the history
-      setPdfHistory((prev) => [
-        {
-          id: result.id,
-          title: result.title || new URL(urlInput).hostname,
-          fileName: result.fileName,
-          uploadedAt: new Date(),
-          lastAccessedAt: new Date(),
-        },
-        ...prev,
-      ]);
+      const updatedList = [newPdf, ...pdfHistory];
+      updatePdfList(updatedList);
 
       // Select the new PDF
       onPdfSelect(result.id);
@@ -430,12 +495,14 @@ const PDFSidebar = ({
         type: 'success',
       });
       setUrlInput(''); // Clear the input
+      setUploadProgress(''); // Clear progress
     } catch (error) {
       console.error('Error converting URL to PDF:', error);
-      
+
       // Check if it's a limit-related error
-      const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
-      
+      const isLimitError =
+        handleLimitError(error) || handleSubscriptionError(error);
+
       if (!isLimitError) {
         // Only show toast for non-limit errors
         setToast({
@@ -448,6 +515,7 @@ const PDFSidebar = ({
       }
     } finally {
       setIsConvertingUrl(false);
+      setUploadProgress(''); // Clear progress in all cases
     }
   };
 
@@ -500,12 +568,11 @@ const PDFSidebar = ({
     const newTitle = renameValue.trim();
     const oldTitle = pdfHistory.find((pdf) => pdf.id === renameId)?.title || '';
 
-    // Optimistic update - update UI immediately
-    setPdfHistory((prev) =>
-      prev.map((pdf) =>
-        pdf.id === renameId ? { ...pdf, title: newTitle } : pdf
-      )
+    // Optimistic update - update both state and cache immediately
+    const updatedList = pdfHistory.map((pdf) =>
+      pdf.id === renameId ? { ...pdf, title: newTitle } : pdf
     );
+    updatePdfList(updatedList);
 
     // Close dialog immediately
     setRenameId(null);
@@ -523,15 +590,19 @@ const PDFSidebar = ({
       if (!response.ok) {
         throw new Error('Failed to rename');
       }
+
+      setToast({
+        message: 'PDF renamed successfully',
+        type: 'success',
+      });
     } catch (error) {
       console.error('Error renaming PDF:', error);
 
-      // Rollback the optimistic update
-      setPdfHistory((prev) =>
-        prev.map((pdf) =>
-          pdf.id === renameId ? { ...pdf, title: oldTitle } : pdf
-        )
+      // Rollback both state and cache on error
+      const revertedList = pdfHistory.map((pdf) =>
+        pdf.id === renameId ? { ...pdf, title: oldTitle } : pdf
       );
+      updatePdfList(revertedList);
 
       // Show error toast
       setToast({
@@ -851,7 +922,7 @@ const PDFSidebar = ({
                 onChange={(e) => setUrlInput(e.target.value)}
                 placeholder='https://example.com/article'
                 disabled={isConvertingUrl}
-                className='flex-1 px-3 py-2 text-sm bg-[var(--card-background)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent disabled:opacity-50'
+                className='flex-1 px-3 py-2 text-sm bg-[var(--card-background)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border)] focus:border-transparent disabled:opacity-50'
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !isConvertingUrl) {
                     handleUrlUpload();
@@ -890,11 +961,11 @@ const PDFSidebar = ({
 
           {/* Navigation Sections */}
           <div className='space-y-1'>
-            <button 
+            <button
               onClick={() => router.push('/chats')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/chats' 
-                  ? 'bg-[#0F0F0E] text-white' 
+                pathname === '/chats'
+                  ? 'bg-[#0F0F0E] text-white'
                   : 'hover:bg-[var(--faded-white)] text-[var(--text-primary)]'
               }`}
             >
@@ -905,11 +976,11 @@ const PDFSidebar = ({
                 stroke='currentColor'
                 strokeWidth='2'
               >
-                <path 
+                <path
                   d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
                   className='transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]'
                 />
-                <path 
+                <path
                   d='M14 8H8m6 4H8'
                   className='transition-transform group-hover:translate-x-[0.5px] group-hover:-translate-y-[0.5px]'
                 />
@@ -1113,7 +1184,7 @@ const PDFSidebar = ({
                     </div>
                   </div>
                 ))}
-                
+
                 {/* Show "All Chats" button if there are more than 15 PDFs */}
                 {pdfHistory.length > 15 && (
                   <div className='px-3 py-2'>
@@ -1128,11 +1199,11 @@ const PDFSidebar = ({
                         stroke='currentColor'
                         strokeWidth='2'
                       >
-                        <path 
+                        <path
                           d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
                           className='transition-transform group-hover:translate-x-[1px] group-hover:-translate-y-[1px]'
                         />
-                        <path 
+                        <path
                           d='M14 8H8m6 4H8'
                           className='transition-transform group-hover:translate-x-[0.5px] group-hover:-translate-y-[0.5px]'
                         />
@@ -1293,15 +1364,16 @@ const PDFSidebar = ({
                     (pdf) => pdf.id === deleteConfirmId
                   );
 
-                  // Optimistic update - remove from UI immediately
-                  setPdfHistory((prev) =>
-                    prev.filter((pdf) => pdf.id !== deleteConfirmId)
+                  // Optimistic update - remove from both state and cache immediately
+                  const updatedList = pdfHistory.filter(
+                    (pdf) => pdf.id !== deleteConfirmId
                   );
+                  updatePdfList(updatedList);
 
-                  // If deleting active PDF, redirect to home
+                  // If deleting active PDF, redirect to new page immediately
                   if (isActiveDeleteConfirmId) {
                     onPdfSelect('');
-                    router.push('/');
+                    router.push('/new');
                   }
 
                   // Close dialog immediately
@@ -1318,27 +1390,25 @@ const PDFSidebar = ({
                     if (!response.ok) {
                       throw new Error('Failed to delete');
                     }
+
+                    setToast({
+                      message: 'PDF deleted successfully',
+                      type: 'success',
+                    });
                   } catch (error) {
                     console.error('Error deleting PDF:', error);
 
-                    // Rollback the optimistic update
+                    // Rollback both state and cache on error
                     if (deletingPdf) {
-                      setPdfHistory((prev) =>
-                        [...prev, deletingPdf].sort(
-                          (a, b) =>
-                            new Date(b.lastAccessedAt).getTime() -
-                            new Date(a.lastAccessedAt).getTime()
-                        )
+                      const restoredList = [...pdfHistory].sort(
+                        (a, b) =>
+                          new Date(b.lastAccessedAt).getTime() -
+                          new Date(a.lastAccessedAt).getTime()
                       );
-
-                      // If we redirected to home, redirect back
-                      if (isActiveDeleteConfirmId) {
-                        onPdfSelect(deletingPdf.id);
-                        router.push(`/pdf/${deletingPdf.id}`);
-                      }
+                      updatePdfList(restoredList);
                     }
 
-                    // Show error toast
+                    // Show error toast - user will need to navigate manually if they were redirected
                     setToast({
                       message: 'Sorry we failed to delete your file, try again',
                       type: 'error',

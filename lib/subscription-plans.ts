@@ -23,12 +23,12 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     maxPdfs: 3,
     maxFileSize: 10, // 10MB
     maxQuestionsPerMonth: 50,
-    maxPagesPerPdf: 10,
+    maxPagesPerPdf: 50,
     features: [
       '3 PDF uploads',
       'Up to 10MB file size',
       '50 questions per month',
-      'Up to 10 pages per PDF'
+      'Up to 50 pages per PDF'
     ]
   },
   pro: {
@@ -41,12 +41,12 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     maxPdfs: 10,
     maxFileSize: 50, // 50MB
     maxQuestionsPerMonth: 1000,
-    maxPagesPerPdf: 50,
+    maxPagesPerPdf: 200,
     features: [
       '10 PDF uploads',
       'Up to 50MB file size',
       '1,000 questions per month',
-      'Up to 50 pages per PDF',
+      'Up to 200 pages per PDF',
       'Priority support'
     ]
   },
@@ -60,12 +60,12 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     maxPdfs: -1, // unlimited
     maxFileSize: 50, // 50MB
     maxQuestionsPerMonth: -1, // unlimited
-    maxPagesPerPdf: 200,
+    maxPagesPerPdf: 2000,
     features: [
       'Unlimited PDF uploads',
       'Up to 50MB file size',
       'Unlimited questions',
-      'Up to 200 pages per PDF',
+      'Up to 2000 pages per PDF',
       'Priority support',
       'Advanced analytics'
     ]

@@ -3,6 +3,7 @@
 import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
+import { getPdfPageCount } from '@/utils/getPdfPageCount';
 
 export default function UploadPage() {
   const { data: session, isPending } = useSession();
@@ -28,7 +29,6 @@ export default function UploadPage() {
     
     console.log(`📁 Attempting to upload file: ${file.name}`);
     console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
-    console.log(`🔗 Using direct S3 upload (no size limits!)`);
 
     if (file.size > 100 * 1024 * 1024) { // 100MB limit (reasonable for PDFs)
       alert('File size must be less than 100MB.');
@@ -36,10 +36,30 @@ export default function UploadPage() {
     }
 
     setIsUploading(true);
-    setUploadProgress('Preparing upload...');
+    setUploadProgress('Checking PDF...');
 
     try {
-      // Step 1: Get presigned upload URL
+      // Step 1: Check page count locally before doing anything
+      console.log(`📄 Checking PDF page count...`);
+      let pageCount;
+      try {
+        pageCount = await getPdfPageCount(file);
+        console.log(`✅ PDF has ${pageCount} pages`);
+      } catch (pageCountError) {
+        console.error('❌ Error checking PDF page count:', pageCountError);
+        setIsUploading(false);
+        setUploadProgress('');
+        alert('Failed to read PDF file. Please make sure it\'s a valid PDF.');
+        return false;
+      }
+      
+      // For this simple upload page, we could add basic limits here
+      // For now, we'll let the server handle the subscription limits
+      console.log(`🔗 Using direct S3 upload with ${pageCount} pages`);
+
+      setUploadProgress('Preparing upload...');
+
+      // Step 2: Get presigned upload URL
       console.log(`🔑 Requesting presigned upload URL...`);
       const urlResponse = await fetch('/api/pdf/upload-url', {
         method: 'POST',

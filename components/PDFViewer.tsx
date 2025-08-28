@@ -29,10 +29,10 @@ const Page = dynamic(
   { ssr: false }
 );
 
-// Configure PDF.js worker
+// Configure PDF.js worker - use the same version as pdfjs-dist package
 if (typeof window !== 'undefined') {
   import('react-pdf').then((pdfjs) => {
-    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs`;
+    pdfjs.pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.3.31/pdf.worker.min.mjs`;
   });
 }
 
@@ -145,7 +145,22 @@ export default function PDFViewer({
   >([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHighlights, setSearchHighlights] = useState<Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number; isCurrentResult?: boolean}>}>>>(new Map());
+  const [searchHighlights, setSearchHighlights] = useState<
+    Map<
+      number,
+      Array<{
+        id: string;
+        text: string;
+        rects: Array<{
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          isCurrentResult?: boolean;
+        }>;
+      }>
+    >
+  >(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -873,34 +888,70 @@ export default function PDFViewer({
   );
 
   // Create search highlights function with accurate positioning and current result highlighting
-  const createSearchHighlights = useCallback(async (results: Array<{pageNumber: number; wordIndex: number; word: string; rect: {x: number; y: number; width: number; height: number}; globalIndex: number}>, currentIndex: number) => {
-    const highlightsByPage = new Map<number, Array<{id: string; text: string; rects: Array<{x: number; y: number; width: number; height: number; isCurrentResult?: boolean}>}>>();
-    
-    // Group results by page
-    const resultsByPage = new Map<number, Array<{pageNumber: number; wordIndex: number; word: string; rect: {x: number; y: number; width: number; height: number}; globalIndex: number}>>();
-    results.forEach(result => {
-      if (!resultsByPage.has(result.pageNumber)) {
-        resultsByPage.set(result.pageNumber, []);
-      }
-      resultsByPage.get(result.pageNumber)!.push(result);
-    });
-    
-    // Create highlights for each page
-    resultsByPage.forEach((pageResults, pageNumber) => {
-      const rects = pageResults.map(result => ({
-        ...result.rect,
-        isCurrentResult: result.globalIndex === currentIndex
-      }));
-      
-      highlightsByPage.set(pageNumber, [{
-        id: `search_highlights_${pageNumber}`,
-        text: pageResults[0].word,
-        rects
-      }]);
-    });
-    
-    setSearchHighlights(highlightsByPage);
-  }, []);
+  const createSearchHighlights = useCallback(
+    async (
+      results: Array<{
+        pageNumber: number;
+        wordIndex: number;
+        word: string;
+        rect: { x: number; y: number; width: number; height: number };
+        globalIndex: number;
+      }>,
+      currentIndex: number
+    ) => {
+      const highlightsByPage = new Map<
+        number,
+        Array<{
+          id: string;
+          text: string;
+          rects: Array<{
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            isCurrentResult?: boolean;
+          }>;
+        }>
+      >();
+
+      // Group results by page
+      const resultsByPage = new Map<
+        number,
+        Array<{
+          pageNumber: number;
+          wordIndex: number;
+          word: string;
+          rect: { x: number; y: number; width: number; height: number };
+          globalIndex: number;
+        }>
+      >();
+      results.forEach((result) => {
+        if (!resultsByPage.has(result.pageNumber)) {
+          resultsByPage.set(result.pageNumber, []);
+        }
+        resultsByPage.get(result.pageNumber)!.push(result);
+      });
+
+      // Create highlights for each page
+      resultsByPage.forEach((pageResults, pageNumber) => {
+        const rects = pageResults.map((result) => ({
+          ...result.rect,
+          isCurrentResult: result.globalIndex === currentIndex,
+        }));
+
+        highlightsByPage.set(pageNumber, [
+          {
+            id: `search_highlights_${pageNumber}`,
+            text: pageResults[0].word,
+            rects,
+          },
+        ]);
+      });
+
+      setSearchHighlights(highlightsByPage);
+    },
+    []
+  );
 
   // Enhanced search functionality with word-level precision
   const performSearch = useCallback(
@@ -935,7 +986,9 @@ export default function PDFViewer({
             const textContent = await page.getTextContent();
             const viewport = page.getViewport({ scale: 1.0 });
 
-            const items = textContent.items.filter(item => 'str' in item) as Array<{
+            const items = textContent.items.filter(
+              (item) => 'str' in item
+            ) as Array<{
               str: string;
               transform: number[];
               width: number;
@@ -956,34 +1009,34 @@ export default function PDFViewer({
               startIndex: number;
               endIndex: number;
             }> = [];
-            
+
             let fullPageText = '';
             for (const item of items) {
               const startIndex = fullPageText.length;
               const text = item.str;
               fullPageText += (fullPageText.length > 0 ? ' ' : '') + text;
               const endIndex = fullPageText.length;
-              
+
               pageTextWithPositions.push({
                 text,
                 item,
                 startIndex,
-                endIndex
+                endIndex,
               });
             }
-            
+
             // Search for the query in the full page text
             const lowerPageText = fullPageText.toLowerCase();
             const lowerQuery = query.toLowerCase();
             let searchIndex = 0;
             let matchIndex = 0;
-            
+
             while (true) {
               const foundIndex = lowerPageText.indexOf(lowerQuery, searchIndex);
               if (foundIndex === -1) break;
-              
+
               const matchEndIndex = foundIndex + query.length;
-              
+
               // Find which text items contain this match
               const matchingItems: Array<{
                 item: {
@@ -998,67 +1051,83 @@ export default function PDFViewer({
                 startInMatch: number;
                 endInMatch: number;
               }> = [];
-              
+
               for (const itemWithPos of pageTextWithPositions) {
                 const itemStart = itemWithPos.startIndex;
                 const itemEnd = itemWithPos.endIndex;
-                
+
                 // Check if this item overlaps with the match
                 if (itemStart < matchEndIndex && itemEnd > foundIndex) {
                   const startInItem = Math.max(0, foundIndex - itemStart);
-                  const endInItem = Math.min(itemWithPos.text.length, matchEndIndex - itemStart);
+                  const endInItem = Math.min(
+                    itemWithPos.text.length,
+                    matchEndIndex - itemStart
+                  );
                   const startInMatch = Math.max(0, itemStart - foundIndex);
-                  const endInMatch = Math.min(query.length, itemEnd - foundIndex);
-                  
+                  const endInMatch = Math.min(
+                    query.length,
+                    itemEnd - foundIndex
+                  );
+
                   if (endInItem > startInItem) {
                     matchingItems.push({
                       item: itemWithPos.item,
                       startInItem,
                       endInItem,
                       startInMatch,
-                      endInMatch
+                      endInMatch,
                     });
                   }
                 }
               }
-              
+
               // Create highlight rectangles for this match
               if (matchingItems.length > 0) {
                 // For phrase matches, we'll create one result that spans the entire phrase
                 // We'll use the first item for positioning and calculate the span
                 const firstItem = matchingItems[0];
-                
+
                 // Calculate position using the first item's transform matrix
                 const baseX = firstItem.item.transform[4];
                 const baseY = firstItem.item.transform[5];
                 const baseWidth = firstItem.item.width;
                 const baseHeight = firstItem.item.height;
-                
+
                 // For single items or simple cases, use character-based positioning
                 let startRatio = 0;
                 let widthRatio = 1;
-                
+
                 if (matchingItems.length === 1) {
                   // Match is within a single text item
                   const item = firstItem;
                   startRatio = item.startInItem / item.item.str.length;
-                  widthRatio = (item.endInItem - item.startInItem) / item.item.str.length;
+                  widthRatio =
+                    (item.endInItem - item.startInItem) / item.item.str.length;
                 } else {
                   // Match spans multiple items - use full width of first item as approximation
-                  startRatio = firstItem.startInItem / firstItem.item.str.length;
+                  startRatio =
+                    firstItem.startInItem / firstItem.item.str.length;
                   // For multi-item matches, we'll approximate the width
                   const totalCharsInMatch = query.length;
                   const avgCharWidth = baseWidth / firstItem.item.str.length;
-                  widthRatio = Math.min(1, (totalCharsInMatch * avgCharWidth) / baseWidth);
+                  widthRatio = Math.min(
+                    1,
+                    (totalCharsInMatch * avgCharWidth) / baseWidth
+                  );
                 }
-                
+
                 // Calculate final position
-                const wordX = baseX + (baseWidth * startRatio);
-                const wordWidth = Math.max(baseWidth * widthRatio, baseWidth * 0.1);
-                
+                const wordX = baseX + baseWidth * startRatio;
+                const wordWidth = Math.max(
+                  baseWidth * widthRatio,
+                  baseWidth * 0.1
+                );
+
                 // Convert to percentage coordinates
                 const x = (wordX / viewport.width) * 100;
-                const y = ((viewport.height - baseY - baseHeight) / viewport.height) * 100;
+                const y =
+                  ((viewport.height - baseY - baseHeight) / viewport.height) *
+                  100;
                 const width = (wordWidth / viewport.width) * 100;
                 const height = (baseHeight / viewport.height) * 100;
 
@@ -1070,15 +1139,15 @@ export default function PDFViewer({
                     x: Math.max(0, Math.min(95, x)),
                     y: Math.max(0, Math.min(95, y)),
                     width: Math.max(0.5, Math.min(30, width)), // Increased max width for phrases
-                    height: Math.max(0.5, Math.min(5, height))
+                    height: Math.max(0.5, Math.min(5, height)),
                   },
-                  globalIndex: globalWordIndex
+                  globalIndex: globalWordIndex,
                 });
-                
+
                 globalWordIndex++;
                 matchIndex++;
               }
-              
+
               searchIndex = foundIndex + 1;
             }
           } catch (pageError) {
@@ -1087,7 +1156,7 @@ export default function PDFViewer({
         }
 
         setSearchResults(allResults);
-        
+
         if (allResults.length > 0) {
           setCurrentSearchIndex(0);
           // Create highlights with first result as current
@@ -1154,12 +1223,12 @@ export default function PDFViewer({
   const handleSearchInputChange = useCallback(
     (value: string) => {
       setSearchQuery(value);
-      
+
       // Clear previous timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
-      
+
       if (value.trim()) {
         // Debounce search - wait for user to stop typing
         searchTimeoutRef.current = setTimeout(() => {
@@ -2618,7 +2687,9 @@ export default function PDFViewer({
                       {isSearching
                         ? 'Searching...'
                         : searchResults.length > 0
-                        ? `${currentSearchIndex + 1} of ${searchResults.length} results found`
+                        ? `${currentSearchIndex + 1} of ${
+                            searchResults.length
+                          } results found`
                         : searchQuery.trim()
                         ? 'No results found'
                         : null}
@@ -2865,33 +2936,47 @@ export default function PDFViewer({
                                 </div>
                               )
                             )}
-                            
+
                             {/* Search Highlights Overlay */}
-                            {searchHighlights.has(pageNumber) && 
-                              searchHighlights.get(pageNumber)?.map((searchHighlight) => (
-                                <div key={searchHighlight.id}>
-                                  {searchHighlight.rects.map((rect, rectIndex) => (
-                                    <div
-                                      key={`${searchHighlight.id}-${rectIndex}`}
-                                      className='absolute pointer-events-none'
-                                      style={{
-                                        left: `${rect.x}%`,
-                                        top: `${rect.y}%`,
-                                        width: `${rect.width}%`,
-                                        height: `${rect.height}%`,
-                                        backgroundColor: rect.isCurrentResult ? 'var(--accent)' : '#ffff00',
-                                        opacity: rect.isCurrentResult ? 0.7 : 0.4,
-                                        mixBlendMode: rect.isCurrentResult ? 'normal' : 'multiply',
-                                        borderRadius: '2px',
-                                        zIndex: rect.isCurrentResult ? 2 : 1,
-                                        border: rect.isCurrentResult ? '1px solid var(--accent)' : 'none',
-                                      }}
-                                      title={`Search: ${searchHighlight.text}`}
-                                    />
-                                  ))}
-                                </div>
-                              ))
-                            }
+                            {searchHighlights.has(pageNumber) &&
+                              searchHighlights
+                                .get(pageNumber)
+                                ?.map((searchHighlight) => (
+                                  <div key={searchHighlight.id}>
+                                    {searchHighlight.rects.map(
+                                      (rect, rectIndex) => (
+                                        <div
+                                          key={`${searchHighlight.id}-${rectIndex}`}
+                                          className='absolute pointer-events-none'
+                                          style={{
+                                            left: `${rect.x}%`,
+                                            top: `${rect.y}%`,
+                                            width: `${rect.width}%`,
+                                            height: `${rect.height}%`,
+                                            backgroundColor:
+                                              rect.isCurrentResult
+                                                ? 'var(--accent)'
+                                                : '#ffff00',
+                                            opacity: rect.isCurrentResult
+                                              ? 0.7
+                                              : 0.4,
+                                            mixBlendMode: rect.isCurrentResult
+                                              ? 'normal'
+                                              : 'multiply',
+                                            borderRadius: '2px',
+                                            zIndex: rect.isCurrentResult
+                                              ? 2
+                                              : 1,
+                                            border: rect.isCurrentResult
+                                              ? '1px solid var(--accent)'
+                                              : 'none',
+                                          }}
+                                          title={`Search: ${searchHighlight.text}`}
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                ))}
                           </>
                         ) : (
                           <div
