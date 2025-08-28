@@ -3,10 +3,8 @@ import { uploadPdfToS3 } from '@/lib/s3';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import {
-  canUserPerformAction,
-  incrementPdfUpload,
-} from '@/lib/subscription-utils';
+import { canUploadPdf } from '@/lib/subscription-plans';
+import { incrementPdfUpload } from '@/lib/subscription-utils';
 // Dynamic import for PDF.js to avoid server-side issues
 
 export async function POST(request: NextRequest) {
@@ -51,17 +49,30 @@ export async function POST(request: NextRequest) {
     // We'll set a default page count and let the client-side PDF viewer handle the actual count
     const pageCount = 1; // Default fallback
 
-    // Check subscription limits
-    const canUpload = await canUserPerformAction(userId, 'upload_pdf', {
-      fileSize: file.size,
-      pageCount: pageCount,
+    // Get user data for monthly PDF tracking
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!canUpload.allowed) {
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
+    // Check subscription limits using monthly tracking
+    const currentPlan = user.subscriptionPlan || 'free';
+    const limitCheck = canUploadPdf(
+      user.monthlyPdfsUploaded, 
+      user.monthlyPdfsResetDate, 
+      file.size, 
+      pageCount, 
+      currentPlan
+    );
+
+    if (!limitCheck.allowed) {
       return NextResponse.json(
         {
-          error: canUpload.reason,
-          requiresUpgrade: canUpload.requiresUpgrade || false,
+          error: limitCheck.reason,
+          requiresUpgrade: true,
         },
         { status: 403 }
       );
@@ -86,8 +97,8 @@ export async function POST(request: NextRequest) {
     });
     console.log(`✅ PDF saved to database with ID: ${pdf.id}`);
 
-    // Increment user's PDF upload count
-    await incrementPdfUpload(userId);
+    // Increment user's monthly and total PDF upload counts
+    await incrementPdfUpload(userId, limitCheck.shouldReset);
 
     console.log(`🎉 Upload completed successfully`);
     return NextResponse.json({

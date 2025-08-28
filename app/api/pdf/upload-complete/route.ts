@@ -51,10 +51,10 @@ export async function POST(request: NextRequest) {
       const response = await s3Client.send(command);
       const pdfBuffer = Buffer.from(await response.Body!.transformToByteArray());
       
-      // Use dynamic import at runtime to avoid build issues
-      const { default: pdfParse } = await import('pdf-parse');
-      const pdfData = await pdfParse(pdfBuffer);
-      actualPageCount = pdfData.numpages;
+      // Use pdf-lib to avoid bundling issues
+      const { PDFDocument } = await import('pdf-lib');
+      const doc = await PDFDocument.load(pdfBuffer);
+      actualPageCount = doc.getPageCount();
       console.log(`✅ [Upload-Complete] Detected ${actualPageCount} pages`);
     } catch (error) {
       console.warn('Failed to detect page count, defaulting to 1:', error);
@@ -76,9 +76,14 @@ export async function POST(request: NextRequest) {
     }
 
     const currentPlan = user.subscriptionPlan || 'free';
-    const currentPdfCount = user.pdfs.length;
 
-    const limitCheck = canUploadPdf(currentPdfCount, fileSize, actualPageCount, currentPlan);
+    const limitCheck = canUploadPdf(
+      user.monthlyPdfsUploaded, 
+      user.monthlyPdfsResetDate, 
+      fileSize, 
+      actualPageCount, 
+      currentPlan
+    );
     
     if (!limitCheck.allowed) {
       console.log(`❌ [Upload-Complete] Upload blocked: ${limitCheck.reason}`);
@@ -117,8 +122,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ PDF saved to database with ID: ${pdf.id}`);
 
-    // Increment user's PDF upload count
-    await incrementPdfUpload(userId);
+    // Increment user's monthly and total PDF upload counts
+    await incrementPdfUpload(userId, limitCheck.shouldReset);
 
     console.log(`🎉 Upload completed successfully`);
 

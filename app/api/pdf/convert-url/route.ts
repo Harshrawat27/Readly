@@ -98,9 +98,15 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 [URL-to-PDF] User has ${currentPdfCount} PDFs on ${currentPlan} plan`);
 
-    // Check PDF count limit first (before page count since we don't know it yet)
+    // Check monthly PDF limit first (before page count since we don't know it yet)
     // We'll do a preliminary check with estimated values, then final check after PDF generation
-    const preliminaryCheck = canUploadPdf(currentPdfCount, 10 * 1024 * 1024, 1, currentPlan); // 10MB, 1 page estimates
+    const preliminaryCheck = canUploadPdf(
+      user.monthlyPdfsUploaded, 
+      user.monthlyPdfsResetDate, 
+      10 * 1024 * 1024, // 10MB estimate
+      1, // 1 page estimate
+      currentPlan
+    );
     
     if (!preliminaryCheck.allowed) {
       console.log(`❌ [URL-to-PDF] Upload blocked by PDF count limit: ${preliminaryCheck.reason}`);
@@ -217,7 +223,13 @@ export async function POST(request: NextRequest) {
     // Final check: subscription limits with actual page count and file size
     console.log(`🔍 [URL-to-PDF] Final validation with actual PDF data...`);
     
-    const limitCheck = canUploadPdf(currentPdfCount, pdfBuffer.byteLength, actualPageCount, currentPlan);
+    const limitCheck = canUploadPdf(
+      user.monthlyPdfsUploaded, 
+      user.monthlyPdfsResetDate, 
+      pdfBuffer.byteLength, 
+      actualPageCount, 
+      currentPlan
+    );
     
     if (!limitCheck.allowed) {
       console.log(`❌ [URL-to-PDF] Upload blocked: ${limitCheck.reason}`);
@@ -248,8 +260,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ [URL-to-PDF] PDF saved to database with ID: ${pdf.id}`);
 
-    // Increment user's PDF upload count
-    await incrementPdfUpload(session.user.id);
+    // Increment user's monthly and total PDF upload counts
+    await incrementPdfUpload(session.user.id, limitCheck.shouldReset);
 
     console.log(
       `🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`

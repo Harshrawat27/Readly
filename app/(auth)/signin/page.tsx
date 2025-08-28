@@ -116,7 +116,7 @@ export default function SignIn() {
               </svg>
             </div>
             <span className='text-[22px] font-medium text-[var(--text-primary)]'>
-              Readly
+              ReaditEasy
             </span>
           </div>
 
@@ -260,18 +260,15 @@ export default function SignIn() {
               <div className='text-center'>
                 <span className='text-[14px] text-[var(--text-secondary)]'>
                   Don&apos;t have an account?{' '}
-                  <Link
-                    href='/signup'
-                    className='text-[var(--text-primary)] hover:underline font-medium'
-                  >
-                    Sign Up
+                  <Link href='/signup' className='hover:underline font-medium'>
+                    <strong className='text-accent'>Sign Up</strong>
                   </Link>
                 </span>
               </div>
             </form>
           </div>
 
-          {/* Learn more link */}
+          {/* Learn more link
           <div className='flex justify-center pt-12'>
             <a
               href='#'
@@ -292,14 +289,14 @@ export default function SignIn() {
                 />
               </svg>
             </a>
-          </div>
+          </div> */}
 
           {/* Pagination dots */}
-          <div className='flex justify-center gap-2 pt-6'>
+          {/* <div className='flex justify-center gap-2 pt-6'>
             <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
             <div className='w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-30'></div>
             <div className='w-2 h-2 rounded-full bg-[var(--text-primary)]'></div>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -314,7 +311,7 @@ export default function SignIn() {
                 Welcome Back
               </h3>
               <p className='text-[var(--text-secondary)] text-sm'>
-                Sign in to continue your reading journey with Readly.
+                Sign in to continue your reading journey with ReaditEasy.
               </p>
             </div>
           </div>

@@ -28,7 +28,12 @@ model User {
   // Usage tracking
   monthlyQuestionsUsed Int         @default(0)
   monthlyQuestionsResetDate DateTime @default(now())
+  monthlyPdfsUploaded  Int         @default(0)
+  monthlyPdfsResetDate DateTime    @default(now())
+  
+  // Admin tracking columns (total counts for analytics)
   totalPdfsUploaded    Int         @default(0)
+  totalMessagesCreated Int         @default(0)
   
   accounts       Account[]
   chats          Chat[]

@@ -48,7 +48,7 @@ const LimitReachedPopup: React.FC<LimitReachedPopupProps> = ({
   const getFeatureByLimitType = (plan: SubscriptionPlan) => {
     switch (limitType) {
       case 'pdfs':
-        return formatFeatureValue(plan.maxPdfs, ' PDFs');
+        return formatFeatureValue(plan.maxPdfsPerMonth, ' PDFs per month');
       case 'fileSize':
         return formatFeatureValue(plan.maxFileSize, 'MB file size');
       case 'questions':

@@ -1,5 +1,5 @@
 import prisma from './prisma';
-import { SUBSCRIPTION_PLANS } from './subscription-plans';
+import { SUBSCRIPTION_PLANS, getCurrentMonthlyPdfCount } from './subscription-plans';
 
 export async function getUserSubscription(userId: string) {
   const user = await prisma.user.findUnique({
@@ -23,7 +23,7 @@ export async function getUserSubscription(userId: string) {
     subscription: activeSubscription,
     plan,
     limits: {
-      maxPdfs: plan.maxPdfs,
+      maxPdfsPerMonth: plan.maxPdfsPerMonth,
       maxFileSize: plan.maxFileSize,
       maxQuestionsPerMonth: plan.maxQuestionsPerMonth,
       maxPagesPerPdf: plan.maxPagesPerPdf
@@ -132,13 +132,27 @@ export async function incrementQuestionUsage(userId: string) {
   return true;
 }
 
-export async function incrementPdfUpload(userId: string) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      totalPdfsUploaded: { increment: 1 }
-    }
-  });
+export async function incrementPdfUpload(userId: string, shouldReset?: boolean) {
+  if (shouldReset) {
+    // Reset monthly counter and set current date
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPdfsUploaded: { increment: 1 },
+        monthlyPdfsUploaded: 1,
+        monthlyPdfsResetDate: new Date(),
+      }
+    });
+  } else {
+    // Just increment both counters
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPdfsUploaded: { increment: 1 },
+        monthlyPdfsUploaded: { increment: 1 },
+      }
+    });
+  }
 }
 
 export async function canUserPerformAction(
@@ -153,10 +167,13 @@ export async function canUserPerformAction(
 
   switch (action) {
     case 'upload_pdf':
-      if (limits.maxPdfs !== -1 && user.totalPdfsUploaded >= limits.maxPdfs) {
+      // Use monthly PDF tracking with auto-reset
+      const currentMonthlyCount = getCurrentMonthlyPdfCount(user.monthlyPdfsUploaded, user.monthlyPdfsResetDate);
+      
+      if (limits.maxPdfsPerMonth !== -1 && currentMonthlyCount >= limits.maxPdfsPerMonth) {
         return {
           allowed: false,
-          reason: `You have reached your PDF limit of ${limits.maxPdfs}. Upgrade to upload more PDFs.`,
+          reason: `You have reached your monthly PDF limit of ${limits.maxPdfsPerMonth}. Your limit will reset next month.`,
           requiresUpgrade: true
         };
       }

@@ -255,7 +255,7 @@ export default function SubscriptionCard() {
                     <h4 className="font-medium">{planData.displayName}</h4>
                     <p className="text-sm text-gray-600">${planData.price}/{planData.interval}</p>
                     <div className="text-xs text-gray-500 mt-1">
-                      {planData.maxPdfs === -1 ? 'Unlimited' : planData.maxPdfs} PDFs, 
+                      {planData.maxPdfsPerMonth === -1 ? 'Unlimited' : planData.maxPdfsPerMonth} PDFs/month, 
                       {planData.maxQuestionsPerMonth === -1 ? ' Unlimited' : ` ${planData.maxQuestionsPerMonth}`} questions/month
                     </div>
                   </div>

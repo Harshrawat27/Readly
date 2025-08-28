@@ -120,7 +120,7 @@ export default function SignUp() {
               </svg>
             </div>
             <span className='text-[22px] font-medium text-[var(--text-primary)]'>
-              Readly
+              ReaditEasy
             </span>
           </div>
 
@@ -276,7 +276,7 @@ export default function SignUp() {
                     href='/signin'
                     className='text-[var(--text-primary)] hover:underline font-medium'
                   >
-                    Sign In
+                    <strong className='text-accent'>Sign In</strong>
                   </Link>
                 </span>
               </div>
@@ -312,7 +312,7 @@ export default function SignUp() {
             <div className='text-center space-y-4'>
               <div className='w-16 h-16 bg-[var(--faded-white)] rounded-full mx-auto'></div>
               <h3 className='text-lg font-medium text-[var(--text-primary)]'>
-                Join Readly Today
+                Join ReaditEasy Today
               </h3>
               <p className='text-[var(--text-secondary)] text-sm'>
                 Start your reading journey with thousands of books at your

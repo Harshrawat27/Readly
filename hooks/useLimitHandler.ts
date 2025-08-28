@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { canUploadPdf, canAskQuestion } from '@/lib/subscription-plans';
+import { getPlanLimits, canAskQuestion } from '@/lib/subscription-plans';
 
 export type LimitType = 'pdfs' | 'fileSize' | 'questions' | 'pages';
 
@@ -43,18 +43,31 @@ export const useLimitHandler = (currentPlan: 'free' | 'pro' | 'ultimate') => {
     (params: LimitCheckParams): { allowed: boolean; limitType?: LimitType } => {
       const { currentPdfCount = 0, fileSize = 0, pageCount = 0 } = params;
       
-      const uploadCheck = canUploadPdf(currentPdfCount, fileSize, pageCount, currentPlan);
+      // Client-side simplified validation (server will do the real monthly count check)
+      const limits = getPlanLimits(currentPlan);
       
-      if (!uploadCheck.allowed) {
-        let limitType: LimitType = 'pdfs';
-        
-        if (uploadCheck.reason?.includes('File size exceeds')) {
-          limitType = 'fileSize';
-        } else if (uploadCheck.reason?.includes('pages')) {
-          limitType = 'pages';
-        }
-        
-        return { allowed: false, limitType };
+      // Check file size limit
+      if (fileSize > limits.maxFileSize * 1024 * 1024) {
+        return { 
+          allowed: false, 
+          limitType: 'fileSize'
+        };
+      }
+      
+      // Check page count limit  
+      if (limits.maxPagesPerPdf !== -1 && pageCount > limits.maxPagesPerPdf) {
+        return { 
+          allowed: false, 
+          limitType: 'pages'
+        };
+      }
+      
+      // For PDF count, do a basic check but server will validate monthly limits
+      if (limits.maxPdfsPerMonth !== -1 && currentPdfCount >= limits.maxPdfsPerMonth) {
+        return { 
+          allowed: false, 
+          limitType: 'pdfs'
+        };
       }
       
       return { allowed: true };

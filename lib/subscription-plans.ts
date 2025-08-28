@@ -5,7 +5,7 @@ export interface SubscriptionPlan {
   price: number;
   currency: string;
   interval: string;
-  maxPdfs: number; // -1 for unlimited
+  maxPdfsPerMonth: number; // -1 for unlimited
   maxFileSize: number; // in MB
   maxQuestionsPerMonth: number; // -1 for unlimited
   maxPagesPerPdf: number; // -1 for unlimited
@@ -20,12 +20,12 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     price: 0,
     currency: 'USD',
     interval: 'month',
-    maxPdfs: 3,
+    maxPdfsPerMonth: 3,
     maxFileSize: 10, // 10MB
     maxQuestionsPerMonth: 50,
     maxPagesPerPdf: 50,
     features: [
-      '3 PDF uploads',
+      '3 PDF uploads per month',
       'Up to 10MB file size',
       '50 questions per month',
       'Up to 50 pages per PDF'
@@ -38,12 +38,12 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     price: 10,
     currency: 'USD',
     interval: 'month',
-    maxPdfs: 10,
+    maxPdfsPerMonth: 10,
     maxFileSize: 50, // 50MB
     maxQuestionsPerMonth: 1000,
     maxPagesPerPdf: 200,
     features: [
-      '10 PDF uploads',
+      '10 PDF uploads per month',
       'Up to 50MB file size',
       '1,000 questions per month',
       'Up to 200 pages per PDF',
@@ -57,7 +57,7 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     price: 20,
     currency: 'USD',
     interval: 'month',
-    maxPdfs: -1, // unlimited
+    maxPdfsPerMonth: -1, // unlimited
     maxFileSize: 50, // 50MB
     maxQuestionsPerMonth: -1, // unlimited
     maxPagesPerPdf: 2000,
@@ -75,7 +75,7 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
 export function getPlanLimits(planName: string) {
   const plan = SUBSCRIPTION_PLANS[planName] || SUBSCRIPTION_PLANS.free;
   return {
-    maxPdfs: plan.maxPdfs,
+    maxPdfsPerMonth: plan.maxPdfsPerMonth,
     maxFileSize: plan.maxFileSize,
     maxQuestionsPerMonth: plan.maxQuestionsPerMonth,
     maxPagesPerPdf: plan.maxPagesPerPdf
@@ -88,36 +88,67 @@ export function isPlanUpgrade(currentPlan: string, newPlan: string): boolean {
          (planHierarchy[currentPlan as keyof typeof planHierarchy] || 0);
 }
 
+// Helper function to check if monthly counter should be reset
+export function shouldResetMonthlyCounter(lastResetDate: Date): boolean {
+  const now = new Date();
+  const lastReset = new Date(lastResetDate);
+  
+  // Reset if it's a different month or year
+  return now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+}
+
+// Function to get current monthly PDF count (with auto-reset logic)
+export function getCurrentMonthlyPdfCount(
+  monthlyPdfsUploaded: number,
+  monthlyPdfsResetDate: Date
+): number {
+  if (shouldResetMonthlyCounter(monthlyPdfsResetDate)) {
+    return 0; // Reset to 0 if it's a new month
+  }
+  return monthlyPdfsUploaded;
+}
+
 export function canUploadPdf(
-  currentPdfCount: number, 
+  monthlyPdfsUploaded: number,
+  monthlyPdfsResetDate: Date,
   fileSize: number, 
   pageCount: number, 
   planName: string
-): { allowed: boolean; reason?: string } {
+): { allowed: boolean; reason?: string; shouldReset?: boolean } {
   const limits = getPlanLimits(planName);
   
-  if (limits.maxPdfs !== -1 && currentPdfCount >= limits.maxPdfs) {
+  // Check if we need to reset monthly counter
+  const shouldReset = shouldResetMonthlyCounter(monthlyPdfsResetDate);
+  const currentMonthlyCount = shouldReset ? 0 : monthlyPdfsUploaded;
+  
+  // Check monthly PDF limit
+  if (limits.maxPdfsPerMonth !== -1 && currentMonthlyCount >= limits.maxPdfsPerMonth) {
     return { 
       allowed: false, 
-      reason: `You have reached your PDF limit of ${limits.maxPdfs}. Upgrade to upload more PDFs.` 
+      reason: `You have reached your monthly PDF limit of ${limits.maxPdfsPerMonth}. Your limit will reset next month.`,
+      shouldReset
     };
   }
   
+  // Check file size limit
   if (fileSize > limits.maxFileSize * 1024 * 1024) {
     return { 
       allowed: false, 
-      reason: `File size exceeds ${limits.maxFileSize}MB limit. Upgrade your plan for larger files.` 
+      reason: `File size exceeds ${limits.maxFileSize}MB limit. Upgrade your plan for larger files.`,
+      shouldReset
     };
   }
   
+  // Check page count limit
   if (limits.maxPagesPerPdf !== -1 && pageCount > limits.maxPagesPerPdf) {
     return { 
       allowed: false, 
-      reason: `PDF has ${pageCount} pages but your plan allows maximum ${limits.maxPagesPerPdf} pages.` 
+      reason: `PDF has ${pageCount} pages but your plan allows maximum ${limits.maxPagesPerPdf} pages.`,
+      shouldReset
     };
   }
   
-  return { allowed: true };
+  return { allowed: true, shouldReset };
 }
 
 export function canAskQuestion(
