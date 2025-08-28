@@ -513,7 +513,7 @@ const EnhancedMarkdownRenderer = memo(
             }
 
             .prose.prose-sm p {
-              margin-bottom: 1rem !important;
+              margin-bottom: 10px !important;
               line-height: 1.7 !important;
             }
 

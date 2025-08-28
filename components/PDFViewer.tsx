@@ -91,6 +91,7 @@ export default function PDFViewer({
 
   // Virtualization state
   const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set([1]));
+
   const [pageHeights, setPageHeights] = useState<Map<number, number>>(
     new Map()
   );
@@ -2961,6 +2962,7 @@ export default function PDFViewer({
       {showMCQs && pdfId && (
         <MCQs pdfId={pdfId} onClose={() => setShowMCQs(false)} />
       )}
+
     </div>
   );
 }

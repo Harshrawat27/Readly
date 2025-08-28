@@ -3,6 +3,9 @@
 import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
+import { useSubscription } from '@/hooks/useSubscription';
+import { validatePDFPages } from '@/lib/pdf-utils';
+import UpgradeDialog from '@/components/UpgradeDialog';
 
 export default function UploadPage() {
   const { data: session, isPending } = useSession();
@@ -10,6 +13,9 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+
+  // Subscription management
+  const { subscriptionData, showUpgradeDialog, setShowUpgradeDialog, upgradeReason } = useSubscription();
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -28,7 +34,6 @@ export default function UploadPage() {
     
     console.log(`📁 Attempting to upload file: ${file.name}`);
     console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
-    console.log(`🔗 Using direct S3 upload (no size limits!)`);
 
     if (file.size > 100 * 1024 * 1024) { // 100MB limit (reasonable for PDFs)
       alert('File size must be less than 100MB.');
@@ -36,6 +41,28 @@ export default function UploadPage() {
     }
 
     setIsUploading(true);
+    setUploadProgress('Validating PDF...');
+
+    // Validate PDF page count before uploading
+    if (subscriptionData?.limits) {
+      const maxPagesPerPdf = subscriptionData.limits.maxPagesPerPdf;
+      const validation = await validatePDFPages(file, maxPagesPerPdf);
+      
+      if (!validation.isValid) {
+        setIsUploading(false);
+        setUploadProgress('');
+        
+        if (validation.requiresUpgrade) {
+          setShowUpgradeDialog(true);
+        } else if (validation.error) {
+          alert(validation.error);
+        }
+        return false;
+      }
+      
+      console.log(`✅ PDF validation passed: ${validation.pageCount} pages`);
+    }
+
     setUploadProgress('Preparing upload...');
 
     try {
@@ -118,7 +145,7 @@ export default function UploadPage() {
     } finally {
       setIsUploading(false);
     }
-  }, [router]);
+  }, [router, subscriptionData, setShowUpgradeDialog]);
 
   const handleFileSelect = useCallback(async () => {
     const input = document.createElement('input');
@@ -374,6 +401,13 @@ export default function UploadPage() {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Dialog */}
+      <UpgradeDialog
+        isOpen={showUpgradeDialog}
+        onClose={() => setShowUpgradeDialog(false)}
+        reason={upgradeReason}
+      />
     </div>
   );
 }

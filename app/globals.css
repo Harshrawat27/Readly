@@ -150,6 +150,7 @@ ol {
 
 li {
   display: list-item;
+  margin-bottom: 20px;
 }
 
 /* Custom scrollbar */
@@ -170,7 +171,6 @@ li {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
-
 
 /* Blinking cursor animation for text tool */
 @keyframes blink {

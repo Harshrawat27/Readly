@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLimitHandler } from '@/hooks/useLimitHandler';
+import { validatePDFFromUrl } from '@/lib/pdf-utils';
 import LimitReachedPopup from '@/components/LimitReachedPopup';
 
 interface PDFSidebarProps {
@@ -371,13 +372,44 @@ const PDFSidebar = ({
       return;
     }
 
-    // Check subscription limits before proceeding
+    setIsConvertingUrl(true);
+
+    // Validate PDF page count before proceeding with upload
+    if (subscriptionData?.limits) {
+      const maxPagesPerPdf = subscriptionData.limits.maxPagesPerPdf;
+      const validation = await validatePDFFromUrl(urlInput, maxPagesPerPdf);
+      
+      if (!validation.isValid) {
+        setIsConvertingUrl(false);
+        
+        if (validation.requiresUpgrade) {
+          // Use existing limit handler system to show upgrade popup
+          handlePdfUpload(
+            {
+              currentPdfCount: pdfHistory.length,
+              fileSize: 1, // Small size to avoid triggering file size limit
+              pageCount: validation.pageCount, // Use actual page count to trigger page limit
+            },
+            () => {
+              // This won't be called since validation will fail
+            }
+          );
+        } else if (validation.error) {
+          setToast({ message: validation.error, type: 'error' });
+        }
+        return;
+      }
+      
+      console.log(`✅ PDF validation passed: ${validation.pageCount} pages`);
+    }
+
+    // Check other subscription limits (file count) after page validation passes
     const currentPdfCount = pdfHistory.length;
     const uploadSuccess = handlePdfUpload(
       {
         currentPdfCount,
         fileSize: 10 * 1024 * 1024, // Estimate 10MB for URL conversion
-        pageCount: 20, // Estimate reasonable page count
+        pageCount: 1, // We already validated pages above
       },
       () => {
         console.log('✅ [PDFSidebar] Subscription limits OK for URL conversion');
@@ -386,10 +418,9 @@ const PDFSidebar = ({
 
     if (!uploadSuccess) {
       console.log('❌ [PDFSidebar] URL conversion blocked by subscription limits');
+      setIsConvertingUrl(false);
       return;
     }
-
-    setIsConvertingUrl(true);
 
     try {
       const response = await fetch('/api/pdf/convert-url', {
