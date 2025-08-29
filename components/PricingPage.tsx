@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
-import PricingCardNew from './PricingCardNew';
+import PricingCard from './PricingCard';
 
 interface SubscriptionData {
   plan: {
@@ -219,7 +219,7 @@ export default function PricingPage() {
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto'>
           {displayPlans.map((plan) => (
-            <PricingCardNew
+            <PricingCard
               key={plan.id}
               plan={plan}
               onSelectPlan={handlePlanSelection}

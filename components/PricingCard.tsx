@@ -8,20 +8,31 @@ interface PricingCardProps {
   onSelectPlan: (planId: string) => void;
   isLoading?: boolean;
   currentPlan?: string;
+  isPopular?: boolean;
+  isYearly?: boolean;
 }
 
-export default function PricingCard({ plan, onSelectPlan, isLoading, currentPlan }: PricingCardProps) {
+export default function PricingCard({
+  plan,
+  onSelectPlan,
+  isLoading,
+  currentPlan,
+  isPopular = false,
+}: PricingCardProps) {
   const [selecting, setSelecting] = useState(false);
-  
+
   const isFreePlan = plan.name === 'free';
   const isCurrentPlan = currentPlan === plan.id;
-  const isYearly = plan.interval === 'year';
-  
-  const monthlyPrice = isYearly ? (plan.price / 12).toFixed(2) : plan.price.toString();
-  
+  const isYearlyPlan = plan.interval === 'year';
+
+  // Calculate monthly price for yearly plans
+  const monthlyPrice = isYearlyPlan
+    ? (plan.price / 12).toFixed(0)
+    : plan.price.toString();
+
   const handleSelect = async () => {
     if (isCurrentPlan || isFreePlan) return;
-    
+
     setSelecting(true);
     await onSelectPlan(plan.id);
     setSelecting(false);
@@ -29,91 +40,351 @@ export default function PricingCard({ plan, onSelectPlan, isLoading, currentPlan
 
   const getButtonText = () => {
     if (isCurrentPlan) return 'Current Plan';
-    if (isFreePlan) return 'Free Forever';
+    if (isFreePlan) return 'Get started';
     if (selecting || isLoading) return 'Processing...';
-    return 'Get Started';
+    return isPopular
+      ? 'Get Max plan'
+      : `Get ${plan.name === 'pro' ? 'Pro' : 'Ultimate'} plan`;
+  };
+
+  const getPlanName = () => {
+    if (isFreePlan) return 'Free';
+    if (plan.name === 'pro') return 'Pro';
+    if (plan.name === 'ultimate') return 'Max';
+    return plan.displayName;
+  };
+
+  const getPlanDescription = () => {
+    if (isFreePlan) return 'Perfect for getting started';
+    if (plan.name === 'pro') return 'Research, code, and organize';
+    if (plan.name === 'ultimate') return 'Higher limits, priority access';
+    return 'Advanced features for power users';
+  };
+
+  const getIconPath = () => {
+    if (isFreePlan) {
+      return 'M12 2L2 22h20L12 2zm0 3.5L18.5 20h-13L12 5.5z';
+    }
+    // Pro/Max icon (anchor-like icon from the design)
+    return 'M12 2v20m-6-6v-4a6 6 0 0 1 12 0v4m-6 0v6';
   };
 
   return (
-    <div className={`relative bg-white rounded-2xl shadow-lg border-2 p-8 transition-all duration-200 hover:scale-105 ${
-      isCurrentPlan ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'
-    }`}>
-      {isYearly && (
-        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-          <span className="bg-gradient-to-r from-green-400 to-green-600 text-white px-4 py-1 rounded-full text-sm font-medium">
-            Save 16%
-          </span>
-        </div>
-      )}
-      
-      {isCurrentPlan && (
-        <div className="absolute -top-4 right-4">
-          <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-            Active
-          </span>
+    <div
+      className={`relative bg-[#2a2a2a] rounded-2xl p-6 transition-all duration-200 hover:bg-[#303030] ${
+        isPopular ? 'ring-2 ring-blue-500 transform scale-105' : ''
+      }`}
+    >
+      {/* Most Popular Badge */}
+      {isPopular && (
+        <div className='absolute -top-3 left-1/2 transform -translate-x-1/2'>
+          <div className='bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium'>
+            Most Popular
+          </div>
         </div>
       )}
 
-      <div className="text-center mb-8">
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.displayName}</h3>
-        <div className="mb-4">
-          {isFreePlan ? (
-            <div className="text-4xl font-bold text-gray-900">Free</div>
-          ) : (
-            <>
-              <div className="text-4xl font-bold text-gray-900">
-                ${monthlyPrice}
-                <span className="text-lg font-normal text-gray-600">/month</span>
-              </div>
-              {isYearly && (
-                <div className="text-sm text-gray-600">
-                  Billed yearly (${plan.price}/year)
-                </div>
-              )}
-            </>
-          )}
+      {/* Icon */}
+      <div className='mb-6'>
+        <div className='w-8 h-8 text-white'>
+          <svg
+            viewBox='0 0 24 24'
+            fill='none'
+            stroke='currentColor'
+            strokeWidth='1.5'
+          >
+            <path d={getIconPath()} />
+          </svg>
         </div>
       </div>
 
-      <ul className="space-y-3 mb-8">
-        {plan.features.map((feature, index) => (
-          <li key={index} className="flex items-start">
-            <svg className="w-5 h-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span className="text-gray-700">{feature}</span>
-          </li>
-        ))}
-      </ul>
+      {/* Plan Name and Description */}
+      <div className='mb-6'>
+        <h3 className='text-2xl font-semibold text-white mb-2'>
+          {getPlanName()}
+        </h3>
+        <p className='text-gray-400 text-sm'>{getPlanDescription()}</p>
+      </div>
 
-      <div className="space-y-3">
+      {/* Price */}
+      <div className='mb-8'>
+        {isFreePlan ? (
+          <div className='text-3xl font-bold text-white'>Free</div>
+        ) : (
+          <div>
+            {!isPopular ? (
+              <div className='text-3xl font-bold text-white'>
+                USD {monthlyPrice}
+                <span className='text-base font-normal text-gray-400'>
+                  {isYearlyPlan ? ' / month billed annually' : ' / month'}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <div className='text-gray-400 text-sm mb-1'>From</div>
+                <div className='text-3xl font-bold text-white'>
+                  USD {monthlyPrice}
+                  <span className='text-base font-normal text-gray-400'>
+                    {isYearlyPlan
+                      ? ' / month billed annually'
+                      : ' / month billed monthly'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* CTA Button */}
+      <div className='mb-8'>
         <button
           onClick={handleSelect}
-          disabled={isCurrentPlan || isFreePlan || selecting || isLoading}
-          className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${
+          disabled={isCurrentPlan || selecting || isLoading}
+          className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
             isCurrentPlan
-              ? 'bg-gray-100 text-gray-500 cursor-default'
-              : isFreePlan
-              ? 'bg-gray-100 text-gray-700 cursor-default'
-              : 'bg-blue-600 text-white hover:bg-blue-700 active:transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
+              ? 'bg-gray-600 text-gray-300 cursor-default'
+              : isPopular
+              ? 'bg-white text-black hover:bg-gray-100 active:transform active:scale-95'
+              : 'border border-gray-600 text-white hover:bg-[#3a3a3a] active:transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
           {getButtonText()}
         </button>
+      </div>
 
-        <div className="text-center text-sm text-gray-500">
-          <div>
-            <strong>PDF Uploads:</strong> {plan.maxPdfsPerMonth === -1 ? 'Unlimited' : `${plan.maxPdfsPerMonth}/month`}
-          </div>
-          <div>
-            <strong>Questions:</strong> {plan.maxQuestionsPerMonth === -1 ? 'Unlimited' : `${plan.maxQuestionsPerMonth}/month`}
-          </div>
-          <div>
-            <strong>Max File Size:</strong> {plan.maxFileSize}MB
-          </div>
-          <div>
-            <strong>Max Pages:</strong> {plan.maxPagesPerPdf === -1 ? 'Unlimited' : plan.maxPagesPerPdf}
-          </div>
+      {/* Features List */}
+      <div className='space-y-3'>
+        <div className='text-sm font-medium text-gray-300 mb-3'>
+          {isFreePlan
+            ? 'What you get:'
+            : isPopular
+            ? 'Everything in Pro, plus:'
+            : 'Everything in Free and:'}
+        </div>
+
+        {/* Custom feature list based on plan */}
+        <div className='space-y-3 text-sm text-gray-300'>
+          {isFreePlan ? (
+            <>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>3 PDF uploads per month</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>50 questions per month</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Up to 10MB file size</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Up to 50 pages per PDF</span>
+              </div>
+            </>
+          ) : plan.name === 'pro' ? (
+            <>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>10 PDF uploads per month</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>1,000 questions per month</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Up to 50MB file size</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Up to 200 pages per PDF</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Priority support</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Choose 5x or 20x more usage than Pro*</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Unlimited PDF uploads</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Unlimited questions</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Early access to advanced features</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-green-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span>Priority access at high traffic times</span>
+              </div>
+              <div className='flex items-center'>
+                <svg
+                  className='w-4 h-4 mr-3 text-blue-400 flex-shrink-0'
+                  fill='currentColor'
+                  viewBox='0 0 20 20'
+                >
+                  <path
+                    fillRule='evenodd'
+                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+                    clipRule='evenodd'
+                  />
+                </svg>
+                <span className='text-blue-400'>Includes Readly Code</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
