@@ -199,3 +199,14 @@ solution
    🎯 Method: server-side processing
    📊 Total pages processed: 45
    🔢 Total chunks created: 239
+
+
+
+
+everytime i'm cliking pricing first time getting this.
+
+Failed to start upgrade process. Please try again. >> had to refresh to make it work. 
+
+update after payment success page. 
+
+subscription cancellation, and prorated pricing activate. 
