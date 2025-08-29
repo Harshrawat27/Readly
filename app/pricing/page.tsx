@@ -5,6 +5,7 @@ export default function Pricing() {
 }
 
 export const metadata = {
-  title: 'Pricing - Readly',
-  description: 'Choose the perfect plan for your PDF reading and analysis needs. Upload more PDFs, ask unlimited questions, and get priority support.',
+  title: 'Pricing - ReaditEasy',
+  description:
+    'Choose the perfect plan for your PDF reading and analysis needs. Upload more PDFs, ask unlimited questions, and get priority support.',
 };
