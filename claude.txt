@@ -210,3 +210,5 @@ Failed to start upgrade process. Please try again. >> had to refresh to make it 
 update after payment success page. 
 
 subscription cancellation, and prorated pricing activate. 
+
+-- semantic vector search try for once. 
