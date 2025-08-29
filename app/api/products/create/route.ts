@@ -5,32 +5,36 @@ import { auth } from '@/lib/auth';
 const SUBSCRIPTION_PRODUCTS = [
   {
     name: 'Pro Monthly',
-    description: '10 PDF uploads per month, 1,000 questions, up to 200 pages per PDF',
+    description:
+      '10 PDF uploads per month, 1,000 questions, up to 200 pages per PDF',
     price: 10,
     interval: 'month',
-    planType: 'pro'
+    planType: 'pro',
   },
   {
-    name: 'Pro Yearly', 
-    description: '10 PDF uploads per month, 1,000 questions, up to 200 pages per PDF - Save 16%',
+    name: 'Pro Yearly',
+    description:
+      '10 PDF uploads per month, 1,000 questions, up to 200 pages per PDF - Save 16%',
     price: 100,
     interval: 'year',
-    planType: 'pro'
+    planType: 'pro',
   },
   {
     name: 'Ultimate Monthly',
-    description: 'Unlimited PDF uploads, unlimited questions, up to 2000 pages per PDF',
-    price: 20, 
+    description:
+      'Unlimited PDF uploads, unlimited questions, up to 2000 pages per PDF',
+    price: 15,
     interval: 'month',
-    planType: 'ultimate'
+    planType: 'ultimate',
   },
   {
     name: 'Ultimate Yearly',
-    description: 'Unlimited PDF uploads, unlimited questions, up to 2000 pages per PDF - Save 37%',
+    description:
+      'Unlimited PDF uploads, unlimited questions, up to 2000 pages per PDF - Save 37%',
     price: 150,
-    interval: 'year', 
-    planType: 'ultimate'
-  }
+    interval: 'year',
+    planType: 'ultimate',
+  },
 ];
 
 export async function POST(request: NextRequest) {
@@ -41,68 +45,72 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const results = [];
-    
+
     for (const plan of SUBSCRIPTION_PRODUCTS) {
       try {
         console.log(`Creating product: ${plan.name}`);
-        
+
         const product = await dodopayments.products.create({
+          price: {
+            type: 'recurring_price',
+            price: plan.price * 100, // Convert to cents
+            currency: 'USD',
+            payment_frequency_count: 1,
+            payment_frequency_interval: plan.interval === 'month' ? 'Month' : 'Year',
+            subscription_period_count: 10,
+            subscription_period_interval: 'Year',
+            trial_period_days: 0,
+            discount: 0,
+            purchasing_power_parity: false,
+            tax_inclusive: false
+          },
+          tax_category: 'saas',
           name: plan.name,
-          description: plan.description,
-          price_amount: plan.price * 100, // Convert to cents
-          price_currency: 'USD',
-          type: 'subscription',
-          interval: plan.interval,
-          metadata: {
-            planType: plan.planType,
-            interval: plan.interval
-          }
+          description: plan.description
         });
-        
+
         results.push({
           success: true,
           plan: plan.name,
           product: {
-            id: product.id,
+            id: product.product_id,
             name: product.name,
-            price: product.price_amount / 100
-          }
+            price: typeof product.price === 'number' ? product.price / 100 : plan.price,
+          },
         });
-        
-      } catch (error: any) {
+      } catch (error) {
         console.error(`Failed to create ${plan.name}:`, error);
         results.push({
           success: false,
           plan: plan.name,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
-    
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
-    
+
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+
     return NextResponse.json({
       message: `Created ${successCount} products, ${failCount} failed`,
       results,
       summary: {
         total: SUBSCRIPTION_PRODUCTS.length,
         success: successCount,
-        failed: failCount
-      }
+        failed: failCount,
+      },
     });
-    
-  } catch (error: any) {
+  } catch (error) {
     console.error('Product creation error:', error);
     return NextResponse.json(
-      { error: 'Failed to create products', details: error.message },
+      { 
+        error: 'Failed to create products', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }
