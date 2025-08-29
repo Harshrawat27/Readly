@@ -182,3 +182,17 @@ solution
   later stage. 
 
   -- MCQs and flashcards as per page
+
+
+
+  want to show some analysing animation during this time. 
+
+   ✅ Saved 100/239 chunks
+   ✅ Saved 200/239 chunks
+   ✅ Saved 239/239 chunks
+🏁 Marking PDF as text extracted (server-side)
+   ✅ PDF marked as text extracted
+✅ SERVER-SIDE TEXT EXTRACTION COMPLETED
+   🎯 Method: server-side processing
+   📊 Total pages processed: 45
+   🔢 Total chunks created: 239

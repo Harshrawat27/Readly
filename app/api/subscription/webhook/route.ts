@@ -76,7 +76,7 @@ async function handleSubscriptionActive(subscriptionId: string) {
     console.log("Subscription activated:", subscription);
 
     const userId = subscription.metadata?.userId;
-    const planName = subscription.metadata?.planName || 'pro';
+    const planName = subscription.metadata?.planName || 'pro_monthly';
 
     if (userId) {
       await updateUserSubscription(userId, {
@@ -132,7 +132,7 @@ async function handleSubscriptionRenewed(subscriptionId: string) {
   try {
     const subscription = await dodopayments.subscriptions.retrieve(subscriptionId);
     const userId = subscription.metadata?.userId;
-    const planName = subscription.metadata?.planName || 'pro';
+    const planName = subscription.metadata?.planName || 'pro_monthly';
 
     if (userId) {
       await updateUserSubscription(userId, {

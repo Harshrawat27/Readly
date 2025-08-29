@@ -107,11 +107,9 @@ export async function incrementQuestionUsage(userId: string) {
   const shouldReset = now > resetDate;
   
   if (shouldReset) {
-    // Reset to next month
-    const nextResetDate = new Date(now);
+    // Reset to next month from the original reset date (anniversary-based)
+    const nextResetDate = new Date(resetDate);
     nextResetDate.setMonth(nextResetDate.getMonth() + 1);
-    nextResetDate.setDate(1);
-    nextResetDate.setHours(0, 0, 0, 0);
 
     await prisma.user.update({
       where: { id: userId },

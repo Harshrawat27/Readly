@@ -781,7 +781,13 @@ const PDFSidebar = ({
                 </button>
 
                 <div className='border-t border-[var(--border)] mt-2 pt-2'>
-                  <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
+                  <button 
+                    onClick={() => {
+                      setIsUserDropdownOpen(false);
+                      router.push('/pricing');
+                    }}
+                    className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'
+                  >
                     Upgrade plan
                   </button>
 

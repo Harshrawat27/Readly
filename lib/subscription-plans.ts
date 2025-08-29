@@ -31,6 +31,87 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
       'Up to 50 pages per PDF'
     ]
   },
+  pro_monthly: {
+    id: 'pro_monthly',
+    name: 'pro',
+    displayName: 'Pro Monthly',
+    price: 10,
+    currency: 'USD',
+    interval: 'month',
+    maxPdfsPerMonth: 10,
+    maxFileSize: 50, // 50MB
+    maxQuestionsPerMonth: 1000,
+    maxPagesPerPdf: 200,
+    features: [
+      '10 PDF uploads per month',
+      'Up to 50MB file size',
+      '1,000 questions per month',
+      'Up to 200 pages per PDF',
+      'Priority support'
+    ]
+  },
+  pro_yearly: {
+    id: 'pro_yearly',
+    name: 'pro',
+    displayName: 'Pro Yearly',
+    price: 100,
+    currency: 'USD',
+    interval: 'year',
+    maxPdfsPerMonth: 10,
+    maxFileSize: 50, // 50MB
+    maxQuestionsPerMonth: 1000,
+    maxPagesPerPdf: 200,
+    features: [
+      '10 PDF uploads per month',
+      'Up to 50MB file size',
+      '1,000 questions per month',
+      'Up to 200 pages per PDF',
+      'Priority support',
+      'Save 2 months (16% off)'
+    ]
+  },
+  ultimate_monthly: {
+    id: 'ultimate_monthly',
+    name: 'ultimate',
+    displayName: 'Ultimate Monthly',
+    price: 15,
+    currency: 'USD',
+    interval: 'month',
+    maxPdfsPerMonth: -1, // unlimited
+    maxFileSize: 50, // 50MB
+    maxQuestionsPerMonth: -1, // unlimited
+    maxPagesPerPdf: 2000,
+    features: [
+      'Unlimited PDF uploads',
+      'Up to 50MB file size',
+      'Unlimited questions',
+      'Up to 2000 pages per PDF',
+      'Priority support',
+      'Advanced analytics'
+    ]
+  },
+  ultimate_yearly: {
+    id: 'ultimate_yearly',
+    name: 'ultimate',
+    displayName: 'Ultimate Yearly',
+    price: 150,
+    currency: 'USD',
+    interval: 'year',
+    maxPdfsPerMonth: -1, // unlimited
+    maxFileSize: 50, // 50MB
+    maxQuestionsPerMonth: -1, // unlimited
+    maxPagesPerPdf: 2000,
+    features: [
+      'Unlimited PDF uploads',
+      'Up to 50MB file size',
+      'Unlimited questions',
+      'Up to 2000 pages per PDF',
+      'Priority support',
+      'Advanced analytics',
+      'Save 2 months (16% off)'
+    ]
+  },
+  // Keep legacy plans for backward compatibility
   pro: {
     id: 'pro',
     name: 'pro',
@@ -54,7 +135,7 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     id: 'ultimate',
     name: 'ultimate',
     displayName: 'Ultimate',
-    price: 20,
+    price: 15,
     currency: 'USD',
     interval: 'month',
     maxPdfsPerMonth: -1, // unlimited

@@ -49,10 +49,13 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
-  const [messageFeedback, setMessageFeedback] = useState<MessageFeedbackData>({});
-  
+  const [messageFeedback, setMessageFeedback] = useState<MessageFeedbackData>(
+    {}
+  );
+
   // Subscription and limit handling
-  const { subscriptionData, handleApiError: handleSubscriptionError } = useSubscription();
+  const { subscriptionData, handleApiError: handleSubscriptionError } =
+    useSubscription();
   const currentPlan = subscriptionData?.plan?.name || 'free';
   const {
     isLimitPopupOpen,
@@ -281,15 +284,15 @@ export default function ChatPanel({
         setMessages((prev) => [...olderMessages, ...prev]);
         setHasMoreMessages(data.pagination?.hasMore || false);
         setNextCursor(data.pagination?.nextCursor || null);
-        
+
         // Load feedback for new assistant messages
         const assistantMessageIds = olderMessages
           .filter((msg: Message) => msg.role === 'assistant')
           .map((msg: Message) => msg.id);
-        
+
         if (assistantMessageIds.length > 0) {
           const feedbackData = await loadMessageFeedback(assistantMessageIds);
-          setMessageFeedback(prev => ({ ...prev, ...feedbackData }));
+          setMessageFeedback((prev) => ({ ...prev, ...feedbackData }));
         }
       }
     } catch (error) {
@@ -302,9 +305,11 @@ export default function ChatPanel({
   // Load batch message feedback
   const loadMessageFeedback = useCallback(async (messageIds: string[]) => {
     if (messageIds.length === 0) return {};
-    
+
     try {
-      const response = await fetch(`/api/message-feedback?messageIds=${messageIds.join(',')}`);
+      const response = await fetch(
+        `/api/message-feedback?messageIds=${messageIds.join(',')}`
+      );
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.batch) {
@@ -403,9 +408,9 @@ export default function ChatPanel({
 
           // Load feedback for all assistant messages
           const assistantMessageIds = allMessages
-            .filter(msg => msg.role === 'assistant')
-            .map(msg => msg.id);
-          
+            .filter((msg) => msg.role === 'assistant')
+            .map((msg) => msg.id);
+
           if (assistantMessageIds.length > 0) {
             const feedbackData = await loadMessageFeedback(assistantMessageIds);
             setMessageFeedback(feedbackData);
@@ -505,7 +510,8 @@ export default function ChatPanel({
     if (!inputValue.trim() || isLoading) return;
 
     // Check question limits before sending
-    const monthlyQuestionsUsed = subscriptionData?.usage?.monthlyQuestionsUsed || 0;
+    const monthlyQuestionsUsed =
+      subscriptionData?.usage?.monthlyQuestionsUsed || 0;
     const canSendQuestion = handleQuestion(monthlyQuestionsUsed, () => {
       console.log('✅ [ChatPanel] Question limit OK, proceeding with message');
     });
@@ -650,11 +656,16 @@ export default function ChatPanel({
                       )
                     );
                     setStreamingMessageId(null);
-                    
+
                     // Load feedback for the new assistant message
-                    loadMessageFeedback([assistantMessageId]).then(feedbackData => {
-                      setMessageFeedback(prev => ({ ...prev, ...feedbackData }));
-                    });
+                    loadMessageFeedback([assistantMessageId]).then(
+                      (feedbackData) => {
+                        setMessageFeedback((prev) => ({
+                          ...prev,
+                          ...feedbackData,
+                        }));
+                      }
+                    );
                   }
                 } catch (e) {
                   console.error('Error parsing SSE data:', e);
@@ -671,7 +682,8 @@ export default function ChatPanel({
       setShowThinking(false);
 
       // Check if it's a limit-related error
-      const isLimitError = handleLimitError(error) || handleSubscriptionError(error);
+      const isLimitError =
+        handleLimitError(error) || handleSubscriptionError(error);
 
       if (!isLimitError) {
         // Only show error message for non-limit errors
@@ -708,14 +720,27 @@ export default function ChatPanel({
         });
       } else {
         // For limit errors, remove the user message since it wasn't processed
-        setMessages((prev) => prev.filter(msg => msg.id !== userMessage.id));
+        setMessages((prev) => prev.filter((msg) => msg.id !== userMessage.id));
       }
       setStreamingMessageId(null);
     } finally {
       setIsLoading(false);
       onTextSubmit();
     }
-  }, [inputValue, isLoading, pdfId, currentChatId, onTextSubmit, subscriptionData, handleQuestion, handleLimitError, handleSubscriptionError, selectedImage, messages.length, scrollDownForNewMessage]);
+  }, [
+    inputValue,
+    isLoading,
+    pdfId,
+    currentChatId,
+    onTextSubmit,
+    subscriptionData,
+    handleQuestion,
+    handleLimitError,
+    handleSubscriptionError,
+    selectedImage,
+    messages.length,
+    scrollDownForNewMessage,
+  ]);
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -954,12 +979,12 @@ export default function ChatPanel({
                           `Message ${id} ${liked ? 'liked' : 'unliked'}`
                         );
                         // Update local feedback state
-                        setMessageFeedback(prev => ({
+                        setMessageFeedback((prev) => ({
                           ...prev,
                           [id]: {
                             success: true,
-                            feedback: liked ? { feedbackType: 'like' } : null
-                          }
+                            feedback: liked ? { feedbackType: 'like' } : null,
+                          },
                         }));
                       }}
                       onDislike={(id, disliked, reason) => {
@@ -969,12 +994,14 @@ export default function ChatPanel({
                           }${reason ? ` - ${reason}` : ''}`
                         );
                         // Update local feedback state
-                        setMessageFeedback(prev => ({
+                        setMessageFeedback((prev) => ({
                           ...prev,
                           [id]: {
                             success: true,
-                            feedback: disliked ? { feedbackType: 'dislike' } : null
-                          }
+                            feedback: disliked
+                              ? { feedbackType: 'dislike' }
+                              : null,
+                          },
                         }));
                       }}
                     />
@@ -1036,7 +1063,7 @@ export default function ChatPanel({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={pdfId ? 'Reply to Readly...' : 'Select a PDF first'}
+              placeholder={pdfId ? 'Reply to Rie...' : 'Select a PDF first'}
               disabled={!pdfId || isLoading}
               className='w-full p-4 pb-2 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
               style={{
