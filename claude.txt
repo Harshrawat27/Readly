@@ -178,6 +178,9 @@ solution
   -- font family for some headings!!
   DONE -- not counting page for url upload, even free user is able to upload big docs
   -- make some pdf star
+  -- make some UI in chat panel while we are processing batches. 
+  -- cancel in subscription not canceling in dodo payments.
+  -- prorated pricing. 
 
 
   -- when someone change pdf we'll reset search functionality. 

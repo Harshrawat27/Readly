@@ -397,15 +397,15 @@ async function processPages(
       pdfId: chunk.pdfId
     }));
     
-    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2); // Smaller batches for better reliability
+    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 100, 3); // Optimized batches for faster processing
     console.log(`✅ Generated ${embeddingResults.length} embeddings`);
   } catch (embeddingError) {
     console.error(`❌ Failed to generate embeddings:`, embeddingError);
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
   }
 
-  // Save chunks with embeddings using bulk INSERT for performance
-  const dbBatchSize = 25; // Smaller batches due to embedding size and SQL query limits
+  // Save chunks with embeddings using optimized bulk INSERT for performance
+  const dbBatchSize = 120; // Optimized for Neon free tier: fewer round trips, better performance
   let savedChunks = 0;
   
   console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database using bulk inserts...`);
