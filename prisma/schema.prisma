@@ -136,6 +136,7 @@ model PDFChunk {
   
   @@index([pdfId, pageNumber])
   @@index([pdfId, chunkIndex])
+  @@index([pdfId, embedding], type: Hash) // Vector similarity search optimization
   @@map("pdf_chunk")
 }
 

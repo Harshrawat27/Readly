@@ -12,8 +12,9 @@ console.log(`📊 Extract endpoint loaded - Environment: ${process.env.NODE_ENV}
 console.log(`   🗄️  Database URL exists: ${!!process.env.DATABASE_URL}`);
 console.log(`   🔐 Auth configured: ${!!process.env.BETTER_AUTH_SECRET}`);
 
-const CHUNK_SIZE = 1000; // Characters per chunk
-const CHUNK_OVERLAP = 200; // Characters to overlap between chunks
+const CHUNK_SIZE = 800; // Target characters per chunk (optimal for embeddings)
+const MIN_CHUNK_SIZE = 300; // Minimum chunk size to avoid fragments
+const MAX_CHUNK_SIZE = 1200; // Maximum chunk size to maintain quality
 
 export async function POST(
   request: NextRequest,
@@ -161,12 +162,9 @@ function createTextChunks(
   const chunks = [];
   let chunkIndex = startChunkIndex;
 
-  // Split content into sentences for better chunk boundaries while preserving math
-  // First, protect mathematical expressions by temporarily replacing them
+  // Protect mathematical expressions by temporarily replacing them
   const mathExpressions: string[] = [];
   let protectedContent = content;
-  
-  // Protect various mathematical expression formats
   
   // Protect display math ($$...$$)
   protectedContent = protectedContent.replace(/\$\$[^$]+\$\$/g, (match) => {
@@ -182,63 +180,118 @@ function createTextChunks(
     return `__MATH_${index}__`;
   });
   
-  // Protect expressions in square brackets that contain LaTeX commands
+  // Protect LaTeX expressions
   protectedContent = protectedContent.replace(/\[[^\]]*\\[a-zA-Z]+[^\]]*\]/g, (match) => {
     const index = mathExpressions.length;
     mathExpressions.push(match);
     return `__MATH_${index}__`;
   });
   
-  // Protect expressions in parentheses that contain LaTeX commands
   protectedContent = protectedContent.replace(/\([^)]*\\[a-zA-Z]+[^)]*\)/g, (match) => {
     const index = mathExpressions.length;
     mathExpressions.push(match);
     return `__MATH_${index}__`;
   });
 
-  const sentences = protectedContent.match(/[^\.!?]+[\.!?]+/g) || [protectedContent];
+  // Semantic chunking strategy: prioritize paragraph boundaries
+  const paragraphs = protectedContent.split(/\n\s*\n/).filter(p => p.trim().length > 0);
   
   let currentChunk = '';
-  let chunkStartIndex = 0;
+  let currentCharIndex = 0;
 
-  for (const sentence of sentences) {
-    const trimmedSentence = sentence.trim();
+  for (const paragraph of paragraphs) {
+    const trimmedParagraph = paragraph.trim();
     
-    // If adding this sentence would exceed chunk size and we have content
-    if (currentChunk.length + trimmedSentence.length > CHUNK_SIZE && currentChunk.length > 0) {
-      // Restore mathematical expressions before saving
-    let restoredChunk = currentChunk.trim();
-    mathExpressions.forEach((mathExpr, index) => {
-      restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
-    });
+    // If this paragraph alone exceeds max size, split it by sentences
+    if (trimmedParagraph.length > MAX_CHUNK_SIZE) {
+      // Save current chunk if it has content
+      if (currentChunk.length >= MIN_CHUNK_SIZE) {
+        let restoredChunk = currentChunk.trim();
+        mathExpressions.forEach((mathExpr, index) => {
+          restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+        });
 
-    chunks.push({
-      content: restoredChunk,
-      pageNumber: pageNumber,
-      startIndex: chunkStartIndex,
-      endIndex: chunkStartIndex + currentChunk.length,
-      chunkIndex: chunkIndex++,
-      pdfId: pdfId,
-    });
-
-      // Start new chunk with overlap
-      const overlapStart = Math.max(0, currentChunk.length - CHUNK_OVERLAP);
-      currentChunk = currentChunk.substring(overlapStart) + ' ' + trimmedSentence;
-      chunkStartIndex += overlapStart;
-    } else {
-      // Add sentence to current chunk
-      if (currentChunk.length === 0) {
-        currentChunk = trimmedSentence;
-        chunkStartIndex = content.indexOf(trimmedSentence);
-      } else {
-        currentChunk += ' ' + trimmedSentence;
+        chunks.push({
+          content: restoredChunk,
+          pageNumber: pageNumber,
+          startIndex: currentCharIndex - currentChunk.length,
+          endIndex: currentCharIndex,
+          chunkIndex: chunkIndex++,
+          pdfId: pdfId,
+        });
+        
+        currentChunk = '';
       }
+      
+      // Split large paragraph by sentences
+      const sentences = trimmedParagraph.match(/[^\.!?]+[\.!?]+/g) || [trimmedParagraph];
+      let sentenceChunk = '';
+      
+      for (const sentence of sentences) {
+        const trimmedSentence = sentence.trim();
+        
+        if (sentenceChunk.length + trimmedSentence.length > CHUNK_SIZE && sentenceChunk.length >= MIN_CHUNK_SIZE) {
+          let restoredChunk = sentenceChunk.trim();
+          mathExpressions.forEach((mathExpr, index) => {
+            restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+          });
+
+          chunks.push({
+            content: restoredChunk,
+            pageNumber: pageNumber,
+            startIndex: currentCharIndex - sentenceChunk.length,
+            endIndex: currentCharIndex,
+            chunkIndex: chunkIndex++,
+            pdfId: pdfId,
+          });
+          
+          // Start new chunk with overlap
+          const overlapWords = sentenceChunk.split(' ').slice(-20).join(' '); // Last 20 words for context
+          sentenceChunk = overlapWords + ' ' + trimmedSentence;
+        } else {
+          sentenceChunk += (sentenceChunk.length > 0 ? ' ' : '') + trimmedSentence;
+        }
+        currentCharIndex += trimmedSentence.length + 1;
+      }
+      
+      // Add remaining sentence chunk to current chunk
+      if (sentenceChunk.trim().length > 0) {
+        currentChunk += (currentChunk.length > 0 ? '\n\n' : '') + sentenceChunk.trim();
+      }
+      
+    } else {
+      // Normal paragraph processing
+      if (currentChunk.length + trimmedParagraph.length > CHUNK_SIZE && currentChunk.length >= MIN_CHUNK_SIZE) {
+        // Save current chunk
+        let restoredChunk = currentChunk.trim();
+        mathExpressions.forEach((mathExpr, index) => {
+          restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+        });
+
+        chunks.push({
+          content: restoredChunk,
+          pageNumber: pageNumber,
+          startIndex: currentCharIndex - currentChunk.length,
+          endIndex: currentCharIndex,
+          chunkIndex: chunkIndex++,
+          pdfId: pdfId,
+        });
+        
+        // Start new chunk with some overlap (last sentences of previous chunk)
+        const sentences = currentChunk.split(/[\.!?]+/).filter(s => s.trim().length > 0);
+        const overlapSentences = sentences.slice(-2).join('. ') + '. '; // Last 2 sentences
+        currentChunk = overlapSentences + trimmedParagraph;
+      } else {
+        // Add paragraph to current chunk
+        currentChunk += (currentChunk.length > 0 ? '\n\n' : '') + trimmedParagraph;
+      }
+      
+      currentCharIndex += trimmedParagraph.length + 2; // +2 for paragraph separator
     }
   }
 
-  // Save the last chunk if it has content
-  if (currentChunk.trim().length > 0) {
-    // Restore mathematical expressions before saving
+  // Save the final chunk if it meets minimum size
+  if (currentChunk.trim().length >= MIN_CHUNK_SIZE) {
     let restoredChunk = currentChunk.trim();
     mathExpressions.forEach((mathExpr, index) => {
       restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
@@ -247,8 +300,8 @@ function createTextChunks(
     chunks.push({
       content: restoredChunk,
       pageNumber: pageNumber,
-      startIndex: chunkStartIndex,
-      endIndex: chunkStartIndex + currentChunk.length,
+      startIndex: currentCharIndex - currentChunk.length,
+      endIndex: currentCharIndex,
       chunkIndex: chunkIndex,
       pdfId: pdfId,
     });
@@ -351,11 +404,11 @@ async function processPages(
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
   }
 
-  // Save chunks with embeddings using raw SQL (since Prisma doesn't support vector type)
-  const dbBatchSize = 50; // Smaller batches due to embedding size
+  // Save chunks with embeddings using bulk INSERT for performance
+  const dbBatchSize = 25; // Smaller batches due to embedding size and SQL query limits
   let savedChunks = 0;
   
-  console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database...`);
+  console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database using bulk inserts...`);
   
   try {
     for (let i = 0; i < embeddingResults.length; i += dbBatchSize) {
@@ -364,20 +417,18 @@ async function processPages(
       
       console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks with embeddings)`);
       
-      // Use raw SQL to insert chunks with vector embeddings
+      // Construct bulk INSERT statement with VALUES clause
+      const values: string[] = [];
+      const params: (string | number)[] = [];
+      let paramIndex = 1;
+      
       for (const result of batch) {
         const chunk = result.chunk;
         const embeddingVector = `[${result.embedding.join(',')}]`;
         
-        // Use $executeRawUnsafe to properly handle vector casting
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "pdf_chunk" (
-            "id", "content", "pageNumber", "startIndex", "endIndex", 
-            "chunkIndex", "pdfId", "embedding", "createdAt"
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW()
-          )
-        `, 
+        values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}::vector, NOW())`);
+        
+        params.push(
           generateId(),
           chunk.content,
           chunk.pageNumber,
@@ -388,9 +439,20 @@ async function processPages(
           embeddingVector
         );
         
-        savedChunks++;
+        paramIndex += 8;
       }
       
+      const bulkInsertSQL = `
+        INSERT INTO "pdf_chunk" (
+          "id", "content", "pageNumber", "startIndex", "endIndex", 
+          "chunkIndex", "pdfId", "embedding", "createdAt"
+        ) VALUES ${values.join(', ')}
+      `;
+      
+      // Execute bulk insert
+      await prisma.$executeRawUnsafe(bulkInsertSQL, ...params);
+      
+      savedChunks += batch.length;
       console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks`);
     }
   } catch (dbError) {

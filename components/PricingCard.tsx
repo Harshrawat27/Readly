@@ -381,7 +381,7 @@ export default function PricingCard({
                     clipRule='evenodd'
                   />
                 </svg>
-                <span className='text-blue-400'>Includes Readly Code</span>
+                <span className='text-blue-400'>Includes ReaditEasy Code</span>
               </div>
             </>
           )}

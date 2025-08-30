@@ -9,7 +9,7 @@ import {
   incrementQuestionUsage,
 } from '@/lib/subscription-utils';
 import { uploadImageToS3 } from '@/lib/s3';
-import { findRelevantChunks } from '@/lib/vector-search';
+import { intelligentSearch } from '@/lib/intelligent-search';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -117,42 +117,55 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Build relevant PDF context using vector similarity search
+    // Build relevant PDF context using intelligent search
     const userMessage = messages[messages.length - 1]?.content || '';
-    const relevantChunks = await findRelevantChunks(pdfId, userMessage, 5);
+    const relevantChunks = await intelligentSearch(pdfId, userMessage); // Dynamic chunk allocation
 
     const pdfContext =
       relevantChunks.length > 0
-        ? `\n\nRelevant content from "${pdf.title}":\n\n${relevantChunks
+        ? `\n\nRelevant content from "${pdf.title}" (found using ${
+            relevantChunks[0]?.searchStrategy || 'intelligent'
+          } search):\n\n${relevantChunks
             .map(
               (chunk, index) =>
-                `[Page ${chunk.pageNumber}, Section ${index + 1}]\n${
-                  chunk.content
-                }`
+                `[Page ${chunk.pageNumber}, Section ${index + 1}${
+                  chunk.similarity
+                    ? ` - Relevance: ${(chunk.similarity * 100).toFixed(1)}%`
+                    : ''
+                }]\n${chunk.content}`
             )
             .join('\n\n---\n\n')}\n\n`
         : '';
 
     // System prompt for PDF chat assistant
-    const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation. it's very important to use  LaTeX markdown notation for math formulas (wrap in $ for inline or $$ for display)
+    const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation. it's very important to use LaTeX markdown notation for math formulas (wrap in $ for inline or $$ for display)
 
     Key capabilities:
     - Answer questions about PDF content with precision and clarity
-    - Explain complex concepts in simple terms
-    - Provide summaries and insights
+    - Explain complex concepts in simple terms  
+    - Provide comprehensive summaries and detailed insights
     - Help with mathematical formulas using LaTeX notation (wrap in $ for inline or $$ for display)
     - Support markdown formatting for better readability
     - Reference specific page numbers when citing content
     - Add citations inline within your responses
     - don't add in math formulas starting and ending \`( and \`) instead add $$ and $$ if iniline then single $ start and end if separete line $$ start and end
 
-    Guidelines:
-    - Use **markdown formatting** in your responses
+    **CRITICAL RESPONSE FORMAT GUIDELINES:**
+    - **Answer in the most natural format for each question type**
+    - For timeline queries: Provide comprehensive chronological narratives with detailed explanations, not just bullet points
+    - For summary requests: Write flowing paragraphs that cover all important aspects thoroughly
+    - For analytical questions: Give detailed explanations with examples and context
+    - For complex topics: Use mixed formats - paragraphs for explanations, lists only when truly needed for organization
+    - **NEVER default to exactly 5 points** - use as many points as the content naturally requires (could be 2, 8, 15, or more)
+    - **Prioritize comprehensive coverage over brevity** - you have extensive context, use it fully
+    
+    Technical Guidelines:
+    - Use **markdown formatting** appropriately
     - For mathematical expressions, use LaTeX syntax:
       - Inline math: $x = y + z$
       - Display math: $E = mc^2$
       - if there is any formula on separet line it should come between this $$ x = y + z $$
-    - Format your responses with proper headings, lists, and emphasis
+    - Use headings, emphasis, and structure naturally based on content
     - Use code blocks for code examples: \`\`\`language\n...\`\`\`
     - Use > for quotes and important notes
     - **IMPORTANT: Add citations throughout your response using this format: [cite:pageNumber:previewText] >> example [cite:18:Introduction of the iMac] in place of pageNumber add number directly don't write page54 like this**
@@ -166,7 +179,16 @@ export async function POST(request: NextRequest) {
 
     ${
       pdfContext
-        ? `You have access to relevant sections from the PDF document. Use this content to provide accurate, contextual responses. Always cite page numbers when referencing specific information.${pdfContext}`
+        ? `You have access to contextually relevant sections from the PDF document, selected using advanced search techniques. The content has been intelligently chosen based on the user's query type and intent.
+        
+        **IMPORTANT CONTEXT GUIDELINES:**
+        - When users ask for summaries, you have content from across the document - provide comprehensive overviews
+        - When users ask about specific pages, you have both the page content AND related context
+        - When users ask general questions, you have the most semantically relevant content
+        - Always use the page numbers provided in citations, and feel free to reference content from multiple pages
+        - The relevance percentages indicate how well each section matches the query
+        
+        ${pdfContext}`
         : 'When users select text from the PDF, help them understand or elaborate on that specific content.'
     }`;
 
@@ -205,8 +227,8 @@ export async function POST(request: NextRequest) {
       messages:
         chatMessages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true,
-      temperature: 0.7,
-      max_tokens: 10000,
+      temperature: 0.2,
+      max_tokens: 15000,
     });
 
     // Create a readable stream to pipe SSE to client
