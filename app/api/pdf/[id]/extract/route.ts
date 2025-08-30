@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { generateEmbeddingsInBatches, EmbeddingChunk } from '@/lib/embeddings';
+
+// Simple ID generator
+const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 // Log environment info at startup
 console.log(`📊 Extract endpoint loaded - Environment: ${process.env.NODE_ENV}`);
@@ -281,7 +285,14 @@ async function processPages(
     }
   }
 
-  const allChunks = [];
+  const allChunks: Array<{
+    content: string;
+    pageNumber: number;
+    startIndex: number;
+    endIndex: number;
+    chunkIndex: number;
+    pdfId: string;
+  }> = [];
 
   for (const page of pages) {
     const { pageNumber, content } = page;
@@ -320,20 +331,67 @@ async function processPages(
 
   console.log(`💾 Saving ${allChunks.length} chunks to database...`);
   
-  // Save all chunks to database in batches
-  const dbBatchSize = 100;
+  // Generate embeddings for all chunks
+  console.log(`🤖 Generating embeddings for ${allChunks.length} chunks...`);
+  let embeddingResults;
+  try {
+    const embeddingChunks: EmbeddingChunk[] = allChunks.map(chunk => ({
+      content: chunk.content,
+      pageNumber: chunk.pageNumber,
+      startIndex: chunk.startIndex,
+      endIndex: chunk.endIndex,
+      chunkIndex: chunk.chunkIndex,
+      pdfId: chunk.pdfId
+    }));
+    
+    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2); // Smaller batches for better reliability
+    console.log(`✅ Generated ${embeddingResults.length} embeddings`);
+  } catch (embeddingError) {
+    console.error(`❌ Failed to generate embeddings:`, embeddingError);
+    throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
+  }
+
+  // Save chunks with embeddings using raw SQL (since Prisma doesn't support vector type)
+  const dbBatchSize = 50; // Smaller batches due to embedding size
   let savedChunks = 0;
   
+  console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database...`);
+  
   try {
-    for (let i = 0; i < allChunks.length; i += dbBatchSize) {
-      const batch = allChunks.slice(i, i + dbBatchSize);
-      console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(allChunks.length / dbBatchSize)} (${batch.length} chunks)`);
+    for (let i = 0; i < embeddingResults.length; i += dbBatchSize) {
+      const batchEnd = Math.min(i + dbBatchSize, embeddingResults.length);
+      const batch = embeddingResults.slice(i, batchEnd);
       
-      await prisma.pDFChunk.createMany({
-        data: batch,
-      });
-      savedChunks += batch.length;
-      console.log(`   ✅ Saved ${savedChunks}/${allChunks.length} chunks`);
+      console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks with embeddings)`);
+      
+      // Use raw SQL to insert chunks with vector embeddings
+      for (const result of batch) {
+        const chunk = result.chunk;
+        const embeddingVector = `[${result.embedding.join(',')}]`;
+        
+        // Use $executeRawUnsafe to properly handle vector casting
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO "pdf_chunk" (
+            "id", "content", "pageNumber", "startIndex", "endIndex", 
+            "chunkIndex", "pdfId", "embedding", "createdAt"
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW()
+          )
+        `, 
+          generateId(),
+          chunk.content,
+          chunk.pageNumber,
+          chunk.startIndex,
+          chunk.endIndex,
+          chunk.chunkIndex,
+          chunk.pdfId,
+          embeddingVector
+        );
+        
+        savedChunks++;
+      }
+      
+      console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks`);
     }
   } catch (dbError) {
     console.error(`❌ Database error saving chunks:`, dbError);
@@ -342,7 +400,7 @@ async function processPages(
       message: dbError instanceof Error ? dbError.message : 'Unknown error',
       code: (dbError as {code?: string})?.code || 'No code',
       savedChunks,
-      totalChunks: allChunks.length
+      totalChunks: embeddingResults.length
     });
     throw dbError;
   }

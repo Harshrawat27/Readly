@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { generateEmbeddingsInBatches, EmbeddingChunk } from '@/lib/embeddings';
+
+// Simple ID generator
+const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
 const CHUNK_SIZE = 1000; // Characters per chunk
 const CHUNK_OVERLAP = 200; // Characters to overlap between chunks
@@ -200,7 +204,14 @@ async function processPages(
   console.log(`🔄 Processing ${pages.length} pages server-side...`);
   
   let chunkIndex = 0;
-  const allChunks = [];
+  const allChunks: Array<{
+    content: string;
+    pageNumber: number;
+    startIndex: number;
+    endIndex: number;
+    chunkIndex: number;
+    pdfId: string;
+  }> = [];
 
   for (const page of pages) {
     const { pageNumber, content } = page;
@@ -234,21 +245,67 @@ async function processPages(
     chunkIndex += pageChunks.length;
   }
 
-  console.log(`💾 Saving ${allChunks.length} chunks to database (server-side)...`);
+  // Generate embeddings for all chunks
+  console.log(`🤖 Generating embeddings for ${allChunks.length} chunks (server-side)...`);
+  let embeddingResults;
+  try {
+    const embeddingChunks: EmbeddingChunk[] = allChunks.map(chunk => ({
+      content: chunk.content,
+      pageNumber: chunk.pageNumber,
+      startIndex: chunk.startIndex,
+      endIndex: chunk.endIndex,
+      chunkIndex: chunk.chunkIndex,
+      pdfId: chunk.pdfId
+    }));
+    
+    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2);
+    console.log(`✅ Generated ${embeddingResults.length} embeddings`);
+  } catch (embeddingError) {
+    console.error(`❌ Failed to generate embeddings:`, embeddingError);
+    throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
+  }
+
+  console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database (server-side)...`);
   
-  // Save all chunks to database in batches
-  const dbBatchSize = 100;
+  // Save chunks with embeddings using raw SQL
+  const dbBatchSize = 50;
   let savedChunks = 0;
   
   try {
-    for (let i = 0; i < allChunks.length; i += dbBatchSize) {
-      const batch = allChunks.slice(i, i + dbBatchSize);
+    for (let i = 0; i < embeddingResults.length; i += dbBatchSize) {
+      const batchEnd = Math.min(i + dbBatchSize, embeddingResults.length);
+      const batch = embeddingResults.slice(i, batchEnd);
       
-      await prisma.pDFChunk.createMany({
-        data: batch,
-      });
-      savedChunks += batch.length;
-      console.log(`   ✅ Saved ${savedChunks}/${allChunks.length} chunks`);
+      console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks)`);
+      
+      // Use raw SQL to insert chunks with vector embeddings
+      for (const result of batch) {
+        const chunk = result.chunk;
+        const embeddingVector = `[${result.embedding.join(',')}]`;
+        
+        // Use $executeRawUnsafe to properly handle vector casting
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO "pdf_chunk" (
+            "id", "content", "pageNumber", "startIndex", "endIndex", 
+            "chunkIndex", "pdfId", "embedding", "createdAt"
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW()
+          )
+        `, 
+          generateId(),
+          chunk.content,
+          chunk.pageNumber,
+          chunk.startIndex,
+          chunk.endIndex,
+          chunk.chunkIndex,
+          chunk.pdfId,
+          embeddingVector
+        );
+        
+        savedChunks++;
+      }
+      
+      console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks`);
     }
   } catch (dbError) {
     console.error(`❌ Database error saving chunks:`, dbError);

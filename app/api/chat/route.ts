@@ -9,6 +9,7 @@ import {
   incrementQuestionUsage,
 } from '@/lib/subscription-utils';
 import { uploadImageToS3 } from '@/lib/s3';
+import { findRelevantChunks } from '@/lib/vector-search';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -54,11 +55,6 @@ export async function POST(request: NextRequest) {
       where: {
         id: pdfId,
         userId: userId,
-      },
-      include: {
-        chunks: {
-          orderBy: { chunkIndex: 'asc' },
-        },
       },
     });
 
@@ -121,9 +117,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Build relevant PDF context
+    // Build relevant PDF context using vector similarity search
     const userMessage = messages[messages.length - 1]?.content || '';
-    const relevantChunks = getRelevantChunks(pdf.chunks, userMessage, 5);
+    const relevantChunks = await findRelevantChunks(pdfId, userMessage, 5);
 
     const pdfContext =
       relevantChunks.length > 0
@@ -291,57 +287,4 @@ export async function GET() {
   return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }
 
-// Simple text similarity function for finding relevant chunks (kept as you had it)
-function getRelevantChunks(
-  chunks: Array<{
-    id: string;
-    content: string;
-    pageNumber: number;
-    chunkIndex: number;
-  }>,
-  query: string,
-  limit: number = 5
-) {
-  if (!chunks || chunks.length === 0 || !query.trim()) {
-    return chunks?.slice(0, limit) || [];
-  }
-
-  const queryWords = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((word) => word.length > 2); // Only consider words longer than 2 characters
-
-  if (queryWords.length === 0) {
-    return chunks.slice(0, limit);
-  }
-
-  // Score each chunk based on keyword matches
-  const scoredChunks = chunks.map((chunk) => {
-    const content = chunk.content.toLowerCase();
-    let score = 0;
-    let matchedWords = 0;
-
-    for (const word of queryWords) {
-      const matches = (content.match(new RegExp(word, 'g')) || []).length;
-      if (matches > 0) {
-        score += matches;
-        matchedWords++;
-      }
-    }
-
-    // Bonus for chunks that match more different query words
-    const wordCoverageBonus = matchedWords / queryWords.length;
-    score += wordCoverageBonus * 10;
-
-    return {
-      ...chunk,
-      relevanceScore: score,
-    };
-  });
-
-  // Sort by relevance score and return top chunks
-  return scoredChunks
-    .filter((chunk) => chunk.relevanceScore > 0)
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, limit);
-}
+// Legacy function kept for fallback compatibility - now using vector search in findRelevantChunks

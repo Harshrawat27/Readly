@@ -1,11 +1,13 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
 }
 
 model User {
@@ -121,16 +123,16 @@ model PDF {
 }
 
 model PDFChunk {
-  id         String   @id @default(cuid())
-  content    String   // The text content of the chunk
-  pageNumber Int      // Page number this chunk belongs to
-  startIndex Int      // Starting character index on the page
-  endIndex   Int      // Ending character index on the page
-  chunkIndex Int      // Sequential chunk number within the PDF
-  embedding  String?  // Optional: Vector embedding for semantic search
-  createdAt  DateTime @default(now())
+  id         String                     @id @default(cuid())
+  content    String                     // The text content of the chunk
+  pageNumber Int                        // Page number this chunk belongs to
+  startIndex Int                        // Starting character index on the page
+  endIndex   Int                        // Ending character index on the page
+  chunkIndex Int                        // Sequential chunk number within the PDF
+  embedding  Unsupported("vector(1536)")?  // Vector embedding using text-embedding-3-small (1536 dimensions)
+  createdAt  DateTime                   @default(now())
   pdfId      String
-  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  pdf        PDF                        @relation(fields: [pdfId], references: [id], onDelete: Cascade)
   
   @@index([pdfId, pageNumber])
   @@index([pdfId, chunkIndex])

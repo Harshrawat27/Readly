@@ -212,3 +212,20 @@ update after payment success page.
 subscription cancellation, and prorated pricing activate. 
 
 -- semantic vector search try for once. 
+
+
+ -- 1. Clear any existing chunks with embeddings (since they're in wrong format)
+  DELETE FROM "pdf_chunk" WHERE "embedding" IS NOT NULL;
+
+  -- 2. Drop the embedding column and recreate it with proper vector type
+  ALTER TABLE "pdf_chunk" DROP COLUMN "embedding";
+  ALTER TABLE "pdf_chunk" ADD COLUMN "embedding" vector(1536);
+
+  -- 3. Add vector index for performance
+  CREATE INDEX pdf_chunk_embedding_cosine_idx
+  ON "pdf_chunk"
+  USING ivfflat ("embedding" vector_cosine_ops)
+  WITH (lists = 100);
+
+  -- 4. Mark PDFs as not extracted so they can be re-processed
+  UPDATE "pdf" SET "textExtracted" = false WHERE "textExtracted" = true;
