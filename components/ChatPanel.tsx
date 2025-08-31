@@ -10,6 +10,7 @@ import {
 import EnhancedMarkdownRenderer from './EnhancedMarkdownRenderer';
 import ThinkingAnimation from './ThinkingAnimation';
 import MessageActions from './MessageActions';
+import PDFProcessingAnimation from './PDFProcessingAnimation';
 import { fetchWithCache, cacheKeys, clientCache } from '@/lib/clientCache';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useLimitHandler } from '@/hooks/useLimitHandler';
@@ -77,6 +78,70 @@ export default function ChatPanel({
     null
   );
   const [showThinking, setShowThinking] = useState(false);
+  const [isPdfProcessing, setIsPdfProcessing] = useState(false);
+  const [showProcessingAnimation, setShowProcessingAnimation] = useState(false);
+
+  // Check PDF processing status - only show animation during ACTIVE processing
+  useEffect(() => {
+    if (!pdfId) {
+      setIsPdfProcessing(false);
+      setShowProcessingAnimation(false);
+      return;
+    }
+
+    const checkPdfStatus = async () => {
+      try {
+        const response = await fetch(`/api/pdf/${pdfId}`);
+        const data = await response.json();
+        
+        // Check if we have chunks with embeddings
+        const chunkResponse = await fetch(`/api/pdf/${pdfId}/chunks-count`);
+        let chunkCount = 0;
+        if (chunkResponse.ok) {
+          const chunkData = await chunkResponse.json();
+          chunkCount = chunkData.count || 0;
+        }
+        
+        // Only show processing animation if:
+        // 1. PDF has not been fully processed (textExtracted is false)
+        // 2. AND no chunks exist yet (processing hasn't started or failed)
+        // 3. AND PDF was uploaded recently (within last 20 minutes for safety)
+        const uploadTime = new Date(data.uploadedAt).getTime();
+        const currentTime = Date.now();
+        const twentyMinutesAgo = currentTime - (20 * 60 * 1000);
+        
+        const isRecentlyUploaded = uploadTime > twentyMinutesAgo;
+        const isNotProcessed = !data.textExtracted;
+        const hasNoChunks = chunkCount === 0;
+        
+        // Show animation only during actual processing window
+        if (isNotProcessed && isRecentlyUploaded && hasNoChunks) {
+          setIsPdfProcessing(true);
+          setShowProcessingAnimation(true);
+        } else {
+          setIsPdfProcessing(false);
+          setShowProcessingAnimation(false);
+        }
+      } catch (error) {
+        console.error('Failed to check PDF status:', error);
+        // If there's an error, assume processing is done
+        setIsPdfProcessing(false);
+        setShowProcessingAnimation(false);
+      }
+    };
+
+    checkPdfStatus();
+    
+    // Only poll while we think processing is happening
+    let interval: NodeJS.Timeout;
+    if (isPdfProcessing) {
+      interval = setInterval(checkPdfStatus, 3000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [pdfId, isPdfProcessing]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
@@ -835,27 +900,37 @@ export default function ChatPanel({
         {isLoadingHistory ? (
           <MessageSkeleton />
         ) : messages.length === 0 ? (
-          <div className='text-center py-8'>
-            <div className='w-12 h-12 bg-[var(--faded-white)] rounded-full mx-auto mb-3 flex items-center justify-center'>
-              <svg
-                className='w-6 h-6 text-[var(--text-muted)]'
-                viewBox='0 0 24 24'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='2'
-              >
-                <path d='M21 15v4a2 2 0 0 1-2 2H7l-4-4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' />
-                <path d='M17 8h-8' />
-                <path d='M17 12h-8' />
-                <path d='M17 16h-2' />
-              </svg>
+          // Show processing animation if PDF is being processed
+          showProcessingAnimation ? (
+            <PDFProcessingAnimation
+              onComplete={() => {
+                setShowProcessingAnimation(false);
+                setIsPdfProcessing(false);
+              }}
+            />
+          ) : (
+            <div className='text-center py-8'>
+              <div className='w-12 h-12 bg-[var(--faded-white)] rounded-full mx-auto mb-3 flex items-center justify-center'>
+                <svg
+                  className='w-6 h-6 text-[var(--text-muted)]'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                >
+                  <path d='M21 15v4a2 2 0 0 1-2 2H7l-4-4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' />
+                  <path d='M17 8h-8' />
+                  <path d='M17 12h-8' />
+                  <path d='M17 16h-2' />
+                </svg>
+              </div>
+              <p className='text-sm text-[var(--text-muted)]'>
+                {pdfId
+                  ? 'Start a conversation about the PDF'
+                  : 'Select a PDF to begin chatting'}
+              </p>
             </div>
-            <p className='text-sm text-[var(--text-muted)]'>
-              {pdfId
-                ? 'Start a conversation about the PDF'
-                : 'Select a PDF to begin chatting'}
-            </p>
-          </div>
+          )
         ) : (
           <div
             className={`space-y-4 transition-opacity duration-1000 ease-out ${
@@ -1063,8 +1138,14 @@ export default function ChatPanel({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={pdfId ? 'Reply to Rie...' : 'Select a PDF first'}
-              disabled={!pdfId || isLoading}
+              placeholder={
+                !pdfId 
+                  ? 'Select a PDF first' 
+                  : isPdfProcessing 
+                    ? 'Analyzing PDF for better answers...' 
+                    : 'Reply to Rie...'
+              }
+              disabled={!pdfId || isLoading || isPdfProcessing}
               className='w-full p-4 pb-2 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
               style={{
                 minHeight: '48px',
@@ -1195,7 +1276,7 @@ export default function ChatPanel({
 
               <button
                 onClick={sendMessage}
-                disabled={!inputValue.trim() || !pdfId || isLoading}
+                disabled={!inputValue.trim() || !pdfId || isLoading || isPdfProcessing}
                 className='flex items-center justify-center w-8 h-8 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
               >
                 {isLoading ? (
