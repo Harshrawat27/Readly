@@ -23,9 +23,25 @@ export async function POST(
   let pages: Array<{pageNumber: number; content: string}> | undefined;
   let batchInfo: { batchIndex: number; totalBatches: number; isLastBatch: boolean } | undefined;
   
+  // Performance tracking
+  const startTime = Date.now();
+  const timeLog = {
+    start: startTime,
+    auth: 0,
+    dbCheck: 0,
+    jsonParse: 0,
+    pdfLookup: 0,
+    chunking: 0,
+    embedding: 0,
+    dbSave: 0,
+    total: 0
+  };
+  
   try {
-    console.log(`🚀 Starting PDF extraction process...`);
+    console.log(`🚀 [${new Date().toISOString()}] Starting PDF extraction process...`);
+    console.log(`⏰ START_TIME: ${startTime}ms`);
     
+    const authStart = Date.now();
     const session = await auth.api.getSession({
       headers: await headers(),
     });
@@ -34,6 +50,9 @@ export async function POST(
       console.log(`❌ Unauthorized access attempt`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    timeLog.auth = Date.now() - authStart;
+    console.log(`🔐 AUTH_TIME: ${timeLog.auth}ms`);
 
     const resolvedParams = await params;
     const pdfId = resolvedParams.id;
@@ -51,16 +70,19 @@ export async function POST(
     console.log(`   🔍 Headers count: ${Object.keys(await headers()).length}`);
 
     // Test database connectivity first
+    const dbCheckStart = Date.now();
     console.log(`🔍 Testing database connection...`);
     try {
       await prisma.$queryRaw`SELECT 1`;
-      console.log(`   ✅ Database connection successful`);
+      timeLog.dbCheck = Date.now() - dbCheckStart;
+      console.log(`   ✅ Database connection successful - DB_CHECK_TIME: ${timeLog.dbCheck}ms`);
     } catch (dbConnError) {
       console.error(`❌ Database connection failed:`, dbConnError);
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
 
     // Verify PDF exists and belongs to user
+    const pdfLookupStart = Date.now();
     console.log(`🔍 Looking up PDF ${pdfId} for user ${userId}...`);
     const pdf = await prisma.pDF.findFirst({
       where: {
@@ -74,12 +96,16 @@ export async function POST(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
     
-    console.log(`✅ PDF found: ${pdf.title || 'Untitled'}`);
+    timeLog.pdfLookup = Date.now() - pdfLookupStart;
+    console.log(`✅ PDF found: ${pdf.title || 'Untitled'} - PDF_LOOKUP_TIME: ${timeLog.pdfLookup}ms`);
 
+    const jsonParseStart = Date.now();
     console.log(`📝 Parsing request body...`);
     let parsedData;
     try {
       parsedData = JSON.parse(requestBody);
+      timeLog.jsonParse = Date.now() - jsonParseStart;
+      console.log(`📄 JSON_PARSE_TIME: ${timeLog.jsonParse}ms`);
     } catch (parseError) {
       console.error(`❌ JSON parse error:`, parseError);
       return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
@@ -116,9 +142,23 @@ export async function POST(
       setTimeout(() => reject(new Error('Operation timed out after 50 seconds')), 50000);
     });
     
-    const processPromise = processPages(pages, pdfId, batchInfo);
+    const processPromise = processPages(pages, pdfId, batchInfo, timeLog);
     
     const result = await Promise.race([processPromise, timeoutPromise]);
+    
+    // Final timing summary
+    timeLog.total = Date.now() - startTime;
+    console.log(`\n🎯 PERFORMANCE SUMMARY for PDF ${pdfId}:`);
+    console.log(`   🔐 Auth: ${timeLog.auth}ms`);
+    console.log(`   🗄️  DB Check: ${timeLog.dbCheck}ms`);
+    console.log(`   📄 JSON Parse: ${timeLog.jsonParse}ms`);
+    console.log(`   🔍 PDF Lookup: ${timeLog.pdfLookup}ms`);
+    console.log(`   ✂️  Chunking: ${timeLog.chunking}ms`);
+    console.log(`   🤖 Embedding: ${timeLog.embedding}ms`);
+    console.log(`   💾 DB Save: ${timeLog.dbSave}ms`);
+    console.log(`   ⏱️  TOTAL: ${timeLog.total}ms (${(timeLog.total/1000).toFixed(1)}s)`);
+    console.log(`   📊 Breakdown: Auth(${((timeLog.auth/timeLog.total)*100).toFixed(1)}%) | Chunking(${((timeLog.chunking/timeLog.total)*100).toFixed(1)}%) | Embedding(${((timeLog.embedding/timeLog.total)*100).toFixed(1)}%) | DB(${((timeLog.dbSave/timeLog.total)*100).toFixed(1)}%)`);
+    
     console.log(`✅ Successfully processed batch for PDF ${pdfId}`);
     return result;
 
@@ -314,7 +354,18 @@ function createTextChunks(
 async function processPages(
   pages: Array<{pageNumber: number; content: string}>, 
   pdfId: string, 
-  batchInfo?: { batchIndex: number; totalBatches: number; isLastBatch: boolean }
+  batchInfo?: { batchIndex: number; totalBatches: number; isLastBatch: boolean },
+  timeLog?: {
+    start: number;
+    auth: number;
+    dbCheck: number;
+    jsonParse: number;
+    pdfLookup: number;
+    chunking: number;
+    embedding: number;
+    dbSave: number;
+    total: number;
+  }
 ) {
   console.log(`🔄 processPages called with ${pages.length} pages for PDF ${pdfId}`);
   console.log(`   🔢 Batch info:`, batchInfo);
@@ -346,6 +397,9 @@ async function processPages(
     chunkIndex: number;
     pdfId: string;
   }> = [];
+
+  const chunkingStart = Date.now();
+  console.log(`✂️  Starting chunking process...`);
 
   for (const page of pages) {
     const { pageNumber, content } = page;
@@ -382,9 +436,15 @@ async function processPages(
     chunkIndex += pageChunks.length;
   }
 
+  if (timeLog) {
+    timeLog.chunking = Date.now() - chunkingStart;
+    console.log(`✂️  CHUNKING_TIME: ${timeLog.chunking}ms - Created ${allChunks.length} chunks`);
+  }
+
   console.log(`💾 Saving ${allChunks.length} chunks to database...`);
   
   // Generate embeddings for all chunks
+  const embeddingStart = Date.now();
   console.log(`🤖 Generating embeddings for ${allChunks.length} chunks...`);
   let embeddingResults;
   try {
@@ -398,13 +458,18 @@ async function processPages(
     }));
     
     embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2); // Reduced for Vercel 60s timeout
-    console.log(`✅ Generated ${embeddingResults.length} embeddings`);
+    
+    if (timeLog) {
+      timeLog.embedding = Date.now() - embeddingStart;
+      console.log(`🤖 EMBEDDING_TIME: ${timeLog.embedding}ms - Generated ${embeddingResults.length} embeddings`);
+    }
   } catch (embeddingError) {
     console.error(`❌ Failed to generate embeddings:`, embeddingError);
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
   }
 
   // Save chunks with embeddings using conservative bulk INSERT for Vercel timeout
+  const dbSaveStart = Date.now();
   const dbBatchSize = 80; // Reduced for Vercel 60s timeout limit
   let savedChunks = 0;
   
@@ -453,7 +518,12 @@ async function processPages(
       await prisma.$executeRawUnsafe(bulkInsertSQL, ...params);
       
       savedChunks += batch.length;
-      console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks`);
+      console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks - Batch time: ${Date.now() - Date.now()}ms`);
+    }
+    
+    if (timeLog) {
+      timeLog.dbSave = Date.now() - dbSaveStart;
+      console.log(`💾 DB_SAVE_TIME: ${timeLog.dbSave}ms - Saved ${savedChunks} chunks`);
     }
   } catch (dbError) {
     console.error(`❌ Database error saving chunks:`, dbError);

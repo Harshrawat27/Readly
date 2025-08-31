@@ -7,25 +7,48 @@ import { generateEmbeddingsInBatches, EmbeddingChunk } from '@/lib/embeddings';
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
-const CHUNK_SIZE = 1000; // Characters per chunk
+// Optimized chunk sizes for Vercel timeout constraints
+const CHUNK_SIZE = 1000; // Larger chunks to reduce total count for Vercel timeout
+const MIN_CHUNK_SIZE = 400; // Larger minimum to reduce chunk count  
+const MAX_CHUNK_SIZE = 1500; // Larger maximum to reduce chunk count
 const CHUNK_OVERLAP = 200; // Characters to overlap between chunks
 
 export async function POST(request: NextRequest) {
   try {
+    const startTime = Date.now();
+    
+    // Comprehensive time logging for performance analysis
+    const timeLog = {
+      start: startTime,
+      auth: 0,
+      dbCheck: 0,
+      jsonParse: 0,
+      pdfLookup: 0,
+      chunking: 0,
+      embedding: 0,
+      dbSave: 0,
+      total: 0
+    };
+    
     console.log(`🚀 SERVER-SIDE URL TEXT EXTRACTION STARTED`);
     console.log(`   🎯 Using server-side processing route (NOT client-side)`);
+    console.log(`   ⏱️  Start Time: ${new Date(startTime).toISOString()}`);
     
+    const authStart = Date.now();
     const session = await auth.api.getSession({
       headers: await headers(),
     });
+    timeLog.auth = Date.now() - authStart;
 
     if (!session?.user?.id) {
       console.log(`❌ Unauthorized access attempt`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const jsonStart = Date.now();
     const { pdfId, pages } = await request.json();
     const userId = session.user.id;
+    timeLog.jsonParse = Date.now() - jsonStart;
 
     console.log(`📄 PDF ID: ${pdfId}`);
     console.log(`📄 Pages received: ${pages?.length || 0}`);
@@ -34,12 +57,14 @@ export async function POST(request: NextRequest) {
 
     // Verify PDF exists and belongs to user
     console.log(`🔍 Verifying PDF ownership...`);
+    const pdfLookupStart = Date.now();
     const pdf = await prisma.pDF.findFirst({
       where: {
         id: pdfId,
         userId: userId,
       },
     });
+    timeLog.pdfLookup = Date.now() - pdfLookupStart;
 
     if (!pdf) {
       console.log(`❌ PDF ${pdfId} not found or doesn't belong to user ${userId}`);
@@ -49,7 +74,9 @@ export async function POST(request: NextRequest) {
     // Check if text already extracted
     if (pdf.textExtracted) {
       console.log(`✅ Text already extracted for PDF ${pdfId}`);
+      const dbCheckStart = Date.now();
       const chunksCount = await prisma.pDFChunk.count({ where: { pdfId } });
+      timeLog.dbCheck = Date.now() - dbCheckStart;
       return NextResponse.json({ 
         message: 'Text already extracted',
         chunksCount,
@@ -68,18 +95,45 @@ export async function POST(request: NextRequest) {
 
     // Delegate to the existing extract endpoint logic
     console.log(`🔄 Delegating to server-side extraction logic...`);
-    const result = await processPages(pages, pdfId);
+    const result = await processPages(pages, pdfId, timeLog);
+    
+    // Final timing calculations
+    timeLog.total = Date.now() - startTime;
     
     console.log(`✅ SERVER-SIDE TEXT EXTRACTION COMPLETED`);
     console.log(`   🎯 Method: server-side processing`);
     console.log(`   📊 Total pages processed: ${pages.length}`);
     console.log(`   🔢 Total chunks created: ${result.chunksCreated}`);
+    console.log(`\n⏱️  COMPREHENSIVE TIMING BREAKDOWN (SERVER-SIDE):`);
+    console.log(`   🔐 Auth: ${timeLog.auth}ms`);
+    console.log(`   📥 JSON Parse: ${timeLog.jsonParse}ms`);  
+    console.log(`   🔍 PDF Lookup: ${timeLog.pdfLookup}ms`);
+    console.log(`   📊 DB Check: ${timeLog.dbCheck}ms`);
+    console.log(`   ✂️  Chunking: ${timeLog.chunking}ms`);
+    console.log(`   🤖 Embedding: ${timeLog.embedding}ms`);
+    console.log(`   💾 DB Save: ${timeLog.dbSave}ms`);
+    console.log(`   🎯 TOTAL: ${timeLog.total}ms (${(timeLog.total / 1000).toFixed(2)}s)`);
+    console.log(`   📈 Performance: ${result.chunksCreated} chunks in ${(timeLog.total / 1000).toFixed(2)}s = ${(result.chunksCreated / (timeLog.total / 1000)).toFixed(1)} chunks/sec`);
     
     return NextResponse.json({
       message: 'Server-side text extraction completed',
       method: 'server-side',
       pagesProcessed: pages.length,
       chunksCreated: result.chunksCreated,
+      performance: {
+        totalTimeMs: timeLog.total,
+        totalTimeSec: Number((timeLog.total / 1000).toFixed(2)),
+        chunksPerSecond: Number((result.chunksCreated / (timeLog.total / 1000)).toFixed(1)),
+        breakdown: {
+          auth: timeLog.auth,
+          jsonParse: timeLog.jsonParse,
+          pdfLookup: timeLog.pdfLookup,
+          dbCheck: timeLog.dbCheck,
+          chunking: timeLog.chunking,
+          embedding: timeLog.embedding,
+          dbSave: timeLog.dbSave
+        }
+      }
     });
 
   } catch (error) {
@@ -113,7 +167,7 @@ function createTextChunks(
   const chunks = [];
   let chunkIndex = startChunkIndex;
 
-  // Split content into sentences for better chunk boundaries while preserving math
+  // Enhanced semantic chunking with paragraph boundaries for better context
   const mathExpressions: string[] = [];
   let protectedContent = content;
   
@@ -142,15 +196,21 @@ function createTextChunks(
     return `__MATH_${index}__`;
   });
 
-  const sentences = protectedContent.match(/[^\.!?]+[\.!?]+/g) || [protectedContent];
+  // Improved semantic chunking: Try paragraphs first, then sentences 
+  const paragraphs = protectedContent.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  const textSegments = paragraphs.length > 1 ? paragraphs : 
+                      (protectedContent.match(/[^\.!?]+[\.!?]+/g) || [protectedContent]);
   
   let currentChunk = '';
   let chunkStartIndex = 0;
 
-  for (const sentence of sentences) {
-    const trimmedSentence = sentence.trim();
+  for (const segment of textSegments) {
+    const trimmedSegment = segment.trim();
     
-    if (currentChunk.length + trimmedSentence.length > CHUNK_SIZE && currentChunk.length > 0) {
+    // Check if adding this segment would exceed our target size
+    const potentialLength = currentChunk.length + trimmedSegment.length;
+    
+    if (potentialLength > CHUNK_SIZE && currentChunk.length > MIN_CHUNK_SIZE) {
       let restoredChunk = currentChunk.trim();
       mathExpressions.forEach((mathExpr, index) => {
         restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
@@ -166,14 +226,47 @@ function createTextChunks(
       });
 
       const overlapStart = Math.max(0, currentChunk.length - CHUNK_OVERLAP);
-      currentChunk = currentChunk.substring(overlapStart) + ' ' + trimmedSentence;
+      currentChunk = currentChunk.substring(overlapStart) + ' ' + trimmedSegment;
       chunkStartIndex += overlapStart;
+    } else if (potentialLength > MAX_CHUNK_SIZE && trimmedSegment.length > 0) {
+      // If single segment is too large, split it by sentences
+      const sentences = trimmedSegment.match(/[^\.!?]+[\.!?]+/g) || [trimmedSegment];
+      for (const sentence of sentences) {
+        const trimmedSentence = sentence.trim();
+        if (currentChunk.length + trimmedSentence.length > CHUNK_SIZE && currentChunk.length > MIN_CHUNK_SIZE) {
+          // Save current chunk
+          let restoredChunk = currentChunk.trim();
+          mathExpressions.forEach((mathExpr, index) => {
+            restoredChunk = restoredChunk.replace(`__MATH_${index}__`, mathExpr);
+          });
+          
+          chunks.push({
+            content: restoredChunk,
+            pageNumber: pageNumber,
+            startIndex: chunkStartIndex,
+            endIndex: chunkStartIndex + currentChunk.length,
+            chunkIndex: chunkIndex++,
+            pdfId: pdfId,
+          });
+          
+          const overlapStart = Math.max(0, currentChunk.length - CHUNK_OVERLAP);
+          currentChunk = currentChunk.substring(overlapStart) + ' ' + trimmedSentence;
+          chunkStartIndex += overlapStart;
+        } else {
+          if (currentChunk.length === 0) {
+            currentChunk = trimmedSentence;
+            chunkStartIndex = content.indexOf(trimmedSentence);
+          } else {
+            currentChunk += ' ' + trimmedSentence;
+          }
+        }
+      }
     } else {
       if (currentChunk.length === 0) {
-        currentChunk = trimmedSentence;
-        chunkStartIndex = content.indexOf(trimmedSentence);
+        currentChunk = trimmedSegment;
+        chunkStartIndex = content.indexOf(trimmedSegment);
       } else {
-        currentChunk += ' ' + trimmedSentence;
+        currentChunk += '\n' + trimmedSegment;
       }
     }
   }
@@ -199,9 +292,23 @@ function createTextChunks(
 
 async function processPages(
   pages: Array<{pageNumber: number; content: string}>, 
-  pdfId: string
+  pdfId: string,
+  timeLog: {
+    start: number;
+    auth: number;
+    dbCheck: number;
+    jsonParse: number;
+    pdfLookup: number;
+    chunking: number;
+    embedding: number;
+    dbSave: number;
+    total: number;
+  }
 ) {
   console.log(`🔄 Processing ${pages.length} pages server-side...`);
+  
+  // Start chunking timer
+  const chunkingStart = Date.now();
   
   let chunkIndex = 0;
   const allChunks: Array<{
@@ -245,8 +352,13 @@ async function processPages(
     chunkIndex += pageChunks.length;
   }
 
+  // Complete chunking timing
+  timeLog.chunking = Date.now() - chunkingStart;
+  console.log(`   ✂️  Chunking completed: ${timeLog.chunking}ms for ${allChunks.length} chunks`);
+
   // Generate embeddings for all chunks
   console.log(`🤖 Generating embeddings for ${allChunks.length} chunks (server-side)...`);
+  const embeddingStart = Date.now();
   let embeddingResults;
   try {
     const embeddingChunks: EmbeddingChunk[] = allChunks.map(chunk => ({
@@ -258,8 +370,10 @@ async function processPages(
       pdfId: chunk.pdfId
     }));
     
-    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2);
-    console.log(`✅ Generated ${embeddingResults.length} embeddings`);
+    // Optimized batch parameters for Vercel timeout constraints
+    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 100, 3);
+    timeLog.embedding = Date.now() - embeddingStart;
+    console.log(`✅ Generated ${embeddingResults.length} embeddings in ${timeLog.embedding}ms`);
   } catch (embeddingError) {
     console.error(`❌ Failed to generate embeddings:`, embeddingError);
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
@@ -267,8 +381,9 @@ async function processPages(
 
   console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database (server-side)...`);
   
-  // Save chunks with embeddings using raw SQL
-  const dbBatchSize = 50;
+  // CRITICAL OPTIMIZATION: Bulk INSERT instead of individual inserts
+  const dbSaveStart = Date.now();
+  const dbBatchSize = 50; // Smaller batches for Vercel timeout
   let savedChunks = 0;
   
   try {
@@ -278,35 +393,39 @@ async function processPages(
       
       console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks)`);
       
-      // Use raw SQL to insert chunks with vector embeddings
-      for (const result of batch) {
+      // BULK INSERT - Single SQL query for the entire batch (MAJOR PERFORMANCE IMPROVEMENT)
+      const values = batch.map((result) => {
         const chunk = result.chunk;
         const embeddingVector = `[${result.embedding.join(',')}]`;
         
-        // Use $executeRawUnsafe to properly handle vector casting
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "pdf_chunk" (
-            "id", "content", "pageNumber", "startIndex", "endIndex", 
-            "chunkIndex", "pdfId", "embedding", "createdAt"
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8::vector, NOW()
-          )
-        `, 
-          generateId(),
-          chunk.content,
-          chunk.pageNumber,
-          chunk.startIndex,
-          chunk.endIndex,
-          chunk.chunkIndex,
-          chunk.pdfId,
-          embeddingVector
-        );
-        
-        savedChunks++;
-      }
+        return `(
+          '${generateId()}', 
+          '${chunk.content.replace(/'/g, "''")}',
+          ${chunk.pageNumber},
+          ${chunk.startIndex},
+          ${chunk.endIndex},
+          ${chunk.chunkIndex},
+          '${chunk.pdfId}',
+          '${embeddingVector}'::vector,
+          NOW()
+        )`;
+      });
       
-      console.log(`   ✅ Saved ${savedChunks}/${embeddingResults.length} chunks`);
+      const bulkInsertSQL = `
+        INSERT INTO "pdf_chunk" (
+          "id", "content", "pageNumber", "startIndex", "endIndex", 
+          "chunkIndex", "pdfId", "embedding", "createdAt"
+        ) VALUES ${values.join(', ')}
+      `;
+      
+      await prisma.$executeRawUnsafe(bulkInsertSQL);
+      savedChunks += batch.length;
+      
+      console.log(`   ✅ Bulk saved ${savedChunks}/${embeddingResults.length} chunks`);
     }
+    
+    timeLog.dbSave = Date.now() - dbSaveStart;
+    console.log(`   💾 Database save completed: ${timeLog.dbSave}ms for ${savedChunks} chunks`);
   } catch (dbError) {
     console.error(`❌ Database error saving chunks:`, dbError);
     throw dbError;

@@ -31,7 +31,8 @@ export async function generateEmbeddings(chunks: EmbeddingChunk[]): Promise<Embe
   }
 
   try {
-    console.log(`🤖 Generating embeddings for ${chunks.length} chunks using OpenAI text-embedding-3-small`);
+    const startTime = Date.now();
+    console.log(`🤖 [${new Date().toISOString()}] Generating embeddings for ${chunks.length} chunks using OpenAI text-embedding-3-small`);
     
     // Extract text content from chunks
     const texts = chunks.map(chunk => chunk.content);
@@ -52,7 +53,8 @@ export async function generateEmbeddings(chunks: EmbeddingChunk[]): Promise<Embe
       chunk: chunks[index],
     }));
 
-    console.log(`✅ Successfully generated ${results.length} embeddings`);
+    const duration = Date.now() - startTime;
+    console.log(`✅ Successfully generated ${results.length} embeddings in ${duration}ms (${(duration/1000).toFixed(1)}s)`);
     return results;
 
   } catch (error) {
@@ -74,7 +76,8 @@ export async function generateEmbeddingsInBatches(
     return [];
   }
 
-  console.log(`🔄 Processing ${chunks.length} chunks in batches of ${batchSize} with max ${maxConcurrent} concurrent requests`);
+  const overallStart = Date.now();
+  console.log(`🔄 [${new Date().toISOString()}] Processing ${chunks.length} chunks in batches of ${batchSize} with max ${maxConcurrent} concurrent requests`);
   
   const results: EmbeddingResult[] = [];
   const batches: EmbeddingChunk[][] = [];
@@ -122,7 +125,9 @@ export async function generateEmbeddingsInBatches(
     }
   }
 
-  console.log(`🎉 Successfully generated all ${results.length} embeddings`);
+  const overallDuration = Date.now() - overallStart;
+  console.log(`🎉 Successfully generated all ${results.length} embeddings in ${overallDuration}ms (${(overallDuration/1000).toFixed(1)}s)`);
+  console.log(`📊 Average: ${(overallDuration/results.length).toFixed(1)}ms per embedding`);
   return results;
 }
 
