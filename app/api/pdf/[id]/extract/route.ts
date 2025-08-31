@@ -12,9 +12,9 @@ console.log(`📊 Extract endpoint loaded - Environment: ${process.env.NODE_ENV}
 console.log(`   🗄️  Database URL exists: ${!!process.env.DATABASE_URL}`);
 console.log(`   🔐 Auth configured: ${!!process.env.BETTER_AUTH_SECRET}`);
 
-const CHUNK_SIZE = 800; // Target characters per chunk (optimal for embeddings)
-const MIN_CHUNK_SIZE = 300; // Minimum chunk size to avoid fragments
-const MAX_CHUNK_SIZE = 1200; // Maximum chunk size to maintain quality
+const CHUNK_SIZE = 1000; // Larger chunks to reduce total count for Vercel timeout
+const MIN_CHUNK_SIZE = 400; // Larger minimum to reduce chunk count
+const MAX_CHUNK_SIZE = 1500; // Larger maximum to reduce chunk count
 
 export async function POST(
   request: NextRequest,
@@ -111,9 +111,9 @@ export async function POST(
 
     console.log(`🔄 Processing pages...`);
     
-    // Add timeout to catch hanging operations
+    // Add timeout to catch hanging operations - reduced for Vercel
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Operation timed out after 45 seconds')), 45000);
+      setTimeout(() => reject(new Error('Operation timed out after 50 seconds')), 50000);
     });
     
     const processPromise = processPages(pages, pdfId, batchInfo);
@@ -397,15 +397,15 @@ async function processPages(
       pdfId: chunk.pdfId
     }));
     
-    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 100, 3); // Optimized batches for faster processing
+    embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 50, 2); // Reduced for Vercel 60s timeout
     console.log(`✅ Generated ${embeddingResults.length} embeddings`);
   } catch (embeddingError) {
     console.error(`❌ Failed to generate embeddings:`, embeddingError);
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
   }
 
-  // Save chunks with embeddings using optimized bulk INSERT for performance
-  const dbBatchSize = 120; // Optimized for Neon free tier: fewer round trips, better performance
+  // Save chunks with embeddings using conservative bulk INSERT for Vercel timeout
+  const dbBatchSize = 80; // Reduced for Vercel 60s timeout limit
   let savedChunks = 0;
   
   console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database using bulk inserts...`);
