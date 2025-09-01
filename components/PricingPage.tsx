@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
+import { SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/lib/subscription-plans';
 import PricingCard from './PricingCard';
 import BillingForm, { BillingInfo } from './BillingForm';
 import ConfirmationPopup from './ConfirmationPopup';
@@ -102,7 +102,7 @@ export default function PricingPage() {
     }
   };
 
-  const findMatchingProduct = (plan: any) => {
+  const findMatchingProduct = (plan: SubscriptionPlan) => {
     // Multiple matching strategies using correct Dodo field names
     let product = null;
 

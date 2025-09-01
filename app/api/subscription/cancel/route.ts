@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserSubscription, updateUserSubscription } from '@/lib/subscription-utils';
+import { getUserSubscription } from '@/lib/subscription-utils';
 import { dodopayments } from '@/lib/dodopayments';
 import prisma from '@/lib/prisma';
 
