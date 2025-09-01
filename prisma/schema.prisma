@@ -1,54 +1,47 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../lib/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
   extensions = [pgvector(map: "vector")]
 }
 
 model User {
-  id             String         @id
-  name           String
-  email          String         @unique
-  image          String?
-  createdAt      DateTime
-  updatedAt      DateTime
-  emailVerified  Boolean
-  
-  // Subscription fields
-  subscriptionPlan    String       @default("free") // free, pro, ultimate
-  subscriptionStatus  String       @default("active") // active, inactive, cancelled, past_due
-  subscriptionId      String?      // DodoPayments subscription ID
-  customerId          String?      // DodoPayments customer ID
-  subscriptionStartDate DateTime?
-  subscriptionEndDate   DateTime?
-  
-  // Usage tracking
-  monthlyQuestionsUsed Int         @default(0)
-  monthlyQuestionsResetDate DateTime @default(now())
-  monthlyPdfsUploaded  Int         @default(0)
-  monthlyPdfsResetDate DateTime    @default(now())
-  
-  // Admin tracking columns (total counts for analytics)
-  totalPdfsUploaded    Int         @default(0)
-  totalMessagesCreated Int         @default(0)
-  
-  accounts       Account[]
-  chats          Chat[]
-  comments       Comment[]
-  commentReplies CommentReply[]
-  messages       Message[]
-  pdfs           PDF[]
-  sessions       Session[]
-  textElements   TextElement[]
-  highlights     Highlight[]
-  subscriptions  Subscription[]
-  shapes         Shape[]
-  messageFeedback MessageFeedback[]
+  id                        String            @id
+  name                      String
+  email                     String            @unique
+  image                     String?
+  createdAt                 DateTime
+  updatedAt                 DateTime
+  emailVerified             Boolean
+  customerId                String?
+  monthlyQuestionsResetDate DateTime          @default(now())
+  monthlyQuestionsUsed      Int               @default(0)
+  subscriptionEndDate       DateTime?
+  subscriptionId            String?
+  subscriptionPlan          String            @default("free")
+  subscriptionStartDate     DateTime?
+  subscriptionStatus        String            @default("active")
+  totalPdfsUploaded         Int               @default(0)
+  monthlyPdfsResetDate      DateTime          @default(now())
+  monthlyPdfsUploaded       Int               @default(0)
+  totalMessagesCreated      Int               @default(0)
+  accounts                  Account[]
+  chats                     Chat[]
+  comments                  Comment[]
+  commentReplies            CommentReply[]
+  highlights                Highlight[]
+  messages                  Message[]
+  messageFeedback           MessageFeedback[]
+  pdfs                      PDF[]
+  sessions                  Session[]
+  shapes                    Shape[]
+  subscriptions             Subscription[]
+  textElements              TextElement[]
 
   @@map("user")
 }
@@ -110,12 +103,12 @@ model PDF {
   textExtracted  Boolean       @default(false)
   chats          Chat[]
   comments       Comment[]
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  textElements   TextElement[]
   highlights     Highlight[]
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks         PDFChunk[]
   penDrawings    PenDrawing[]
   shapes         Shape[]
+  textElements   TextElement[]
 
   @@index([userId, uploadedAt])
   @@index([userId, lastAccessedAt(sort: Desc)])
@@ -123,20 +116,19 @@ model PDF {
 }
 
 model PDFChunk {
-  id         String                     @id @default(cuid())
-  content    String                     // The text content of the chunk
-  pageNumber Int                        // Page number this chunk belongs to
-  startIndex Int                        // Starting character index on the page
-  endIndex   Int                        // Ending character index on the page
-  chunkIndex Int                        // Sequential chunk number within the PDF
-  embedding  Unsupported("vector(1536)")?  // Vector embedding using text-embedding-3-small (1536 dimensions)
-  createdAt  DateTime                   @default(now())
+  id         String   @id @default(cuid())
+  content    String
+  pageNumber Int
+  startIndex Int
+  endIndex   Int
+  chunkIndex Int
+  embedding  Unsupported("vector(1536)")? // TODO: Change to vector(1536) after fixing migration
+  createdAt  DateTime @default(now())
   pdfId      String
-  pdf        PDF                        @relation(fields: [pdfId], references: [id], onDelete: Cascade)
-  
+  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+
   @@index([pdfId, pageNumber])
   @@index([pdfId, chunkIndex])
-  @@index([pdfId, embedding], type: Hash) // Vector similarity search optimization
   @@map("pdf_chunk")
 }
 
@@ -158,16 +150,16 @@ model Chat {
 }
 
 model Message {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   content   String
   role      String
-  imageData String?  // Legacy base64 data (for backwards compatibility)
-  imageUrl  String?  // S3 key for image analysis messages
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
   chatId    String
   userId    String
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageData String?
+  imageUrl  String?
+  chat      Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   feedback  MessageFeedback[]
 
   @@index([chatId, createdAt])
@@ -229,11 +221,11 @@ model Highlight {
   id         String   @id @default(cuid())
   text       String
   color      String
-  rects      Json?    // Store array of rectangles as JSON
-  x          Float?   // Keep for backward compatibility
-  y          Float?   // Keep for backward compatibility  
-  width      Float?   // Keep for backward compatibility
-  height     Float?   // Keep for backward compatibility
+  rects      Json?
+  x          Float?
+  y          Float?
+  width      Float?
+  height     Float?
   pageNumber Int
   createdAt  DateTime @default(now())
   pdfId      String
@@ -248,7 +240,7 @@ model PenDrawing {
   id         String   @id @default(cuid())
   pdfId      String
   pageNumber Int
-  strokes    Json     // Store array of drawing strokes as JSON
+  strokes    Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
@@ -258,66 +250,64 @@ model PenDrawing {
 }
 
 model Subscription {
-  id                    String   @id @default(cuid())
-  userId                String
-  subscriptionId        String   @unique // DodoPayments subscription ID
-  customerId            String   // DodoPayments customer ID
-  productId             String   // DodoPayments product ID
-  plan                  String   // free, pro, ultimate
-  status                String   // active, inactive, cancelled, past_due, on_hold
-  currentPeriodStart    DateTime
-  currentPeriodEnd      DateTime
-  cancelAtPeriodEnd     Boolean  @default(false)
-  cancelledAt           DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id                 String    @id @default(cuid())
+  userId             String
+  subscriptionId     String    @unique
+  customerId         String
+  productId          String
+  plan               String
+  status             String
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+  cancelledAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("subscription")
 }
 
 model SubscriptionPlan {
-  id                    String @id @default(cuid())
-  name                  String @unique // free, pro, ultimate
-  displayName           String
-  price                 Float
-  currency              String @default("USD")
-  interval              String // month
-  maxPdfs               Int    // -1 for unlimited
-  maxFileSize           Int    // in MB
-  maxQuestionsPerMonth  Int    // -1 for unlimited
-  maxPagesPerPdf        Int    // -1 for unlimited
-  features              Json?  // Additional features as JSON
-  active                Boolean @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
+  id                   String   @id @default(cuid())
+  name                 String   @unique
+  displayName          String
+  price                Float
+  currency             String   @default("USD")
+  interval             String
+  maxPdfs              Int
+  maxFileSize          Int
+  maxQuestionsPerMonth Int
+  maxPagesPerPdf       Int
+  features             Json?
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
   @@map("subscription_plan")
 }
 
 model Shape {
-  id         String   @id @default(cuid())
-  pdfId      String
-  pageNumber Int
-  userId     String
-  type       String   // rectangle, ellipse, line, arrow
-  x          Float
-  y          Float
-  width      Float
-  height     Float
-  rotation   Float?   @default(0)
-  color      String   @default("#000000")
-  strokeWidth Float?  @default(2)
-  fillColor  String?
-  opacity    Float?   @default(1)
-  selected   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  pdf        PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id          String   @id @default(cuid())
+  pdfId       String
+  pageNumber  Int
+  userId      String
+  type        String
+  x           Float
+  y           Float
+  width       Float
+  height      Float
+  rotation    Float?   @default(0)
+  color       String   @default("#000000")
+  strokeWidth Float?   @default(2)
+  fillColor   String?
+  opacity     Float?   @default(1)
+  selected    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  pdf         PDF      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([pdfId, pageNumber])
   @@map("shape")
 }
@@ -326,16 +316,16 @@ model MessageFeedback {
   id            String   @id @default(cuid())
   messageId     String
   userId        String
-  feedbackType  String   // "like" or "dislike"
-  dislikeReason String?  // Only populated for dislikes
+  feedbackType  String
+  dislikeReason String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
   message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([messageId, userId], name: "message_user_feedback")
   @@index([messageId])
   @@index([userId])
   @@map("message_feedback")
 }
+

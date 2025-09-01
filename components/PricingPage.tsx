@@ -120,39 +120,76 @@ export default function PricingPage() {
         );
       }
 
-      const response = await fetch('/api/subscription/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: product.product_id,
-          planName: planId,
-        }),
-      });
+      // Check if user has an active subscription
+      const hasActiveSubscription = subscriptionData?.user?.subscriptionStatus === 'active' && 
+                                   subscriptionData?.user?.subscriptionPlan !== 'free';
 
-      const data = await response.json();
+      let response, data;
 
-      if (response.ok && data.payment_link) {
-        window.location.href = data.payment_link;
-      } else if (response.status === 401) {
-        // User not authenticated
-        alert(
-          'Please sign in to upgrade your plan. You will be redirected to the sign-in page.'
-        );
-        window.location.href = '/signin?redirect=/pricing';
+      if (hasActiveSubscription) {
+        // Use plan change endpoint for existing subscribers
+        response = await fetch('/api/subscription/change-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            newPlanName: planId,
+            newProductId: product.product_id,
+          }),
+        });
+
+        data = await response.json();
+
+        if (response.ok) {
+          alert(data.message || 'Plan changed successfully!');
+          // Refresh subscription data to show updated plan
+          await fetchSubscriptionData();
+        } else if (response.status === 401) {
+          // User not authenticated
+          alert(
+            'Please sign in to change your plan. You will be redirected to the sign-in page.'
+          );
+          window.location.href = '/signin?redirect=/pricing';
+        } else {
+          throw new Error(data.error || 'Failed to change plan');
+        }
       } else {
-        throw new Error(data.error || 'Failed to create checkout session');
+        // Use checkout endpoint for new subscribers
+        response = await fetch('/api/subscription/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId: product.product_id,
+            planName: planId,
+          }),
+        });
+
+        data = await response.json();
+
+        if (response.ok && data.payment_link) {
+          window.location.href = data.payment_link;
+        } else if (response.status === 401) {
+          // User not authenticated
+          alert(
+            'Please sign in to upgrade your plan. You will be redirected to the sign-in page.'
+          );
+          window.location.href = '/signin?redirect=/pricing';
+        } else {
+          throw new Error(data.error || 'Failed to create checkout session');
+        }
       }
     } catch (error) {
-      console.error('Upgrade error:', error);
+      console.error('Plan selection error:', error);
       if (error instanceof Error && error.message.includes('Unauthorized')) {
         alert(
-          'Please sign in to upgrade your plan. You will be redirected to the sign-in page.'
+          'Please sign in to manage your plan. You will be redirected to the sign-in page.'
         );
         window.location.href = '/signin?redirect=/pricing';
       } else {
-        alert('Failed to start upgrade process. Please try again.');
+        alert('Failed to process request. Please try again.');
       }
     } finally {
       setLoadingPlanId(null);
@@ -185,6 +222,7 @@ export default function PricingPage() {
           <h1 className='text-4xl font-bold text-white mb-8'>
             Plans that grow with you
           </h1>
+
 
           {/* Toggle Buttons */}
           <div className='flex justify-center items-center mb-12'>

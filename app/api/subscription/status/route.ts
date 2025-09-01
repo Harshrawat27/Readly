@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/subscription-utils';
+import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+
     return NextResponse.json({
       plan: userSub.plan,
       subscription: userSub.subscription,
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
         subscriptionPlan: userSub.user.subscriptionPlan,
         subscriptionStatus: userSub.user.subscriptionStatus,
         subscriptionEndDate: userSub.user.subscriptionEndDate,
-      }
+      },
     });
   } catch (error) {
     console.error('Get subscription status error:', error);
