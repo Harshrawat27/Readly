@@ -172,7 +172,7 @@ solution
 
   -- home page design 
   -- model swithching
-  -- subscription should working
+  DONE -- subscription should working
   DONE -- search bar for pdf 
   -- keep the signed URL for 24hours?
   -- font family for some headings!!
@@ -181,6 +181,7 @@ solution
   -- make some UI in chat panel while we are processing batches. 
   -- cancel in subscription not canceling in dodo payments.
   -- prorated pricing. 
+  -- signin and signup page simple just google and github only
 
 
   -- when someone change pdf we'll reset search functionality. 
