@@ -253,8 +253,9 @@ export async function POST(request: NextRequest) {
           }
 
           // Save assistant response to database
+          let savedMessageId = null;
           if (assistantResponse.trim()) {
-            await prisma.message.create({
+            const savedMessage = await prisma.message.create({
               data: {
                 chatId: currentChatId,
                 userId: userId,
@@ -262,16 +263,18 @@ export async function POST(request: NextRequest) {
                 content: assistantResponse.trim(),
               },
             });
+            savedMessageId = savedMessage.id;
 
             // Increment user's question usage after successful response
             await incrementQuestionUsage(userId);
           }
 
-          // Send completion signal
+          // Send completion signal with the actual message ID
           const finalData = JSON.stringify({
             content: '',
             done: true,
             chatId: currentChatId,
+            messageId: savedMessageId, // Include the real database message ID
           });
           controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
 

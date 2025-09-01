@@ -18,6 +18,7 @@ import type { ComponentProps } from 'react';
 import type { ExtraProps } from 'react-markdown';
 import { Check, Copy } from 'lucide-react';
 import Citation from './Citation';
+import Toast from './Toast';
 
 type CodeComponentProps = ComponentProps<'code'> & ExtraProps;
 type MarkdownSize = 'default' | 'small';
@@ -91,7 +92,8 @@ function TextWithCitations({ children }: { children?: React.ReactNode }) {
       onNavigateToPage ||
       ((page: number) => {
         console.log('Citation clicked - navigate to page:', page);
-        alert(`Navigate to page ${page} - ${previewText}`);
+        // Fallback behavior - in production this should be handled properly
+        console.info(`Navigate to page ${page} - ${previewText}`);
       });
 
     parts.push(

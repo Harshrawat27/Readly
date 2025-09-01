@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
+
     // Validate required fields
     if (!messageId || !feedbackType) {
       return NextResponse.json(
@@ -29,6 +30,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'feedbackType must be either "like" or "dislike"' },
         { status: 400 }
+      );
+    }
+
+    // Verify the message exists and belongs to the user
+    const message = await prisma.message.findFirst({
+      where: {
+        id: messageId,
+        userId: userId, // Ensure user can only give feedback on their own messages
+      },
+    });
+
+    if (!message) {
+      return NextResponse.json(
+        { error: 'Message not found or you do not have permission to provide feedback on this message' },
+        { status: 404 }
       );
     }
 

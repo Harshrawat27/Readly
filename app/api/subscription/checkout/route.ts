@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { productId, planName } = await request.json();
+    const { productId, planName, billingInfo } = await request.json();
 
     if (!productId || !planName || planName === 'free') {
       return NextResponse.json(
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await dodopayments.subscriptions.create({
-      billing: {
+      billing: billingInfo || {
         city: "Not Provided",
         country: "US",
         state: "Not Provided",

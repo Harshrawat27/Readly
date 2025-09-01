@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
 import PricingCard from './PricingCard';
+import BillingForm, { BillingInfo } from './BillingForm';
+import ConfirmationPopup from './ConfirmationPopup';
 
 interface SubscriptionData {
   plan: {
@@ -33,6 +35,15 @@ export default function PricingPage() {
   const [subscriptionData, setSubscriptionData] =
     useState<SubscriptionData | null>(null);
   const [products, setProducts] = useState<DodoProduct[]>([]);
+  
+  // New state for popups
+  const [showBillingForm, setShowBillingForm] = useState(false);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{
+    planId: string;
+    productId: string;
+    billingInfo?: BillingInfo;
+  } | null>(null);
 
   useEffect(() => {
     fetchSubscriptionData();
@@ -64,135 +75,215 @@ export default function PricingPage() {
   };
 
   const handlePlanSelection = async (planId: string) => {
-    setLoadingPlanId(planId);
+    const plan = SUBSCRIPTION_PLANS[planId];
+    if (!plan) return;
+
+    // Find matching product
+    const product = findMatchingProduct(plan);
+    if (!product) {
+      // Show error popup instead of alert
+      setShowConfirmPopup(true);
+      setSelectedPlan({ planId: 'error', productId: '', billingInfo: undefined });
+      return;
+    }
+
+    // Check if user has an active subscription
+    const hasActiveSubscription = subscriptionData?.user?.subscriptionStatus === 'active' && 
+                                 subscriptionData?.user?.subscriptionPlan !== 'free';
+
+    if (hasActiveSubscription) {
+      // Show confirmation popup for plan changes
+      setSelectedPlan({ planId, productId: product.product_id });
+      setShowConfirmPopup(true);
+    } else {
+      // Show billing form for new subscriptions
+      setSelectedPlan({ planId, productId: product.product_id });
+      setShowBillingForm(true);
+    }
+  };
+
+  const findMatchingProduct = (plan: any) => {
+    // Multiple matching strategies using correct Dodo field names
+    let product = null;
+
+    // Strategy 1: Exact match by name pattern and price
+    product = products.find((p) => {
+      const planName = plan.name;
+      const isYearlyPlan = plan.interval === 'year';
+      const expectedPrice = plan.price * 100;
+
+      const nameMatch = p.name.toLowerCase().includes(planName.toLowerCase());
+      const intervalMatch = isYearlyPlan
+        ? p.name.toLowerCase().includes('year') ||
+          p.price_detail.payment_frequency_interval.toLowerCase() === 'year'
+        : p.name.toLowerCase().includes('month') ||
+          p.price_detail.payment_frequency_interval.toLowerCase() === 'month';
+      const priceMatch = p.price === expectedPrice;
+
+      return nameMatch && intervalMatch && priceMatch;
+    });
+
+    // Strategy 2: Match by price only
+    if (!product) {
+      product = products.find((p) => p.price === plan.price * 100);
+    }
+
+    // Strategy 3: Match by plan name only
+    if (!product) {
+      product = products.find((p) =>
+        p.name.toLowerCase().includes(plan.name.toLowerCase())
+      );
+    }
+
+    return product;
+  };
+
+  const handleBillingSubmit = async (billingInfo: BillingInfo) => {
+    if (!selectedPlan) return;
+
+    setLoadingPlanId(selectedPlan.planId);
+    setShowBillingForm(false);
+
     try {
-      const plan = SUBSCRIPTION_PLANS[planId];
-      if (!plan) throw new Error('Plan not found');
-
-      console.log('Selected plan:', plan);
-      console.log('Available products:', products);
-
-      // Multiple matching strategies using correct Dodo field names
-      let product = null;
-
-      // Strategy 1: Exact match by name pattern and price
-      product = products.find((p) => {
-        const planName = plan.name; // 'pro' or 'ultimate'
-        const isYearlyPlan = plan.interval === 'year';
-        const expectedPrice = plan.price * 100; // Convert to cents
-
-        const nameMatch = p.name.toLowerCase().includes(planName.toLowerCase());
-        const intervalMatch = isYearlyPlan
-          ? p.name.toLowerCase().includes('year') ||
-            p.price_detail.payment_frequency_interval.toLowerCase() === 'year'
-          : p.name.toLowerCase().includes('month') ||
-            p.price_detail.payment_frequency_interval.toLowerCase() === 'month';
-        const priceMatch = p.price === expectedPrice; // Note: using 'price' field, not 'price_amount'
-
-        console.log(
-          `Checking ${p.name}: name=${nameMatch}, interval=${intervalMatch}, price=${priceMatch} (${p.price} vs ${expectedPrice})`
-        );
-
-        return nameMatch && intervalMatch && priceMatch;
+      const response = await fetch('/api/subscription/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: selectedPlan.productId,
+          planName: selectedPlan.planId,
+          billingInfo,
+        }),
       });
 
-      // Strategy 2: Match by price only (in case naming is different)
-      if (!product) {
-        product = products.find((p) => p.price === plan.price * 100);
-        if (product) console.log('Found product by price match:', product);
-      }
+      const data = await response.json();
 
-      // Strategy 3: Match by plan name only
-      if (!product) {
-        product = products.find((p) =>
-          p.name.toLowerCase().includes(plan.name.toLowerCase())
-        );
-        if (product) console.log('Found product by name match:', product);
-      }
-
-      if (!product) {
-        // Show detailed error with available options
-        const availableProducts = products
-          .map((p) => `${p.name} ($${p.price / 100})`)
-          .join(', ');
-        throw new Error(
-          `No products available in Dodo Payments. Please create products first. Looking for: ${plan.displayName} ($${plan.price}). Available: ${availableProducts}`
-        );
-      }
-
-      // Check if user has an active subscription
-      const hasActiveSubscription = subscriptionData?.user?.subscriptionStatus === 'active' && 
-                                   subscriptionData?.user?.subscriptionPlan !== 'free';
-
-      let response, data;
-
-      if (hasActiveSubscription) {
-        // Use plan change endpoint for existing subscribers
-        response = await fetch('/api/subscription/change-plan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            newPlanName: planId,
-            newProductId: product.product_id,
-          }),
-        });
-
-        data = await response.json();
-
-        if (response.ok) {
-          alert(data.message || 'Plan changed successfully!');
-          // Refresh subscription data to show updated plan
-          await fetchSubscriptionData();
-        } else if (response.status === 401) {
-          // User not authenticated
-          alert(
-            'Please sign in to change your plan. You will be redirected to the sign-in page.'
-          );
-          window.location.href = '/signin?redirect=/pricing';
-        } else {
-          throw new Error(data.error || 'Failed to change plan');
-        }
-      } else {
-        // Use checkout endpoint for new subscribers
-        response = await fetch('/api/subscription/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            productId: product.product_id,
-            planName: planId,
-          }),
-        });
-
-        data = await response.json();
-
-        if (response.ok && data.payment_link) {
-          window.location.href = data.payment_link;
-        } else if (response.status === 401) {
-          // User not authenticated
-          alert(
-            'Please sign in to upgrade your plan. You will be redirected to the sign-in page.'
-          );
-          window.location.href = '/signin?redirect=/pricing';
-        } else {
-          throw new Error(data.error || 'Failed to create checkout session');
-        }
-      }
-    } catch (error) {
-      console.error('Plan selection error:', error);
-      if (error instanceof Error && error.message.includes('Unauthorized')) {
-        alert(
-          'Please sign in to manage your plan. You will be redirected to the sign-in page.'
-        );
+      if (response.ok && data.payment_link) {
+        window.location.href = data.payment_link;
+      } else if (response.status === 401) {
         window.location.href = '/signin?redirect=/pricing';
       } else {
-        alert('Failed to process request. Please try again.');
+        throw new Error(data.error || 'Failed to create checkout session');
       }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      // Show error popup
+      setSelectedPlan({ planId: 'checkout-error', productId: '', billingInfo });
+      setShowConfirmPopup(true);
     } finally {
       setLoadingPlanId(null);
+    }
+  };
+
+  const handlePlanChangeConfirm = async () => {
+    if (!selectedPlan) return;
+
+    setLoadingPlanId(selectedPlan.planId);
+    setShowConfirmPopup(false);
+
+    try {
+      const response = await fetch('/api/subscription/change-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPlanName: selectedPlan.planId,
+          newProductId: selectedPlan.productId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Show success popup
+        setSelectedPlan({ planId: 'success', productId: data.message, billingInfo: undefined });
+        setShowConfirmPopup(true);
+        // Refresh subscription data
+        await fetchSubscriptionData();
+      } else if (response.status === 401) {
+        window.location.href = '/signin?redirect=/pricing';
+      } else {
+        throw new Error(data.error || 'Failed to change plan');
+      }
+    } catch (error) {
+      console.error('Plan change error:', error);
+      // Show error popup
+      setSelectedPlan({ planId: 'change-error', productId: '', billingInfo: undefined });
+      setShowConfirmPopup(true);
+    } finally {
+      setLoadingPlanId(null);
+    }
+  };
+
+  const closePopups = () => {
+    setShowBillingForm(false);
+    setShowConfirmPopup(false);
+    setSelectedPlan(null);
+  };
+
+  // Get confirmation popup content based on selected plan
+  const getConfirmationContent = () => {
+    if (!selectedPlan) return { title: '', message: '', confirmText: '', cancelText: '' };
+
+    if (selectedPlan.planId === 'error') {
+      return {
+        title: 'Product Not Found',
+        message: 'No matching products found in DodoPayments. Please contact support.',
+        confirmText: 'OK',
+        cancelText: '',
+      };
+    }
+
+    if (selectedPlan.planId === 'checkout-error') {
+      return {
+        title: 'Checkout Failed',
+        message: 'Failed to create checkout session. Please try again.',
+        confirmText: 'OK',
+        cancelText: '',
+      };
+    }
+
+    if (selectedPlan.planId === 'change-error') {
+      return {
+        title: 'Plan Change Failed',
+        message: 'Failed to change your plan. Please try again.',
+        confirmText: 'OK',
+        cancelText: '',
+      };
+    }
+
+    if (selectedPlan.planId === 'success') {
+      return {
+        title: 'Plan Changed Successfully',
+        message: selectedPlan.productId, // Contains the success message
+        confirmText: 'OK',
+        cancelText: '',
+      };
+    }
+
+    const plan = SUBSCRIPTION_PLANS[selectedPlan.planId];
+    const currentPlan = SUBSCRIPTION_PLANS[subscriptionData?.user?.subscriptionPlan || 'free'];
+    
+    if (!plan) return { title: '', message: '', confirmText: '', cancelText: '' };
+
+    const isUpgrade = plan.price > currentPlan.price;
+
+    if (isUpgrade) {
+      return {
+        title: `Upgrade to ${plan.displayName}`,
+        message: `You'll be charged the prorated amount for the remaining billing period.\n\nNew features will be available immediately.`,
+        confirmText: 'Upgrade Now',
+        cancelText: 'Cancel',
+      };
+    } else {
+      return {
+        title: `Downgrade to ${plan.displayName}`,
+        message: `You'll be switched to ${plan.displayName} immediately with no refund for unused credits from your current plan.\n\n💡 Tip: Downgrading just before the end of your billing cycle would be more beneficial.`,
+        confirmText: 'Downgrade Now',
+        cancelText: 'Cancel',
+      };
     }
   };
 
@@ -276,6 +367,38 @@ export default function PricingPage() {
           </p>
         </div>
       </div>
+
+      {/* Billing Form */}
+      {selectedPlan && (
+        <BillingForm
+          isOpen={showBillingForm}
+          onClose={closePopups}
+          onSubmit={handleBillingSubmit}
+          planName={SUBSCRIPTION_PLANS[selectedPlan.planId]?.displayName || ''}
+          planPrice={SUBSCRIPTION_PLANS[selectedPlan.planId]?.price || 0}
+          isLoading={loadingPlanId === selectedPlan.planId}
+        />
+      )}
+
+      {/* Confirmation Popup */}
+      <ConfirmationPopup
+        isOpen={showConfirmPopup}
+        onClose={closePopups}
+        onConfirm={() => {
+          const content = getConfirmationContent();
+          if (content.cancelText) {
+            handlePlanChangeConfirm();
+          } else {
+            closePopups();
+          }
+        }}
+        title={getConfirmationContent().title}
+        message={getConfirmationContent().message}
+        confirmText={getConfirmationContent().confirmText}
+        cancelText={getConfirmationContent().cancelText}
+        confirmButtonStyle={selectedPlan?.planId.includes('error') ? 'default' : 'primary'}
+        isLoading={loadingPlanId !== null}
+      />
     </div>
   );
 }

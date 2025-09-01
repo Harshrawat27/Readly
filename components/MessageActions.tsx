@@ -9,6 +9,7 @@ import {
   Square,
   Loader2,
 } from 'lucide-react';
+import Toast from './Toast';
 
 interface MessageActionsProps {
   messageId: string;
@@ -195,6 +196,10 @@ export default function MessageActions({
   const [showDislikePopup, setShowDislikePopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const dislikeButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Toast state
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
 
   // Audio state
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -518,7 +523,8 @@ export default function MessageActions({
       setIsLoadingTTS(false);
       setIsPlaying(false);
       
-      alert(`TTS Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(`TTS Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setShowToast(true);
     }
   };
 
@@ -651,6 +657,14 @@ export default function MessageActions({
         onClose={() => setShowDislikePopup(false)}
         onSubmit={handleDislikeFeedback}
         position={popupPosition}
+      />
+      
+      {/* Toast */}
+      <Toast
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type="error"
       />
     </div>
   );

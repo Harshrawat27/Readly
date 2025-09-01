@@ -4,6 +4,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { getPdfPageCount } from '@/utils/getPdfPageCount';
+import Toast from '@/components/Toast';
 
 export default function UploadPage() {
   const { data: session, isPending } = useSession();
@@ -11,6 +12,11 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  
+  // Toast state
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -20,7 +26,9 @@ export default function UploadPage() {
 
   const processPdfFile = useCallback(async (file: File) => {
     if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file.');
+      setToastMessage('Please select a valid PDF file.');
+      setToastType('error');
+      setShowToast(true);
       return false;
     }
 
@@ -31,7 +39,9 @@ export default function UploadPage() {
     console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
 
     if (file.size > 100 * 1024 * 1024) { // 100MB limit (reasonable for PDFs)
-      alert('File size must be less than 100MB.');
+      setToastMessage('File size must be less than 100MB.');
+      setToastType('error');
+      setShowToast(true);
       return false;
     }
 
@@ -49,7 +59,9 @@ export default function UploadPage() {
         console.error('❌ Error checking PDF page count:', pageCountError);
         setIsUploading(false);
         setUploadProgress('');
-        alert('Failed to read PDF file. Please make sure it\'s a valid PDF.');
+        setToastMessage('Failed to read PDF file. Please make sure it\'s a valid PDF.');
+        setToastType('error');
+        setShowToast(true);
         return false;
       }
       
@@ -132,7 +144,9 @@ export default function UploadPage() {
       return true;
     } catch (error) {
       console.error('❌ Error uploading PDF:', error);
-      alert(error instanceof Error ? error.message : 'Error uploading PDF file. Please try again.');
+      setToastMessage(error instanceof Error ? error.message : 'Error uploading PDF file. Please try again.');
+      setToastType('error');
+      setShowToast(true);
       setUploadProgress('');
       return false;
     } finally {
@@ -176,7 +190,9 @@ export default function UploadPage() {
     if (pdfFile) {
       await processPdfFile(pdfFile);
     } else {
-      alert('Please drop a valid PDF file.');
+      setToastMessage('Please drop a valid PDF file.');
+      setToastType('error');
+      setShowToast(true);
     }
   }, [processPdfFile]);
 
@@ -394,6 +410,14 @@ export default function UploadPage() {
           </div>
         </div>
       </div>
+      
+      {/* Toast */}
+      <Toast
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
     </div>
   );
 }

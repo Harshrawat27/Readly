@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription-plans';
+import Toast from './Toast';
+import ConfirmationPopup from './ConfirmationPopup';
 
 interface SubscriptionData {
   plan: {
@@ -36,6 +38,12 @@ export default function SubscriptionCard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [products, setProducts] = useState<Array<{ id: string; name: string; price_amount: number; description?: string }>>([]);
+  
+  // Toast and popup states
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+  const [showToast, setShowToast] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     fetchSubscriptionData();
@@ -69,11 +77,9 @@ export default function SubscriptionCard() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.')) {
-      return;
-    }
-
     setIsCancelling(true);
+    setShowCancelConfirm(false);
+    
     try {
       const response = await fetch('/api/subscription/cancel', {
         method: 'POST',
@@ -81,14 +87,18 @@ export default function SubscriptionCard() {
 
       if (response.ok) {
         await fetchSubscriptionData();
-        alert('Subscription cancelled successfully. You will retain access until the end of your billing period.');
+        setToastMessage('Subscription cancelled successfully. You will retain access until the end of your billing period.');
+        setToastType('success');
+        setShowToast(true);
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to cancel subscription');
       }
     } catch (error) {
       console.error('Cancel subscription error:', error);
-      alert('Failed to cancel subscription. Please try again.');
+      setToastMessage('Failed to cancel subscription. Please try again.');
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setIsCancelling(false);
     }
@@ -128,7 +138,9 @@ export default function SubscriptionCard() {
       }
     } catch (error) {
       console.error('Upgrade error:', error);
-      alert('Failed to start upgrade process. Please try again.');
+      setToastMessage('Failed to start upgrade process. Please try again.');
+      setToastType('error');
+      setShowToast(true);
     }
   };
 
@@ -185,7 +197,7 @@ export default function SubscriptionCard() {
         
         {!isFreePlan && !isCancelled && (
           <button
-            onClick={handleCancelSubscription}
+            onClick={() => setShowCancelConfirm(true)}
             disabled={isCancelling}
             className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50"
           >
@@ -270,6 +282,27 @@ export default function SubscriptionCard() {
           </div>
         </div>
       )}
+      
+      {/* Toast */}
+      <Toast
+        isOpen={showToast}
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        type={toastType}
+      />
+      
+      {/* Cancel Confirmation Popup */}
+      <ConfirmationPopup
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={handleCancelSubscription}
+        title="Cancel Subscription"
+        message="Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period."
+        confirmText="Cancel Subscription"
+        cancelText="Keep Subscription"
+        confirmButtonStyle="danger"
+        isLoading={isCancelling}
+      />
     </div>
   );
 }

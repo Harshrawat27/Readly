@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/lib/subscription-plans';
+import Toast from './Toast';
 
 interface UpgradeDialogProps {
   isOpen: boolean;
@@ -14,6 +15,10 @@ export default function UpgradeDialog({ isOpen, onClose, reason, currentPlan = '
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('pro');
   const [products, setProducts] = useState<Array<{ id: string; name: string; price_amount: number; description?: string }>>([]);
+  
+  // Toast state
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -74,7 +79,8 @@ export default function UpgradeDialog({ isOpen, onClose, reason, currentPlan = '
       }
     } catch (error) {
       console.error('Upgrade error:', error);
-      alert('Failed to start upgrade process. Please try again.');
+      setToastMessage('Failed to start upgrade process. Please try again.');
+      setShowToast(true);
     } finally {
       setIsLoading(false);
     }
@@ -146,6 +152,14 @@ export default function UpgradeDialog({ isOpen, onClose, reason, currentPlan = '
             {isLoading ? 'Processing...' : `Upgrade to ${SUBSCRIPTION_PLANS[selectedPlan]?.displayName}`}
           </button>
         </div>
+        
+        {/* Toast */}
+        <Toast
+          isOpen={showToast}
+          onClose={() => setShowToast(false)}
+          message={toastMessage}
+          type="error"
+        />
       </div>
     </div>
   );

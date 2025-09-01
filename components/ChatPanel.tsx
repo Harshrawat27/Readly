@@ -648,17 +648,23 @@ export default function ChatPanel({
                   }
 
                   if (data.done) {
+                    // Update the message with the real database ID if provided
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessageId
-                          ? { ...msg, isStreaming: false }
+                          ? { 
+                              ...msg, 
+                              id: data.messageId || msg.id, // Use real DB ID if available
+                              isStreaming: false 
+                            }
                           : msg
                       )
                     );
                     setStreamingMessageId(null);
 
-                    // Load feedback for the new assistant message
-                    loadMessageFeedback([assistantMessageId]).then(
+                    // Load feedback for the new assistant message using the real DB ID
+                    const realMessageId = data.messageId || assistantMessageId;
+                    loadMessageFeedback([realMessageId]).then(
                       (feedbackData) => {
                         setMessageFeedback((prev) => ({
                           ...prev,
