@@ -184,6 +184,7 @@ solution
   -- signin and signup page simple just google and github only
   -- dropdown of side bar profile make it work. 
   -- not showing correct plan fix that.
+  - update subscription/success page
 
 
   -- when someone change pdf we'll reset search functionality. 
