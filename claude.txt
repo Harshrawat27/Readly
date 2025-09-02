@@ -182,6 +182,8 @@ solution
   -- cancel in subscription not canceling in dodo payments.
   -- prorated pricing. 
   -- signin and signup page simple just google and github only
+  -- dropdown of side bar profile make it work. 
+  -- not showing correct plan fix that.
 
 
   -- when someone change pdf we'll reset search functionality. 
