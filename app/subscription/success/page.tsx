@@ -17,7 +17,7 @@ export default function SubscriptionSuccessPage() {
   }, []);
 
   const handleContinue = () => {
-    router.push('/');
+    router.push('/new');
   };
 
   return (
