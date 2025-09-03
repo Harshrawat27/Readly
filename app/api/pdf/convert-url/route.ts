@@ -5,6 +5,66 @@ import prisma from '@/lib/prisma';
 import { uploadPdfToS3 } from '@/lib/s3';
 import { incrementPdfUpload } from '@/lib/subscription-utils';
 import { canUploadPdf } from '@/lib/subscription-plans';
+// Helper function to check if URL points to a direct PDF
+function isPdfUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname.toLowerCase();
+    
+    // Check if URL ends with .pdf
+    if (pathname.endsWith('.pdf')) {
+      return true;
+    }
+    
+    // Check common PDF-serving patterns
+    if (pathname.includes('.pdf') || parsedUrl.searchParams.has('pdf')) {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Helper function to download PDF directly from URL
+async function downloadPdfFromUrl(url: string): Promise<{ buffer: Buffer; title: string }> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
+  }
+
+  // Check if the response is actually a PDF
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
+    throw new Error('URL does not point to a PDF file');
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  
+  // Extract title from URL or Content-Disposition header
+  let title = '';
+  const contentDisposition = response.headers.get('content-disposition');
+  if (contentDisposition && contentDisposition.includes('filename=')) {
+    const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (match && match[1]) {
+      title = match[1].replace(/['"]/g, '').replace('.pdf', '');
+    }
+  }
+  
+  if (!title) {
+    const parsedUrl = new URL(url);
+    title = parsedUrl.pathname.split('/').pop()?.replace('.pdf', '') || parsedUrl.hostname;
+  }
+
+  return { buffer, title };
+}
+
 // Import puppeteer conditionally based on environment
 async function createBrowser() {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -75,8 +135,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🌐 [URL-to-PDF] Starting URL-to-PDF conversion`);
+    // Detect if this is a direct PDF URL or a website URL
+    const isDirectPdf = isPdfUrl(url);
+    console.log(`🌐 [URL-to-PDF] Starting ${isDirectPdf ? 'direct PDF download' : 'URL-to-PDF conversion'}`);
     console.log(`🔗 [URL-to-PDF] URL: ${url}`);
+    console.log(`📁 [URL-to-PDF] Type: ${isDirectPdf ? 'Direct PDF' : 'Website'}`);
     console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
 
     // FIRST: Check current PDF count and subscription limits BEFORE processing
@@ -116,88 +179,119 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ [URL-to-PDF] Preliminary limits OK, proceeding with PDF generation`);
+    console.log(`✅ [URL-to-PDF] Preliminary limits OK, proceeding with ${isDirectPdf ? 'PDF download' : 'PDF generation'}`);
 
-    // Launch Puppeteer (serverless-optimized for production)
-    console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
-
-    const isProduction = process.env.NODE_ENV === 'production';
-    console.log(
-      `🔧 [URL-to-PDF] Environment: ${
-        isProduction ? 'production (serverless)' : 'development (local)'
-      }`
-    );
-
-    const browser = await createBrowser();
-
-    let pdfBuffer: Uint8Array;
+    let pdfBuffer: Buffer;
     let pageTitle = '';
+    let actualPageCount = 1;
 
-    try {
-      console.log(`📄 [URL-to-PDF] Creating new page...`);
-      const page = await browser.newPage();
-
-      // Set user agent to avoid being blocked
-      await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      );
-
-      // Set viewport
-      await page.setViewport({ width: 1200, height: 800 });
-
-      // Navigate to URL with timeout
-      console.log(`🌍 [URL-to-PDF] Navigating to URL...`);
-      await page.goto(url, {
-        waitUntil: 'networkidle2',
-        timeout: 30000,
-      });
-
-      // Get page title
-      pageTitle = await page.title();
-      console.log(`📝 [URL-to-PDF] Page title: ${pageTitle}`);
-
-      // Wait a bit for any dynamic content to load
-      console.log(`⏳ [URL-to-PDF] Waiting for dynamic content...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Generate PDF
-      console.log(`🖨️ [URL-to-PDF] Generating PDF...`);
-      pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px',
-        },
-      });
-
-      const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
-      const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
-      console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
-      console.log(
-        `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
-      );
-
-      // Get EXACT page count using pdf-lib on the generated PDF buffer
-      console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
-      let actualPageCount = 1;
-      try {
-        const { PDFDocument } = await import('pdf-lib');
-        const doc = await PDFDocument.load(pdfBuffer);
-        actualPageCount = doc.getPageCount();
-        console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
-      } catch (error) {
-        console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
-        actualPageCount = 1; // Fallback to 1 if we can't detect
-      }
+    if (isDirectPdf) {
+      // Handle direct PDF download
+      console.log(`📥 [URL-to-PDF] Downloading PDF directly from URL...`);
       
-      // Store the EXACT page count for later use
-      (global as { lastGeneratedPdfPageCount?: number }).lastGeneratedPdfPageCount = actualPageCount;
-    } finally {
-      console.log(`🔐 [URL-to-PDF] Closing browser...`);
-      await browser.close();
+      try {
+        const downloadResult = await downloadPdfFromUrl(url);
+        pdfBuffer = downloadResult.buffer;
+        pageTitle = downloadResult.title;
+
+        const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
+        const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
+        console.log(`✅ [URL-to-PDF] PDF downloaded successfully!`);
+        console.log(`📝 [URL-to-PDF] PDF title: ${pageTitle}`);
+        console.log(`📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`);
+
+        // Get EXACT page count using pdf-lib
+        console.log(`📄 [URL-to-PDF] Detecting exact page count from downloaded PDF...`);
+        try {
+          const { PDFDocument } = await import('pdf-lib');
+          const doc = await PDFDocument.load(pdfBuffer);
+          actualPageCount = doc.getPageCount();
+          console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
+        } catch (error) {
+          console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
+          actualPageCount = 1; // Fallback to 1 if we can't detect
+        }
+      } catch (error) {
+        console.error('❌ [URL-to-PDF] Failed to download PDF:', error);
+        throw error;
+      }
+    } else {
+      // Handle website to PDF conversion using Puppeteer
+      console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      console.log(
+        `🔧 [URL-to-PDF] Environment: ${
+          isProduction ? 'production (serverless)' : 'development (local)'
+        }`
+      );
+
+      const browser = await createBrowser();
+
+      try {
+        console.log(`📄 [URL-to-PDF] Creating new page...`);
+        const page = await browser.newPage();
+
+        // Set user agent to avoid being blocked
+        await page.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        );
+
+        // Set viewport
+        await page.setViewport({ width: 1200, height: 800 });
+
+        // Navigate to URL with timeout
+        console.log(`🌍 [URL-to-PDF] Navigating to URL...`);
+        await page.goto(url, {
+          waitUntil: 'networkidle2',
+          timeout: 30000,
+        });
+
+        // Get page title
+        pageTitle = await page.title();
+        console.log(`📝 [URL-to-PDF] Page title: ${pageTitle}`);
+
+        // Wait a bit for any dynamic content to load
+        console.log(`⏳ [URL-to-PDF] Waiting for dynamic content...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Generate PDF
+        console.log(`🖨️ [URL-to-PDF] Generating PDF...`);
+        const pdfData = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '20px',
+            right: '20px',
+            bottom: '20px',
+            left: '20px',
+          },
+        });
+
+        pdfBuffer = Buffer.from(pdfData);
+
+        const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
+        const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
+        console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
+        console.log(
+          `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
+        );
+
+        // Get EXACT page count using pdf-lib on the generated PDF buffer
+        console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
+        try {
+          const { PDFDocument } = await import('pdf-lib');
+          const doc = await PDFDocument.load(pdfBuffer);
+          actualPageCount = doc.getPageCount();
+          console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
+        } catch (error) {
+          console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
+          actualPageCount = 1; // Fallback to 1 if we can't detect
+        }
+      } finally {
+        console.log(`🔐 [URL-to-PDF] Closing browser...`);
+        await browser.close();
+      }
     }
 
     // Generate file name
@@ -209,16 +303,11 @@ export async function POST(request: NextRequest) {
     console.log(`☁️ [URL-to-PDF] Uploading PDF to S3...`);
     console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
 
-    const fileBuffer = Buffer.from(pdfBuffer);
+    const fileBuffer = pdfBuffer;
     
-    // Use the page count calculated during PDF generation
-    console.log(`📄 [URL-to-PDF] Using calculated page count...`);
-    const globalObj = global as { lastGeneratedPdfPageCount?: number };
-    const actualPageCount = globalObj.lastGeneratedPdfPageCount || 1;
-    console.log(`✅ [URL-to-PDF] Using ${actualPageCount} pages from content analysis`);
-    
-    // Clean up global variable
-    delete globalObj.lastGeneratedPdfPageCount;
+    // Use the page count calculated during PDF processing
+    console.log(`📄 [URL-to-PDF] Using calculated page count: ${actualPageCount}`);
+    console.log(`✅ [URL-to-PDF] PDF processed with ${actualPageCount} pages`);
 
     // Final check: subscription limits with actual page count and file size
     console.log(`🔍 [URL-to-PDF] Final validation with actual PDF data...`);
@@ -278,6 +367,21 @@ export async function POST(request: NextRequest) {
 
     // Provide more specific error messages
     if (error instanceof Error) {
+      // PDF download specific errors
+      if (error.message.includes('Failed to download PDF')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
+      if (error.message.includes('URL does not point to a PDF file')) {
+        return NextResponse.json(
+          { error: 'The provided URL does not contain a valid PDF file' },
+          { status: 400 }
+        );
+      }
+      
+      // Website conversion specific errors
       if (error.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
         return NextResponse.json(
           { error: 'Website not found' },
@@ -301,7 +405,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          'Failed to convert URL to PDF. Please check the URL and try again.',
+          'Failed to process URL. Please check the URL and try again.',
       },
       { status: 500 }
     );
