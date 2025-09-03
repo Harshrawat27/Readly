@@ -781,7 +781,7 @@ const PDFSidebar = ({
                 </button>
 
                 <div className='border-t border-[var(--border)] mt-2 pt-2'>
-                  <button 
+                  <button
                     onClick={() => {
                       setIsUserDropdownOpen(false);
                       router.push('/pricing');
@@ -919,14 +919,14 @@ const PDFSidebar = ({
           {/* URL Upload Section */}
           <div className='mb-6 space-y-2'>
             <p className='text-sm text-[var(--text-muted)] font-medium'>
-              Upload URL
+              Upload Any URL
             </p>
             <div className='flex gap-2'>
               <input
                 type='url'
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                placeholder='https://example.com/article'
+                placeholder='https://wikipedia.com/article'
                 disabled={isConvertingUrl}
                 className='flex-1 px-3 py-2 text-sm bg-[var(--card-background)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--border)] focus:border-transparent disabled:opacity-50'
                 onKeyDown={(e) => {
