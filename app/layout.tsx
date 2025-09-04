@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, Geist_Mono, DM_Sans, Archivo_Black } from 'next/font/google';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 
@@ -11,6 +11,18 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+});
+
+const dmSans = DM_Sans({
+  variable: '--font-dm-sans',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '900'],
+});
+
+const archivoBlack = Archivo_Black({
+  variable: '--font-archivo-black',
+  subsets: ['latin'],
+  weight: ['400'],
 });
 
 export const metadata: Metadata = {
@@ -25,8 +37,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
+      <head>
+        <link
+          href='https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap'
+          rel='stylesheet'
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${archivoBlack.variable} antialiased`}
       >
         {children}
         <Analytics />

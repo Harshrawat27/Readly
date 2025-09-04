@@ -184,7 +184,8 @@ solution
   -- signin and signup page simple just google and github only
   -- dropdown of side bar profile make it work. 
   -- not showing correct plan fix that.
-  - update subscription/success page
+  DONE -- update subscription/success page
+  -- why we are checking /api/auth/get-session on home page??
 
 
   -- when someone change pdf we'll reset search functionality. 
@@ -197,7 +198,7 @@ solution
 npm notice New major version of npm available! 10.9.2 -> 11.5.2
 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.5.2
 npm notice To update run: npm install -g npm@11.5.2
-npm notice
+npm noticed
 
 
 
