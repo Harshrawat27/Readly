@@ -60,12 +60,19 @@ export default function Home() {
       {/* Glass Morphism Navigation */}
       <nav className='fixed top-6 left-1/2 transform -translate-x-1/2 z-50'>
         <div className='bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-6 py-3 shadow-2xl'>
-          <div className='flex items-center space-x-8'>
+          <div className='flex items-center space-x-15'>
             {/* Logo */}
-            <div className='flex items-center'>
-              <h1 className='text-xl font-bold bg-gradient-to-r from-[#c96342] to-[#e07c54] bg-clip-text text-transparent'>
+            <div className='flex items-center space-x-3'>
+              <Image
+                src='/logo.svg'
+                alt='ReadItEasy Logo'
+                width={32}
+                height={32}
+                className='object-contain'
+              />
+              {/* <h1 className='text-xl font-bold bg-gradient-to-r from-[#c96342] to-[#e07c54] bg-clip-text text-transparent'>
                 ReadItEasy
-              </h1>
+              </h1> */}
             </div>
 
             {/* Center Menu */}
@@ -423,7 +430,7 @@ export default function Home() {
             >
               Got Questions?
               <br />
-              We've Got Answers
+              We&apos;ve Got Answers
             </h2>
           </div>
 
