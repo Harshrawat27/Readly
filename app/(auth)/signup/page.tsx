@@ -1,18 +1,19 @@
 'use client';
-import { signIn, signUp, useSession } from '@/lib/auth-client';
+import { signIn, useSession } from '@/lib/auth-client';
+// import { signUp } from '@/lib/auth-client'; // Commented out for now
 import { useState, useEffect } from 'react';
 // import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function SignUp() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  // const [email, setEmail] = useState('');
+  // const [password, setPassword] = useState('');
+  // const [name, setName] = useState('');
+  // const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
-  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  // const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [error, setError] = useState('');
   const { data: session, isPending } = useSession();
   const router = useRouter();
@@ -80,6 +81,8 @@ export default function SignUp() {
     }
   };
 
+  // Commented out for now
+  /*
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsEmailLoading(true);
@@ -98,6 +101,7 @@ export default function SignUp() {
       setIsEmailLoading(false);
     }
   };
+  */
 
   return (
     <div className='min-h-screen flex'>
@@ -142,7 +146,7 @@ export default function SignUp() {
             {/* Google Sign Up */}
             <button
               onClick={handleGoogleSignUp}
-              disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
+              disabled={isGoogleLoading || isGitHubLoading}
               className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg className='w-5 h-5' viewBox='0 0 24 24'>
@@ -174,7 +178,7 @@ export default function SignUp() {
 
             <button
               onClick={handleGitHubSignUp}
-              disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
+              disabled={isGoogleLoading || isGitHubLoading}
               className='group w-full flex items-center justify-center gap-3 px-4 py-[14px] border border-[var(--border)] rounded-[10px] hover:bg-[var(--faded-white)] transition-colors bg-white disabled:opacity-50 disabled:cursor-not-allowed'
             >
               <svg
@@ -250,7 +254,7 @@ export default function SignUp() {
 
               <button
                 type='submit'
-                disabled={isGoogleLoading || isGitHubLoading || isEmailLoading}
+                disabled={isGoogleLoading || isGitHubLoading}
                 className='w-full bg-[var(--button-primary)] text-[var(--button-primary-text)] py-[14px] rounded-[10px] text-[15px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
               >
                 {isEmailLoading ? (
