@@ -1122,7 +1122,7 @@ const PDFSidebar = ({
                         {/* Dropdown Menu */}
                         {activeDropdownId === pdf.id && (
                           <div className='pdf-action-dropdown absolute right-0 top-full mt-1 w-48 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
-                            <button
+                            {/* <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveDropdownId(null);
@@ -1140,7 +1140,7 @@ const PDFSidebar = ({
                                 <polygon points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26' />
                               </svg>
                               Star
-                            </button>
+                            </button> */}
 
                             <button
                               onClick={(e) => {
