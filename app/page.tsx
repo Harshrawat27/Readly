@@ -65,13 +65,13 @@ export default function Home() {
             <div className='flex items-center space-x-3'>
               <Image
                 src='/logo.svg'
-                alt='ReadItEasy Logo'
+                alt='ReaditEasy Logo'
                 width={32}
                 height={32}
                 className='object-contain'
               />
               {/* <h1 className='text-xl font-bold bg-gradient-to-r from-[#c96342] to-[#e07c54] bg-clip-text text-transparent'>
-                ReadItEasy
+                ReaditEasy
               </h1> */}
             </div>
 
@@ -537,7 +537,7 @@ export default function Home() {
       >
         <div className='max-w-7xl mx-auto'>
           <div className='text-center mb-8'>
-            <h3 className='text-xl font-bold text-white mb-4'>ReadItEasy</h3>
+            <h3 className='text-xl font-bold text-white mb-4'>ReaditEasy</h3>
             <div className='flex flex-wrap justify-center items-center gap-8 text-white/60'>
               <div className=' text-white/60 hover:text-white transition-colors duration-200'>
                 <a href='/terms'>Terms & Conditions</a>
@@ -570,7 +570,7 @@ export default function Home() {
           </div>
           <div className='text-center pt-8 border-t border-white/10'>
             <p className='text-white/40 text-sm'>
-              © 2024 ReadItEasy. All rights reserved.
+              © 2024 ReaditEasy. All rights reserved.
             </p>
           </div>
         </div>
@@ -585,14 +585,14 @@ function FAQAccordion() {
 
   const faqs = [
     {
-      question: 'What file formats does ReadItEasy support?',
+      question: 'What file formats does ReaditEasy support?',
       answer:
-        'ReadItEasy supports a wide variety of file formats including PDF, DOCX, TXT, and more. You can upload documents in multiple formats and our AI will accurately convert them to speech.',
+        'ReaditEasy supports a wide variety of file formats including PDF, DOCX, TXT, and more. You can upload documents in multiple formats and our AI will accurately convert them to speech.',
     },
     {
       question: 'How many languages are supported?',
       answer:
-        'We support over 30 languages with natural-sounding voices. Whether you need English, Spanish, French, German, or many other languages, ReadItEasy has you covered with high-quality pronunciation.',
+        'We support over 30 languages with natural-sounding voices. Whether you need English, Spanish, French, German, or many other languages, ReaditEasy has you covered with high-quality pronunciation.',
     },
     {
       question: 'Can I customize the voice and reading speed?',
@@ -600,9 +600,9 @@ function FAQAccordion() {
         'Absolutely! You can choose from various voice options including different genders and accents. You can also adjust the reading speed to match your preference for a personalized listening experience.',
     },
     {
-      question: 'Is ReadItEasy suitable for people with visual impairments?',
+      question: 'Is ReaditEasy suitable for people with visual impairments?',
       answer:
-        'Yes, ReadItEasy is designed with accessibility in mind. Our platform provides clear, accurate text-to-speech conversion that makes reading accessible for everyone, including those with visual impairments or reading difficulties.',
+        'Yes, ReaditEasy is designed with accessibility in mind. Our platform provides clear, accurate text-to-speech conversion that makes reading accessible for everyone, including those with visual impairments or reading difficulties.',
     },
     {
       question: 'How accurate is the text-to-speech conversion?',
@@ -610,9 +610,9 @@ function FAQAccordion() {
         'Our advanced AI technology ensures high accuracy in pronunciation, intonation, and natural speech patterns. We continuously improve our system to provide the most realistic and clear audio output possible.',
     },
     {
-      question: 'Do I need to install any software to use ReadItEasy?',
+      question: 'Do I need to install any software to use ReaditEasy?',
       answer:
-        'No installation required! ReadItEasy is a web-based platform that works directly in your browser. Simply upload your document and start listening immediately from any device with internet access.',
+        'No installation required! ReaditEasy is a web-based platform that works directly in your browser. Simply upload your document and start listening immediately from any device with internet access.',
     },
   ];
 
@@ -719,7 +719,7 @@ function ProductShowcase() {
         >
           <Image
             src='/product_image.png'
-            alt='ReadItEasy Dashboard'
+            alt='ReaditEasy Dashboard'
             fill
             className='object-contain transition-all duration-500'
             style={{
@@ -738,7 +738,7 @@ function ProductShowcase() {
           >
             <Image
               src='/product_image.png'
-              alt='ReadItEasy Dashboard'
+              alt='ReaditEasy Dashboard'
               fill
               className='object-contain'
             />

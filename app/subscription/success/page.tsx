@@ -342,7 +342,7 @@ export default function SubscriptionSuccessPage() {
                       onClick={handleContinue}
                       className='group w-full px-8 py-4 rounded-2xl text-lg font-bold transition-all duration-300 bg-gradient-to-r from-[#c96342] to-[#e07c54] text-white shadow-xl'
                     >
-                      Continue to ReadItEasy
+                      Continue to ReaditEasy
                       <svg
                         className='inline w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300'
                         fill='currentColor'

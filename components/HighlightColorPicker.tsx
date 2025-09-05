@@ -126,7 +126,7 @@ export default function HighlightColorPicker({
             <path d='M8 12h8' />
             <path d='M12 8v8' />
           </svg>
-          Ask readiteasy
+          Ask ReaditEasy
         </button>
       </div>
     </>
