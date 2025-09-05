@@ -16,6 +16,8 @@ interface PDFSidebarProps {
   onSignOut: () => void;
   isSigningOut: boolean;
   userName: string;
+  userEmail?: string;
+  userImage?: string;
   onToggleSidebar: () => void;
   isCollapsed: boolean;
 }
@@ -43,6 +45,8 @@ const PDFSidebar = ({
   onSignOut,
   isSigningOut,
   userName,
+  userEmail,
+  userImage,
   onToggleSidebar,
   isCollapsed,
 }: PDFSidebarProps) => {
@@ -54,6 +58,58 @@ const PDFSidebar = ({
   const { subscriptionData, handleApiError: handleSubscriptionError } =
     useSubscription();
   const currentPlan = subscriptionData?.plan?.name || 'free';
+
+  // Helper function to format plan names
+  const formatPlanName = (planName: string) => {
+    if (planName.toLowerCase().includes('free')) return 'Free User';
+    if (planName.toLowerCase().includes('pro')) return 'Pro User';
+    if (planName.toLowerCase().includes('ultimate')) return 'Ultimate User';
+    return 'Free User'; // fallback
+  };
+
+  // Helper function to render user avatar
+  const renderUserAvatar = (size: 'sm' | 'md' = 'md') => {
+    const sizeClasses = size === 'sm' ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm';
+
+    if (userImage) {
+      return (
+        <Image
+          src={userImage}
+          alt={userName || 'User'}
+          width={size === 'sm' ? 24 : 32}
+          height={size === 'sm' ? 24 : 32}
+          className={`${sizeClasses} rounded-full object-cover`}
+        />
+      );
+    }
+
+    // Get initials from userName or userEmail, fallback to 'U'
+    const getInitials = () => {
+      if (userName && userName.trim()) {
+        const nameParts = userName.trim().split(' ');
+        if (nameParts.length >= 2) {
+          return (
+            nameParts[0].charAt(0) + nameParts[1].charAt(0)
+          ).toUpperCase();
+        }
+        return userName.charAt(0).toUpperCase();
+      }
+
+      if (userEmail && userEmail.trim()) {
+        return userEmail.charAt(0).toUpperCase();
+      }
+
+      return 'U';
+    };
+
+    return (
+      <div
+        className={`${sizeClasses} bg-[var(--accent)] rounded-full flex items-center justify-center text-white font-medium`}
+      >
+        {getInitials()}
+      </div>
+    );
+  };
   const {
     isLimitPopupOpen,
     currentLimitType,
@@ -723,10 +779,10 @@ const PDFSidebar = ({
           >
             <button
               onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-              className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center mx-auto text-white text-sm font-medium hover:opacity-90 transition-opacity'
+              className='flex items-center justify-center mx-auto hover:opacity-90 transition-opacity'
               title={userName}
             >
-              {userName.charAt(0).toUpperCase()}
+              {renderUserAvatar('md')}
             </button>
 
             {/* User Dropdown for Icon State */}
@@ -734,18 +790,16 @@ const PDFSidebar = ({
               <div className='absolute bottom-full left-16 mb-2 w-64 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
                 <div className='px-4 py-2 border-b border-[var(--border)]'>
                   <p className='text-xs text-[var(--text-muted)]'>
-                    user@example.com
+                    {userEmail || 'No email available'}
                   </p>
                   <div className='flex items-center gap-2 mt-1'>
-                    <div className='w-6 h-6 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-xs'>
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
+                    {renderUserAvatar('sm')}
                     <div>
                       <p className='text-sm font-medium text-[var(--text-primary)]'>
-                        Personal
+                        {userName}
                       </p>
                       <p className='text-xs text-[var(--text-muted)]'>
-                        Pro plan
+                        {formatPlanName(currentPlan)}
                       </p>
                     </div>
                     <svg
@@ -1229,14 +1283,14 @@ const PDFSidebar = ({
             className='w-full p-4 hover:bg-[var(--faded-white)] transition-colors'
           >
             <div className='flex items-center gap-3'>
-              <div className='w-8 h-8 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-sm font-medium'>
-                {userName.charAt(0).toUpperCase()}
-              </div>
+              {renderUserAvatar('md')}
               <div className='flex-1 text-left'>
                 <p className='text-sm font-medium text-[var(--text-primary)] truncate'>
                   {userName}
                 </p>
-                <p className='text-xs text-[var(--text-muted)]'>Pro plan</p>
+                <p className='text-xs text-[var(--text-muted)]'>
+                  {formatPlanName(currentPlan)}
+                </p>
               </div>
               <svg
                 className={`w-4 h-4 transition-transform ${
@@ -1257,17 +1311,17 @@ const PDFSidebar = ({
             <div className='absolute bottom-full left-4 right-4 mb-2 bg-[var(--card-background)] border border-[var(--border)] rounded-lg shadow-lg py-2 z-50'>
               <div className='px-4 py-2 border-b border-[var(--border)]'>
                 <p className='text-xs text-[var(--text-muted)]'>
-                  user@example.com
+                  {userEmail || 'No email available'}
                 </p>
                 <div className='flex items-center gap-2 mt-1'>
-                  <div className='w-6 h-6 bg-[var(--text-primary)] rounded-full flex items-center justify-center text-white text-xs'>
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
+                  {renderUserAvatar('sm')}
                   <div>
                     <p className='text-sm font-medium text-[var(--text-primary)]'>
-                      Personal
+                      {userName}
                     </p>
-                    <p className='text-xs text-[var(--text-muted)]'>Pro plan</p>
+                    <p className='text-xs text-[var(--text-muted)]'>
+                      {formatPlanName(currentPlan)}
+                    </p>
                   </div>
                   <svg
                     className='w-4 h-4 ml-auto text-blue-500'

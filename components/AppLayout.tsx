@@ -12,6 +12,7 @@ interface AppLayoutProps {
       id: string;
       name: string;
       email: string;
+      image?: string | null;
     };
   };
   onSignOut: () => void;
@@ -87,6 +88,8 @@ export default function AppLayout({
             onSignOut={onSignOut}
             isSigningOut={isSigningOut}
             userName={session.user.name}
+            userEmail={session.user.email}
+            userImage={session.user.image || undefined}
             onToggleSidebar={() => {
               setSidebarCollapsed(!sidebarCollapsed);
             }}

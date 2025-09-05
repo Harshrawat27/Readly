@@ -51,7 +51,7 @@ const PDFLayout = memo(function PDFLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(384);
   const [currentPdfId, setCurrentPdfId] = useState(pdfId);
-  
+
   // Create a ref to hold the PDF navigation function
   const pdfNavigationRef = useRef<((pageNumber: number) => void) | null>(null);
 
@@ -87,6 +87,8 @@ const PDFLayout = memo(function PDFLayout({
     }
   }, []);
 
+  console.log('here is the email of person ' + session.user.email);
+
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>
       {/* Main Three-Panel Layout - Full height */}
@@ -104,6 +106,8 @@ const PDFLayout = memo(function PDFLayout({
             onSignOut={handleSignOut}
             isSigningOut={isSigningOut}
             userName={session.user.name}
+            userEmail={session.user.email}
+            userImage={session.user.image || undefined}
             onToggleSidebar={() => {
               setSidebarCollapsed(!sidebarCollapsed);
             }}
