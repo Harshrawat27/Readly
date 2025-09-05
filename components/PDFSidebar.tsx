@@ -7,6 +7,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useLimitHandler } from '@/hooks/useLimitHandler';
 import LimitReachedPopup from '@/components/LimitReachedPopup';
 import { getPdfPageCount } from '@/utils/getPdfPageCount';
+import Image from 'next/image';
 
 interface PDFSidebarProps {
   onPdfSelect: (pdfId: string) => void;
@@ -842,18 +843,13 @@ const PDFSidebar = ({
         <div className='p-4'>
           <div className='flex items-center justify-between mb-6'>
             <div className='flex items-center gap-3'>
-              <div className='w-6 h-6 bg-[var(--accent)] rounded-md flex items-center justify-center'>
-                <svg
-                  className='w-4 h-4 text-white'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                >
-                  <path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20' />
-                  <path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' />
-                </svg>
-              </div>
+              <Image
+                src='/logo-white.svg'
+                alt='ReaditEasy Logo'
+                width={20}
+                height={20}
+                className='object-contain'
+              />
               <h1 className='text-lg font-medium text-[var(--text-primary)]'>
                 ReaditEasy
               </h1>
@@ -1308,7 +1304,7 @@ const PDFSidebar = ({
 
               <div className='border-t border-[var(--border)] mt-2 pt-2'>
                 <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors'>
-                  Upgrade plan
+                  <a href='/pricing'>Upgrade plan</a>
                 </button>
 
                 <button className='w-full px-4 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--faded-white)] transition-colors flex items-center justify-between'>
