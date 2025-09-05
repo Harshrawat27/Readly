@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 export default function Home() {
   const { data: session, isPending } = useSession();
@@ -79,10 +80,18 @@ export default function Home() {
               </div>
               <div className='text-white/80 hover:text-white'>
                 <Link
-                  href='/features'
+                  href='#features'
                   className='text-white/80 hover:text-white font-medium transition-colors duration-300 text-sm'
                 >
                   Features
+                </Link>
+              </div>
+              <div className='text-white/80 hover:text-white'>
+                <Link
+                  href='#faqs'
+                  className='text-white/80 hover:text-white font-medium transition-colors duration-300 text-sm'
+                >
+                  FAQs
                 </Link>
               </div>
             </div>
@@ -118,44 +127,67 @@ export default function Home() {
       >
         <div className='max-w-4xl mx-auto'>
           {/* Top Text */}
-          <div className='mb-4'>
-            <p className='text-[#c96342] font-semibold text-base md:text-lg tracking-[0.2em] uppercase mb-4'>
+          <motion.div
+            className='mb-4'
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+          >
+            <motion.p
+              className='text-[#c96342] font-semibold text-base md:text-lg tracking-[0.2em] uppercase mb-4'
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
               MAKE YOUR LIFE EASILY
-            </p>
-            <h1
+            </motion.p>
+            <motion.h1
               className='text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white leading-[0.9] tracking-tight mb-4'
               style={{
                 fontFamily:
                   'var(--font-archivo-black), "Archivo Black", sans-serif',
               }}
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
             >
               THE MODERN WAY
               <br />
               TO READ
-            </h1>
-          </div>
+            </motion.h1>
+          </motion.div>
 
           {/* Start Now Button */}
-          <div className='mb-4'>
+          <motion.div
+            className='mb-4'
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+          >
             <Link
               href='/signup'
               className='inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#c96342] to-[#e07c54] text-white font-semibold text-lg rounded-2xl hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-[#c96342]/25'
             >
               Start now
             </Link>
-          </div>
+          </motion.div>
 
           {/* Main Product Image with 3D Features */}
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+          >
             <div className='relative mx-auto max-w-4xl'>
               <ProductShowcase />
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* Features Section */}
       <div
+        id='features'
         className='py-24 px-4 relative'
         style={{
           background:
@@ -364,6 +396,41 @@ export default function Home() {
         </div>
       </div>
 
+      {/* FAQs Section */}
+      <div
+        id='faqs'
+        className='py-24 px-4 relative'
+        style={{
+          background:
+            'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)',
+        }}
+      >
+        {/* Central gradient for glass morphism effect */}
+        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-gradient-to-r from-[#c96342]/20 via-[#e07c54]/15 to-[#c96342]/20 opacity-80 blur-3xl'></div>
+        <div className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-to-r from-[#e07c54]/25 to-[#c96342]/25 opacity-60 blur-2xl'></div>
+
+        <div className='max-w-4xl mx-auto relative z-10'>
+          <div className='text-center mb-16'>
+            <p className='text-[#c96342] font-semibold text-base tracking-[0.2em] uppercase mb-4'>
+              FREQUENTLY ASKED QUESTIONS
+            </p>
+            <h2
+              className='text-4xl md:text-5xl lg:text-6xl text-white leading-tight'
+              style={{
+                fontFamily:
+                  'var(--font-archivo-black), "Archivo Black", sans-serif',
+              }}
+            >
+              Got Questions?
+              <br />
+              We've Got Answers
+            </h2>
+          </div>
+
+          <FAQAccordion />
+        </div>
+      </div>
+
       {/* CTA Section */}
       <div
         className='py-32 px-4 text-center relative overflow-hidden'
@@ -385,15 +452,16 @@ export default function Home() {
                 <path
                   d='M 160 0 L 0 0 0 160'
                   fill='none'
-                  stroke='white'
-                  strokeWidth='1'
+                  stroke='#c96342'
+                  strokeWidth='3'
+                  opacity='1'
                 />
               </pattern>
               <radialGradient id='gridFade' cx='50%' cy='50%' r='60%'>
-                <stop offset='0%' stopColor='white' stopOpacity='0.15' />
-                <stop offset='50%' stopColor='white' stopOpacity='0.08' />
-                <stop offset='80%' stopColor='white' stopOpacity='0.02' />
-                <stop offset='100%' stopColor='white' stopOpacity='0' />
+                <stop offset='0%' stopColor='#c96342' stopOpacity='0.4' />
+                <stop offset='50%' stopColor='#c96342' stopOpacity='0.25' />
+                <stop offset='80%' stopColor='#c96342' stopOpacity='0.1' />
+                <stop offset='100%' stopColor='#c96342' stopOpacity='0' />
               </radialGradient>
             </defs>
             <rect
@@ -500,6 +568,98 @@ export default function Home() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// FAQ Accordion Component
+function FAQAccordion() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: 'What file formats does ReadItEasy support?',
+      answer:
+        'ReadItEasy supports a wide variety of file formats including PDF, DOCX, TXT, and more. You can upload documents in multiple formats and our AI will accurately convert them to speech.',
+    },
+    {
+      question: 'How many languages are supported?',
+      answer:
+        'We support over 30 languages with natural-sounding voices. Whether you need English, Spanish, French, German, or many other languages, ReadItEasy has you covered with high-quality pronunciation.',
+    },
+    {
+      question: 'Can I customize the voice and reading speed?',
+      answer:
+        'Absolutely! You can choose from various voice options including different genders and accents. You can also adjust the reading speed to match your preference for a personalized listening experience.',
+    },
+    {
+      question: 'Is ReadItEasy suitable for people with visual impairments?',
+      answer:
+        'Yes, ReadItEasy is designed with accessibility in mind. Our platform provides clear, accurate text-to-speech conversion that makes reading accessible for everyone, including those with visual impairments or reading difficulties.',
+    },
+    {
+      question: 'How accurate is the text-to-speech conversion?',
+      answer:
+        'Our advanced AI technology ensures high accuracy in pronunciation, intonation, and natural speech patterns. We continuously improve our system to provide the most realistic and clear audio output possible.',
+    },
+    {
+      question: 'Do I need to install any software to use ReadItEasy?',
+      answer:
+        'No installation required! ReadItEasy is a web-based platform that works directly in your browser. Simply upload your document and start listening immediately from any device with internet access.',
+    },
+  ];
+
+  const toggleFAQ = (index: number) => {
+    setOpenIndex(openIndex === index ? null : index);
+  };
+
+  return (
+    <div className='space-y-6'>
+      {faqs.map((faq, index) => (
+        <div
+          key={index}
+          className='backdrop-blur-md bg-white/10 border border-white/10 rounded-3xl hover:bg-white hover:border-white transition-all duration-300 group overflow-hidden'
+        >
+          <button
+            onClick={() => toggleFAQ(index)}
+            className='w-full p-8 text-left flex justify-between items-center'
+          >
+            <h3 className='text-xl font-bold text-white group-hover:text-black transition-colors duration-300'>
+              {faq.question}
+            </h3>
+            <div
+              className={`transform transition-transform duration-300 ${
+                openIndex === index ? 'rotate-180' : ''
+              }`}
+            >
+              <svg
+                className='w-6 h-6 text-white group-hover:text-black transition-colors duration-300'
+                fill='none'
+                stroke='currentColor'
+                viewBox='0 0 24 24'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M19 9l-7 7-7-7'
+                />
+              </svg>
+            </div>
+          </button>
+          <div
+            className={`overflow-hidden transition-all duration-500 ease-in-out ${
+              openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className='px-8 pb-8'>
+              <p className='text-white/70 group-hover:text-black/70 transition-colors duration-300 leading-relaxed'>
+                {faq.answer}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

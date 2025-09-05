@@ -185,7 +185,7 @@ solution
   -- dropdown of side bar profile make it work. 
   -- not showing correct plan fix that.
   DONE -- update subscription/success page
-  -- why we are checking /api/auth/get-session on home page??
+  -- month billed monthly, fix typo on pricing page
 
 
   -- when someone change pdf we'll reset search functionality. 
