@@ -186,6 +186,8 @@ solution
   -- not showing correct plan fix that.
   DONE -- update subscription/success page
   -- month billed monthly, fix typo on pricing page
+  -- hide modeing swithching
+  -- make navbar responsive, add content
 
 
   -- when someone change pdf we'll reset search functionality. 
