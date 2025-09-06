@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['lh3.googleusercontent.com'], // 👈 add this line
   },
+
   /* config options here */
   // api: {
   //   bodyParser: {
