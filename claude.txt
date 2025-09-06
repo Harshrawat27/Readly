@@ -188,6 +188,7 @@ solution
   DONE -- month billed monthly, fix typo on pricing page
   DONE -- hide modeing swithching
   -- make navbar responsive, add content
+  -- almost donE!
 
 
   -- when someone change pdf we'll reset search functionality. 
