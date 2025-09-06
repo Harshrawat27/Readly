@@ -117,7 +117,7 @@ Generate ${quantity} MCQs now:`;
       const jsonString = jsonMatch ? jsonMatch[0] : responseText;
       mcqs = JSON.parse(jsonString);
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', responseText);
+      // console.error('Failed to parse OpenAI response:', responseText);
       throw new Error(`Invalid response format from AI ${parseError}`);
     }
 
@@ -150,14 +150,14 @@ Generate ${quantity} MCQs now:`;
       throw new Error('No valid MCQs could be generated from this content');
     }
 
-    console.log(`Generated ${formattedMCQs.length} AI MCQs`);
+    // console.log(`Generated ${formattedMCQs.length} AI MCQs`);
 
     return NextResponse.json({
       mcqs: formattedMCQs,
       count: formattedMCQs.length,
     });
   } catch (error) {
-    console.error('Error generating AI MCQs:', error);
+    // console.error('Error generating AI MCQs:', error);
 
     if (error instanceof Error) {
       if (error.message.includes('API key')) {

@@ -178,7 +178,7 @@ const PDFSidebar = ({
 
         setPdfHistory(processedPdfs);
       } catch (error) {
-        console.error('Error loading PDFs:', error);
+        // console.error('Error loading PDFs:', error);
         // Fallback to cache if available (even if stale)
         const cachedPdfs = clientCache.get<APIResponsePDFItem[]>(
           cacheKeys.pdfList(userId)
@@ -262,22 +262,22 @@ const PDFSidebar = ({
       const fileSizeKB = (file.size / 1024).toFixed(2);
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
 
-      console.log(`🚀 [PDFSidebar] Starting upload process`);
-      console.log(`📁 [PDFSidebar] File: ${file.name}`);
-      console.log(`📊 [PDFSidebar] Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+      // console.log(`🚀 [PDFSidebar] Starting upload process`);
+      // console.log(`📁 [PDFSidebar] File: ${file.name}`);
+      // console.log(`📊 [PDFSidebar] Size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
 
       setIsUploading(true);
       setUploadProgress('Checking PDF...');
 
       try {
         // Step 1: Check page count locally before doing anything
-        console.log(`📄 [PDFSidebar] Checking PDF page count...`);
+        // console.log(`📄 [PDFSidebar] Checking PDF page count...`);
         let pageCount;
         try {
           pageCount = await getPdfPageCount(file);
-          console.log(`✅ [PDFSidebar] PDF has ${pageCount} pages`);
+          // console.log(`✅ [PDFSidebar] PDF has ${pageCount} pages`);
         } catch (pageCountError) {
-          console.error('Error checking PDF page count:', pageCountError);
+          // console.error('Error checking PDF page count:', pageCountError);
           setIsUploading(false);
           setUploadProgress('');
           setToast({
@@ -297,27 +297,27 @@ const PDFSidebar = ({
             pageCount: pageCount, // Use actual page count
           },
           () => {
-            console.log(
-              '✅ [PDFSidebar] Subscription limits OK, proceeding with upload'
-            );
+            // console.log(
+              // '✅ [PDFSidebar] Subscription limits OK, proceeding with upload'
+            // );
           }
         );
 
         if (!uploadSuccess) {
-          console.log('❌ [PDFSidebar] Upload blocked by subscription limits');
+          // console.log('❌ [PDFSidebar] Upload blocked by subscription limits');
           setIsUploading(false);
           setUploadProgress('');
           return false;
         }
 
-        console.log(
-          `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
-        );
+        // console.log(
+          // `🔗 [PDFSidebar] Using direct S3 upload (bypassing Vercel size limits)`
+        // );
 
         setUploadProgress('Preparing upload...');
 
         // Step 3: Get presigned upload URL
-        console.log(`🔑 [PDFSidebar] Requesting presigned upload URL...`);
+        // console.log(`🔑 [PDFSidebar] Requesting presigned upload URL...`);
         setUploadProgress('Getting upload URL...');
 
         const urlResponse = await fetch('/api/pdf/upload-url', {
@@ -334,15 +334,15 @@ const PDFSidebar = ({
 
         if (!urlResponse.ok) {
           const error = await urlResponse.json();
-          console.error(`❌ [PDFSidebar] Failed to get upload URL:`, error);
+          // console.error(`❌ [PDFSidebar] Failed to get upload URL:`, error);
           throw new Error(error.error || 'Failed to get upload URL');
         }
 
         const { uploadUrl, s3Key } = await urlResponse.json();
-        console.log(`✅ [PDFSidebar] Got presigned URL for S3 key: ${s3Key}`);
+        // console.log(`✅ [PDFSidebar] Got presigned URL for S3 key: ${s3Key}`);
 
         // Step 2: Upload directly to S3
-        console.log(`☁️ [PDFSidebar] Uploading directly to S3...`);
+        // console.log(`☁️ [PDFSidebar] Uploading directly to S3...`);
         setUploadProgress('Uploading to S3...');
 
         const s3Response = await fetch(uploadUrl, {
@@ -354,18 +354,18 @@ const PDFSidebar = ({
         });
 
         if (!s3Response.ok) {
-          console.error(
-            `❌ [PDFSidebar] S3 upload failed: ${s3Response.status} ${s3Response.statusText}`
-          );
+          // console.error(
+            // `❌ [PDFSidebar] S3 upload failed: ${s3Response.status} ${s3Response.statusText}`
+          // );
           throw new Error(
             `S3 upload failed: ${s3Response.status} ${s3Response.statusText}`
           );
         }
 
-        console.log(`✅ [PDFSidebar] S3 upload successful!`);
+        // console.log(`✅ [PDFSidebar] S3 upload successful!`);
 
         // Step 3: Complete upload (save metadata to database)
-        console.log(`💾 [PDFSidebar] Saving metadata to database...`);
+        // console.log(`💾 [PDFSidebar] Saving metadata to database...`);
         setUploadProgress('Finalizing upload...');
 
         const completeResponse = await fetch('/api/pdf/upload-complete', {
@@ -382,12 +382,12 @@ const PDFSidebar = ({
 
         if (!completeResponse.ok) {
           const error = await completeResponse.json();
-          console.error(`❌ [PDFSidebar] Failed to complete upload:`, error);
+          // console.error(`❌ [PDFSidebar] Failed to complete upload:`, error);
           throw new Error(error.error || 'Failed to complete upload');
         }
 
         const result = await completeResponse.json();
-        console.log(`✅ [PDFSidebar] Upload completed! PDF ID: ${result.id}`);
+        // console.log(`✅ [PDFSidebar] Upload completed! PDF ID: ${result.id}`);
         setUploadProgress('Upload successful!');
 
         // Add new PDF to both state and cache immediately
@@ -416,7 +416,7 @@ const PDFSidebar = ({
 
         return true;
       } catch (error) {
-        console.error('Error uploading PDF:', error);
+        // console.error('Error uploading PDF:', error);
 
         // Check if it's a limit-related error
         const isLimitError =
@@ -483,7 +483,7 @@ const PDFSidebar = ({
       }
       const currentPdfs = await pdfListResponse.json();
       const currentPdfCount = currentPdfs.length;
-      console.log(`📊 [URL Upload] Current PDF count: ${currentPdfCount}`);
+      // console.log(`📊 [URL Upload] Current PDF count: ${currentPdfCount}`);
 
       // Check PDF count limit (but not page count yet - we'll get that after conversion)
       const uploadSuccess = handlePdfUpload(
@@ -493,21 +493,21 @@ const PDFSidebar = ({
           pageCount: 1, // Don't limit on page count yet - will check after conversion
         },
         () => {
-          console.log('✅ [PDFSidebar] PDF count limit OK for URL conversion');
+          // console.log('✅ [PDFSidebar] PDF count limit OK for URL conversion');
         }
       );
 
       if (!uploadSuccess) {
-        console.log(
-          '❌ [PDFSidebar] URL conversion blocked by PDF count limit'
-        );
+        // console.log(
+          // '❌ [PDFSidebar] URL conversion blocked by PDF count limit'
+        // );
         setIsConvertingUrl(false);
         return;
       }
 
       setUploadProgress('Converting URL to PDF...');
     } catch (error) {
-      console.error('❌ [PDFSidebar] Failed to check PDF count:', error);
+      // console.error('❌ [PDFSidebar] Failed to check PDF count:', error);
       setIsConvertingUrl(false);
       setToast({
         message: 'Failed to check upload limits. Please try again.',
@@ -554,7 +554,7 @@ const PDFSidebar = ({
       setUrlInput(''); // Clear the input
       setUploadProgress(''); // Clear progress
     } catch (error) {
-      console.error('Error converting URL to PDF:', error);
+      // console.error('Error converting URL to PDF:', error);
 
       // Check if it's a limit-related error
       const isLimitError =
@@ -653,7 +653,7 @@ const PDFSidebar = ({
         type: 'success',
       });
     } catch (error) {
-      console.error('Error renaming PDF:', error);
+      // console.error('Error renaming PDF:', error);
 
       // Rollback both state and cache on error
       const revertedList = pdfHistory.map((pdf) =>
@@ -1452,7 +1452,7 @@ const PDFSidebar = ({
                       type: 'success',
                     });
                   } catch (error) {
-                    console.error('Error deleting PDF:', error);
+                    // console.error('Error deleting PDF:', error);
 
                     // Rollback both state and cache on error
                     if (deletingPdf) {

@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
       total: 0
     };
     
-    console.log(`🚀 SERVER-SIDE URL TEXT EXTRACTION STARTED`);
-    console.log(`   🎯 Using server-side processing route (NOT client-side)`);
-    console.log(`   ⏱️  Start Time: ${new Date(startTime).toISOString()}`);
+    // console.log(`🚀 SERVER-SIDE URL TEXT EXTRACTION STARTED`);
+    // console.log(`   🎯 Using server-side processing route (NOT client-side)`);
+    // console.log(`   ⏱️  Start Time: ${new Date(startTime).toISOString()}`);
     
     const authStart = Date.now();
     const session = await auth.api.getSession({
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     timeLog.auth = Date.now() - authStart;
 
     if (!session?.user?.id) {
-      console.log(`❌ Unauthorized access attempt`);
+      // console.log(`❌ Unauthorized access attempt`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
     timeLog.jsonParse = Date.now() - jsonStart;
 
-    console.log(`📄 PDF ID: ${pdfId}`);
-    console.log(`📄 Pages received: ${pages?.length || 0}`);
-    console.log(`👤 User: ${userId}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'unknown'}`);
+    // console.log(`📄 PDF ID: ${pdfId}`);
+    // console.log(`📄 Pages received: ${pages?.length || 0}`);
+    // console.log(`👤 User: ${userId}`);
+    // console.log(`🌍 Environment: ${process.env.NODE_ENV || 'unknown'}`);
 
     // Verify PDF exists and belongs to user
-    console.log(`🔍 Verifying PDF ownership...`);
+    // console.log(`🔍 Verifying PDF ownership...`);
     const pdfLookupStart = Date.now();
     const pdf = await prisma.pDF.findFirst({
       where: {
@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
     timeLog.pdfLookup = Date.now() - pdfLookupStart;
 
     if (!pdf) {
-      console.log(`❌ PDF ${pdfId} not found or doesn't belong to user ${userId}`);
+      // console.log(`❌ PDF ${pdfId} not found or doesn't belong to user ${userId}`);
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
     // Check if text already extracted
     if (pdf.textExtracted) {
-      console.log(`✅ Text already extracted for PDF ${pdfId}`);
+      // console.log(`✅ Text already extracted for PDF ${pdfId}`);
       const dbCheckStart = Date.now();
       const chunksCount = await prisma.pDFChunk.count({ where: { pdfId } });
       timeLog.dbCheck = Date.now() - dbCheckStart;
@@ -91,29 +91,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📝 Total characters: ${pages.reduce((sum: number, page: { pageNumber: number; content: string }) => sum + (page.content?.length || 0), 0)}`);
+    // console.log(`📝 Total characters: ${pages.reduce((sum: number, page: { pageNumber: number; content: string }) => sum + (page.content?.length || 0), 0)}`);
 
     // Delegate to the existing extract endpoint logic
-    console.log(`🔄 Delegating to server-side extraction logic...`);
+    // console.log(`🔄 Delegating to server-side extraction logic...`);
     const result = await processPages(pages, pdfId, timeLog);
     
     // Final timing calculations
     timeLog.total = Date.now() - startTime;
     
-    console.log(`✅ SERVER-SIDE TEXT EXTRACTION COMPLETED`);
-    console.log(`   🎯 Method: server-side processing`);
-    console.log(`   📊 Total pages processed: ${pages.length}`);
-    console.log(`   🔢 Total chunks created: ${result.chunksCreated}`);
-    console.log(`\n⏱️  COMPREHENSIVE TIMING BREAKDOWN (SERVER-SIDE):`);
-    console.log(`   🔐 Auth: ${timeLog.auth}ms`);
-    console.log(`   📥 JSON Parse: ${timeLog.jsonParse}ms`);  
-    console.log(`   🔍 PDF Lookup: ${timeLog.pdfLookup}ms`);
-    console.log(`   📊 DB Check: ${timeLog.dbCheck}ms`);
-    console.log(`   ✂️  Chunking: ${timeLog.chunking}ms`);
-    console.log(`   🤖 Embedding: ${timeLog.embedding}ms`);
-    console.log(`   💾 DB Save: ${timeLog.dbSave}ms`);
-    console.log(`   🎯 TOTAL: ${timeLog.total}ms (${(timeLog.total / 1000).toFixed(2)}s)`);
-    console.log(`   📈 Performance: ${result.chunksCreated} chunks in ${(timeLog.total / 1000).toFixed(2)}s = ${(result.chunksCreated / (timeLog.total / 1000)).toFixed(1)} chunks/sec`);
+    // console.log(`✅ SERVER-SIDE TEXT EXTRACTION COMPLETED`);
+    // console.log(`   🎯 Method: server-side processing`);
+    // console.log(`   📊 Total pages processed: ${pages.length}`);
+    // console.log(`   🔢 Total chunks created: ${result.chunksCreated}`);
+    // console.log(`\n⏱️  COMPREHENSIVE TIMING BREAKDOWN (SERVER-SIDE):`);
+    // console.log(`   🔐 Auth: ${timeLog.auth}ms`);
+    // console.log(`   📥 JSON Parse: ${timeLog.jsonParse}ms`);  
+    // console.log(`   🔍 PDF Lookup: ${timeLog.pdfLookup}ms`);
+    // console.log(`   📊 DB Check: ${timeLog.dbCheck}ms`);
+    // console.log(`   ✂️  Chunking: ${timeLog.chunking}ms`);
+    // console.log(`   🤖 Embedding: ${timeLog.embedding}ms`);
+    // console.log(`   💾 DB Save: ${timeLog.dbSave}ms`);
+    // console.log(`   🎯 TOTAL: ${timeLog.total}ms (${(timeLog.total / 1000).toFixed(2)}s)`);
+    // console.log(`   📈 Performance: ${result.chunksCreated} chunks in ${(timeLog.total / 1000).toFixed(2)}s = ${(result.chunksCreated / (timeLog.total / 1000)).toFixed(1)} chunks/sec`);
     
     return NextResponse.json({
       message: 'Server-side text extraction completed',
@@ -137,11 +137,11 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Server-side text extraction error:', error);
+    // console.error('❌ Server-side text extraction error:', error);
     if (error instanceof Error) {
-      console.error('   📍 Error name:', error.name);
-      console.error('   📍 Error message:', error.message);
-      console.error('   📍 Error stack:', error.stack);
+      // console.error('   📍 Error name:', error.name);
+      // console.error('   📍 Error message:', error.message);
+      // console.error('   📍 Error stack:', error.stack);
     }
     
     return NextResponse.json(
@@ -305,7 +305,7 @@ async function processPages(
     total: number;
   }
 ) {
-  console.log(`🔄 Processing ${pages.length} pages server-side...`);
+  // console.log(`🔄 Processing ${pages.length} pages server-side...`);
   
   // Start chunking timer
   const chunkingStart = Date.now();
@@ -354,10 +354,10 @@ async function processPages(
 
   // Complete chunking timing
   timeLog.chunking = Date.now() - chunkingStart;
-  console.log(`   ✂️  Chunking completed: ${timeLog.chunking}ms for ${allChunks.length} chunks`);
+  // console.log(`   ✂️  Chunking completed: ${timeLog.chunking}ms for ${allChunks.length} chunks`);
 
   // Generate embeddings for all chunks
-  console.log(`🤖 Generating embeddings for ${allChunks.length} chunks (server-side)...`);
+  // console.log(`🤖 Generating embeddings for ${allChunks.length} chunks (server-side)...`);
   const embeddingStart = Date.now();
   let embeddingResults;
   try {
@@ -373,13 +373,13 @@ async function processPages(
     // Optimized batch parameters for Vercel timeout constraints
     embeddingResults = await generateEmbeddingsInBatches(embeddingChunks, 100, 3);
     timeLog.embedding = Date.now() - embeddingStart;
-    console.log(`✅ Generated ${embeddingResults.length} embeddings in ${timeLog.embedding}ms`);
+    // console.log(`✅ Generated ${embeddingResults.length} embeddings in ${timeLog.embedding}ms`);
   } catch (embeddingError) {
-    console.error(`❌ Failed to generate embeddings:`, embeddingError);
+    // console.error(`❌ Failed to generate embeddings:`, embeddingError);
     throw new Error(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`);
   }
 
-  console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database (server-side)...`);
+  // console.log(`💾 Saving ${embeddingResults.length} chunks with embeddings to database (server-side)...`);
   
   // CRITICAL OPTIMIZATION: Bulk INSERT instead of individual inserts
   const dbSaveStart = Date.now();
@@ -391,7 +391,7 @@ async function processPages(
       const batchEnd = Math.min(i + dbBatchSize, embeddingResults.length);
       const batch = embeddingResults.slice(i, batchEnd);
       
-      console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks)`);
+      // console.log(`   💾 Saving batch ${Math.floor(i / dbBatchSize) + 1}/${Math.ceil(embeddingResults.length / dbBatchSize)} (${batch.length} chunks)`);
       
       // BULK INSERT - Single SQL query for the entire batch (MAJOR PERFORMANCE IMPROVEMENT)
       const values = batch.map((result) => {
@@ -421,26 +421,26 @@ async function processPages(
       await prisma.$executeRawUnsafe(bulkInsertSQL);
       savedChunks += batch.length;
       
-      console.log(`   ✅ Bulk saved ${savedChunks}/${embeddingResults.length} chunks`);
+      // console.log(`   ✅ Bulk saved ${savedChunks}/${embeddingResults.length} chunks`);
     }
     
     timeLog.dbSave = Date.now() - dbSaveStart;
-    console.log(`   💾 Database save completed: ${timeLog.dbSave}ms for ${savedChunks} chunks`);
+    // console.log(`   💾 Database save completed: ${timeLog.dbSave}ms for ${savedChunks} chunks`);
   } catch (dbError) {
-    console.error(`❌ Database error saving chunks:`, dbError);
+    // console.error(`❌ Database error saving chunks:`, dbError);
     throw dbError;
   }
 
   // Mark PDF as text extracted
-  console.log(`🏁 Marking PDF as text extracted (server-side)`);
+  // console.log(`🏁 Marking PDF as text extracted (server-side)`);
   try {
     await prisma.pDF.update({
       where: { id: pdfId },
       data: { textExtracted: true },
     });
-    console.log(`   ✅ PDF marked as text extracted`);
+    // console.log(`   ✅ PDF marked as text extracted`);
   } catch (dbError) {
-    console.error(`❌ Database error marking PDF as extracted:`, dbError);
+    // console.error(`❌ Database error marking PDF as extracted:`, dbError);
     throw dbError;
   }
 

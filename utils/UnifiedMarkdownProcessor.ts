@@ -63,7 +63,7 @@ export class UnifiedMarkdownProcessor {
 
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize unified processor:', error);
+      // console.error('Failed to initialize unified processor:', error);
       this.isInitialized = false;
     }
   }
@@ -117,7 +117,7 @@ export class UnifiedMarkdownProcessor {
     }
 
     if (!this.isInitialized) {
-      console.warn('Processor not initialized, using fallback');
+      // console.warn('Processor not initialized, using fallback');
       return this.fallbackProcess(markdown);
     }
 
@@ -130,7 +130,7 @@ export class UnifiedMarkdownProcessor {
       html = this.postProcessHtml(html);
 
       // Debug: Log the HTML to see what's being generated
-      console.log('Generated HTML:', html.substring(0, 500) + '...');
+      // console.log('Generated HTML:', html.substring(0, 500) + '...');
 
       // Calculate statistics
       const stats = this.calculateStats(
@@ -146,7 +146,7 @@ export class UnifiedMarkdownProcessor {
         processor: 'unified',
       };
     } catch (error) {
-      console.error('Unified processing failed:', error);
+      // console.error('Unified processing failed:', error);
 
       // Fallback to basic processing
       const fallbackResult = this.fallbackProcess(markdown);
@@ -174,7 +174,7 @@ export class UnifiedMarkdownProcessor {
 
       return html;
     } catch (error) {
-      console.warn('Fast processing failed, using escape fallback:', error);
+      // console.warn('Fast processing failed, using escape fallback:', error);
       return this.escapeHtml(markdown)
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>');

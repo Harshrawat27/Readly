@@ -191,8 +191,8 @@ export async function intelligentSearch(
   const optimalChunkCount = getRequiredChunkCount(queryType, originalQuery);
   const pageNumbers = extractPageNumbers(originalQuery);
   
-  console.log(`🧠 Query: "${originalQuery}"`);
-  console.log(`🧠 Query type: ${queryType}, Optimal chunks: ${optimalChunkCount}, Pages: [${pageNumbers.join(', ')}]`);
+  // console.log(`🧠 Query: "${originalQuery}"`);
+  // console.log(`🧠 Query type: ${queryType}, Optimal chunks: ${optimalChunkCount}, Pages: [${pageNumbers.join(', ')}]`);
   
   // Use different strategies based on query type
   switch (queryType) {
@@ -220,7 +220,7 @@ export async function intelligentSearch(
  * Comprehensive search - maximum context from entire document
  */
 async function comprehensiveSearch(pdfId: string, query: string, limit: number): Promise<SearchResult[]> {
-  console.log(`🌍 Using comprehensive search strategy (${limit} chunks)`);
+  // console.log(`🌍 Using comprehensive search strategy (${limit} chunks)`);
   
   try {
     // Get the best chunks from across the entire document
@@ -269,7 +269,7 @@ async function comprehensiveSearch(pdfId: string, query: string, limit: number):
     }));
     
   } catch (error) {
-    console.error('❌ Comprehensive search failed:', error);
+    // console.error('❌ Comprehensive search failed:', error);
     return await semanticSearch(pdfId, query, limit);
   }
 }
@@ -278,7 +278,7 @@ async function comprehensiveSearch(pdfId: string, query: string, limit: number):
  * Timeline search - finds chronological content across the document
  */
 async function timelineSearch(pdfId: string, query: string, limit: number): Promise<SearchResult[]> {
-  console.log(`📅 Using timeline search strategy (${limit} chunks)`);
+  // console.log(`📅 Using timeline search strategy (${limit} chunks)`);
   
   try {
     // Strategy: Find chunks with dates/years + semantic relevance
@@ -350,7 +350,7 @@ async function timelineSearch(pdfId: string, query: string, limit: number): Prom
     return results.sort((a, b) => a.pageNumber - b.pageNumber);
     
   } catch (error) {
-    console.error('❌ Timeline search failed:', error);
+    // console.error('❌ Timeline search failed:', error);
     return await semanticSearch(pdfId, query, limit);
   }
 }
@@ -359,7 +359,7 @@ async function timelineSearch(pdfId: string, query: string, limit: number): Prom
  * Summary search - gets diverse chunks from across the document
  */
 async function summarySearch(pdfId: string, query: string, limit: number): Promise<SearchResult[]> {
-  console.log(`📋 Using summary search strategy`);
+  // console.log(`📋 Using summary search strategy`);
   
   try {
     // Get chunks spread across the document with some semantic relevance
@@ -406,7 +406,7 @@ async function summarySearch(pdfId: string, query: string, limit: number): Promi
     }));
     
   } catch (error) {
-    console.error('❌ Summary search failed:', error);
+    // console.error('❌ Summary search failed:', error);
     return await fallbackSearch(pdfId, limit, 'summary_fallback');
   }
 }
@@ -420,7 +420,7 @@ async function pageSpecificSearch(
   pageNumbers: number[], 
   limit: number
 ): Promise<SearchResult[]> {
-  console.log(`📄 Using page-specific search for pages: [${pageNumbers.join(', ')}]`);
+  // console.log(`📄 Using page-specific search for pages: [${pageNumbers.join(', ')}]`);
   
   try {
     if (pageNumbers.length === 0) {
@@ -446,13 +446,13 @@ async function pageSpecificSearch(
       },
     });
     
-    console.log(`📄 Found ${pageChunks.length} chunks for pages [${pageNumbers.join(', ')}]`);
+    // console.log(`📄 Found ${pageChunks.length} chunks for pages [${pageNumbers.join(', ')}]`);
     if (pageChunks.length > 0) {
       const actualPages = [...new Set(pageChunks.map(c => c.pageNumber))];
       const missingPages = pageNumbers.filter(p => !actualPages.includes(p));
-      console.log(`📄 Page coverage: [${actualPages.join(', ')}]`);
+      // console.log(`📄 Page coverage: [${actualPages.join(', ')}]`);
       if (missingPages.length > 0) {
-        console.log(`⚠️ Missing pages in database: [${missingPages.join(', ')}] - may be empty or not processed`);
+        // console.log(`⚠️ Missing pages in database: [${missingPages.join(', ')}] - may be empty or not processed`);
       }
     }
     
@@ -460,11 +460,11 @@ async function pageSpecificSearch(
     let contextChunks: SearchResult[] = [];
     if (pageChunks.length < limit) {
       const remainingSlots = limit - pageChunks.length;
-      console.log(`📄 Getting ${remainingSlots} context chunks to supplement page content`);
+      // console.log(`📄 Getting ${remainingSlots} context chunks to supplement page content`);
       const processedQuery = preprocessQuery(query, QueryType.PAGE_SPECIFIC);
       contextChunks = await semanticSearch(pdfId, processedQuery, remainingSlots);
     } else {
-      console.log(`📄 Sufficient page content found, skipping semantic context search`);
+      // console.log(`📄 Sufficient page content found, skipping semantic context search`);
     }
     
     const results = [
@@ -480,7 +480,7 @@ async function pageSpecificSearch(
     return uniqueResults.slice(0, limit);
     
   } catch (error) {
-    console.error('❌ Page-specific search failed:', error);
+    // console.error('❌ Page-specific search failed:', error);
     return await fallbackSearch(pdfId, limit, 'page_fallback');
   }
 }
@@ -489,7 +489,7 @@ async function pageSpecificSearch(
  * Hybrid search - combines semantic and keyword matching
  */
 async function hybridSearch(pdfId: string, query: string, limit: number): Promise<SearchResult[]> {
-  console.log(`🔀 Using hybrid search strategy`);
+  // console.log(`🔀 Using hybrid search strategy`);
   
   try {
     // Semantic search
@@ -528,7 +528,7 @@ async function hybridSearch(pdfId: string, query: string, limit: number): Promis
     return uniqueResults.slice(0, limit);
     
   } catch (error) {
-    console.error('❌ Hybrid search failed:', error);
+    // console.error('❌ Hybrid search failed:', error);
     return await semanticSearch(pdfId, query, limit);
   }
 }
@@ -537,7 +537,7 @@ async function hybridSearch(pdfId: string, query: string, limit: number): Promis
  * Standard semantic search
  */
 async function semanticSearch(pdfId: string, query: string, limit: number): Promise<SearchResult[]> {
-  console.log(`🔍 Using semantic search strategy`);
+  // console.log(`🔍 Using semantic search strategy`);
   
   try {
     const processedQuery = preprocessQuery(query, QueryType.GENERAL);
@@ -572,7 +572,7 @@ async function semanticSearch(pdfId: string, query: string, limit: number): Prom
     }));
     
   } catch (error) {
-    console.error('❌ Semantic search failed:', error);
+    // console.error('❌ Semantic search failed:', error);
     return await fallbackSearch(pdfId, limit, 'semantic_fallback');
   }
 }
@@ -581,7 +581,7 @@ async function semanticSearch(pdfId: string, query: string, limit: number): Prom
  * Fallback search when everything else fails
  */
 async function fallbackSearch(pdfId: string, limit: number, strategy: string): Promise<SearchResult[]> {
-  console.log(`🔄 Using fallback search`);
+  // console.log(`🔄 Using fallback search`);
   
   const chunks = await prisma.pDFChunk.findMany({
     where: { pdfId },

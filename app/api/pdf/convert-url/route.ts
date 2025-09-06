@@ -137,13 +137,13 @@ export async function POST(request: NextRequest) {
 
     // Detect if this is a direct PDF URL or a website URL
     const isDirectPdf = isPdfUrl(url);
-    console.log(`🌐 [URL-to-PDF] Starting ${isDirectPdf ? 'direct PDF download' : 'URL-to-PDF conversion'}`);
-    console.log(`🔗 [URL-to-PDF] URL: ${url}`);
-    console.log(`📁 [URL-to-PDF] Type: ${isDirectPdf ? 'Direct PDF' : 'Website'}`);
-    console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
+    // console.log(`🌐 [URL-to-PDF] Starting ${isDirectPdf ? 'direct PDF download' : 'URL-to-PDF conversion'}`);
+    // console.log(`🔗 [URL-to-PDF] URL: ${url}`);
+    // console.log(`📁 [URL-to-PDF] Type: ${isDirectPdf ? 'Direct PDF' : 'Website'}`);
+    // console.log(`👤 [URL-to-PDF] User: ${session.user.id}`);
 
     // FIRST: Check current PDF count and subscription limits BEFORE processing
-    console.log(`🔍 [URL-to-PDF] Checking user's current PDF count and subscription limits...`);
+    // console.log(`🔍 [URL-to-PDF] Checking user's current PDF count and subscription limits...`);
     
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     const currentPlan = user.subscriptionPlan || 'free';
     const currentPdfCount = user.pdfs.length;
 
-    console.log(`📊 [URL-to-PDF] User has ${currentPdfCount} PDFs on ${currentPlan} plan`);
+    // console.log(`📊 [URL-to-PDF] User has ${currentPdfCount} PDFs on ${currentPlan} plan`);
 
     // Check monthly PDF limit first (before page count since we don't know it yet)
     // We'll do a preliminary check with estimated values, then final check after PDF generation
@@ -172,14 +172,14 @@ export async function POST(request: NextRequest) {
     );
     
     if (!preliminaryCheck.allowed) {
-      console.log(`❌ [URL-to-PDF] Upload blocked by PDF count limit: ${preliminaryCheck.reason}`);
+      // console.log(`❌ [URL-to-PDF] Upload blocked by PDF count limit: ${preliminaryCheck.reason}`);
       return NextResponse.json(
         { error: preliminaryCheck.reason },
         { status: 403 }
       );
     }
 
-    console.log(`✅ [URL-to-PDF] Preliminary limits OK, proceeding with ${isDirectPdf ? 'PDF download' : 'PDF generation'}`);
+    // console.log(`✅ [URL-to-PDF] Preliminary limits OK, proceeding with ${isDirectPdf ? 'PDF download' : 'PDF generation'}`);
 
     let pdfBuffer: Buffer;
     let pageTitle = '';
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     if (isDirectPdf) {
       // Handle direct PDF download
-      console.log(`📥 [URL-to-PDF] Downloading PDF directly from URL...`);
+      // console.log(`📥 [URL-to-PDF] Downloading PDF directly from URL...`);
       
       try {
         const downloadResult = await downloadPdfFromUrl(url);
@@ -196,31 +196,31 @@ export async function POST(request: NextRequest) {
 
         const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
         const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
-        console.log(`✅ [URL-to-PDF] PDF downloaded successfully!`);
-        console.log(`📝 [URL-to-PDF] PDF title: ${pageTitle}`);
-        console.log(`📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`);
+        // console.log(`✅ [URL-to-PDF] PDF downloaded successfully!`);
+        // console.log(`📝 [URL-to-PDF] PDF title: ${pageTitle}`);
+        // console.log(`📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`);
 
         // Get EXACT page count using pdf-lib
-        console.log(`📄 [URL-to-PDF] Detecting exact page count from downloaded PDF...`);
+        // console.log(`📄 [URL-to-PDF] Detecting exact page count from downloaded PDF...`);
         try {
           const { PDFDocument } = await import('pdf-lib');
           const doc = await PDFDocument.load(pdfBuffer);
           actualPageCount = doc.getPageCount();
-          console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
+          // console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
         } catch (error) {
-          console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
+          // console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
           actualPageCount = 1; // Fallback to 1 if we can't detect
         }
       } catch (error) {
-        console.error('❌ [URL-to-PDF] Failed to download PDF:', error);
+        // console.error('❌ [URL-to-PDF] Failed to download PDF:', error);
         throw error;
       }
     } else {
       // Handle website to PDF conversion using Puppeteer
-      console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
+      // console.log(`🤖 [URL-to-PDF] Launching Puppeteer browser...`);
 
       const isProduction = process.env.NODE_ENV === 'production';
-      console.log(
+      // console.log(
         `🔧 [URL-to-PDF] Environment: ${
           isProduction ? 'production (serverless)' : 'development (local)'
         }`
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
       const browser = await createBrowser();
 
       try {
-        console.log(`📄 [URL-to-PDF] Creating new page...`);
+        // console.log(`📄 [URL-to-PDF] Creating new page...`);
         const page = await browser.newPage();
 
         // Set user agent to avoid being blocked
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
         await page.setViewport({ width: 1200, height: 800 });
 
         // Navigate to URL with timeout
-        console.log(`🌍 [URL-to-PDF] Navigating to URL...`);
+        // console.log(`🌍 [URL-to-PDF] Navigating to URL...`);
         await page.goto(url, {
           waitUntil: 'networkidle2',
           timeout: 30000,
@@ -249,14 +249,14 @@ export async function POST(request: NextRequest) {
 
         // Get page title
         pageTitle = await page.title();
-        console.log(`📝 [URL-to-PDF] Page title: ${pageTitle}`);
+        // console.log(`📝 [URL-to-PDF] Page title: ${pageTitle}`);
 
         // Wait a bit for any dynamic content to load
-        console.log(`⏳ [URL-to-PDF] Waiting for dynamic content...`);
+        // console.log(`⏳ [URL-to-PDF] Waiting for dynamic content...`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
         // Generate PDF
-        console.log(`🖨️ [URL-to-PDF] Generating PDF...`);
+        // console.log(`🖨️ [URL-to-PDF] Generating PDF...`);
         const pdfData = await page.pdf({
           format: 'A4',
           printBackground: true,
@@ -272,24 +272,24 @@ export async function POST(request: NextRequest) {
 
         const pdfSizeKB = (pdfBuffer.byteLength / 1024).toFixed(2);
         const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
-        console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
-        console.log(
+        // console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
+        // console.log(
           `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
         );
 
         // Get EXACT page count using pdf-lib on the generated PDF buffer
-        console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
+        // console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
         try {
           const { PDFDocument } = await import('pdf-lib');
           const doc = await PDFDocument.load(pdfBuffer);
           actualPageCount = doc.getPageCount();
-          console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
+          // console.log(`✅ [URL-to-PDF] Detected ${actualPageCount} pages`);
         } catch (error) {
-          console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
+          // console.error('❌ [URL-to-PDF] Failed to detect page count from PDF:', error);
           actualPageCount = 1; // Fallback to 1 if we can't detect
         }
       } finally {
-        console.log(`🔐 [URL-to-PDF] Closing browser...`);
+        // console.log(`🔐 [URL-to-PDF] Closing browser...`);
         await browser.close();
       }
     }
@@ -300,17 +300,17 @@ export async function POST(request: NextRequest) {
     const fileName = `${domain}-${timestamp}.pdf`;
 
     // Upload to S3 using the same function as local uploads
-    console.log(`☁️ [URL-to-PDF] Uploading PDF to S3...`);
-    console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
+    // console.log(`☁️ [URL-to-PDF] Uploading PDF to S3...`);
+    // console.log(`📁 [URL-to-PDF] File name: ${fileName}`);
 
     const fileBuffer = pdfBuffer;
     
     // Use the page count calculated during PDF processing
-    console.log(`📄 [URL-to-PDF] Using calculated page count: ${actualPageCount}`);
-    console.log(`✅ [URL-to-PDF] PDF processed with ${actualPageCount} pages`);
+    // console.log(`📄 [URL-to-PDF] Using calculated page count: ${actualPageCount}`);
+    // console.log(`✅ [URL-to-PDF] PDF processed with ${actualPageCount} pages`);
 
     // Final check: subscription limits with actual page count and file size
-    console.log(`🔍 [URL-to-PDF] Final validation with actual PDF data...`);
+    // console.log(`🔍 [URL-to-PDF] Final validation with actual PDF data...`);
     
     const limitCheck = canUploadPdf(
       user.monthlyPdfsUploaded, 
@@ -321,21 +321,21 @@ export async function POST(request: NextRequest) {
     );
     
     if (!limitCheck.allowed) {
-      console.log(`❌ [URL-to-PDF] Upload blocked: ${limitCheck.reason}`);
+      // console.log(`❌ [URL-to-PDF] Upload blocked: ${limitCheck.reason}`);
       return NextResponse.json(
         { error: limitCheck.reason },
         { status: 403 }
       );
     }
 
-    console.log(`✅ [URL-to-PDF] Subscription limits OK for ${currentPlan} plan`);
+    // console.log(`✅ [URL-to-PDF] Subscription limits OK for ${currentPlan} plan`);
 
     const s3Key = await uploadPdfToS3(fileBuffer, fileName, session.user.id);
 
-    console.log(`✅ [URL-to-PDF] S3 upload successful! S3 key: ${s3Key}`);
+    // console.log(`✅ [URL-to-PDF] S3 upload successful! S3 key: ${s3Key}`);
 
     // Save to database
-    console.log(`💾 [URL-to-PDF] Saving metadata to database...`);
+    // console.log(`💾 [URL-to-PDF] Saving metadata to database...`);
     const pdf = await prisma.pDF.create({
       data: {
         title: pageTitle || parsedUrl.hostname,
@@ -347,12 +347,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`✅ [URL-to-PDF] PDF saved to database with ID: ${pdf.id}`);
+    // console.log(`✅ [URL-to-PDF] PDF saved to database with ID: ${pdf.id}`);
 
     // Increment user's monthly and total PDF upload counts
     await incrementPdfUpload(session.user.id, limitCheck.shouldReset);
 
-    console.log(
+    // console.log(
       `🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`
     );
 
@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
       message: 'URL converted to PDF successfully',
     });
   } catch (error) {
-    console.error('Error converting URL to PDF:', error);
+    // console.error('Error converting URL to PDF:', error);
 
     // Provide more specific error messages
     if (error instanceof Error) {

@@ -97,9 +97,9 @@ export async function POST(request: NextRequest) {
         try {
           const s3Key = await uploadImageToS3(selectedImage, userId, pdfId);
           imageUrl = s3Key; // Store S3 key, not signed URL
-          console.log('Image uploaded to S3 with key:', s3Key);
+          // console.log('Image uploaded to S3 with key:', s3Key);
         } catch (error) {
-          console.error('Failed to upload image to S3:', error);
+          // console.error('Failed to upload image to S3:', error);
           // Fall back to storing base64 in imageData field for backwards compatibility
         }
       }
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
 
           controller.close();
         } catch (error) {
-          console.error('Streaming error:', error);
+          // console.error('Streaming error:', error);
           const errorData = JSON.stringify({
             error: 'An error occurred while processing your request',
             done: true,
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Chat API error:', error);
+    // console.error('Chat API error:', error);
 
     return NextResponse.json(
       { error: 'Failed to process chat request' },

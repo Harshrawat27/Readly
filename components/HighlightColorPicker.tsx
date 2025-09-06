@@ -93,12 +93,12 @@ export default function HighlightColorPicker({
               onClick={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Color button clicked:', color.name, color.color);
+                // console.log('Color button clicked:', color.name, color.color);
                 // Call highlight first, wait for it to complete, then close
                 try {
                   await onHighlight(color.color, selectedText);
                 } catch (error) {
-                  console.error('Highlight error:', error);
+                  // console.error('Highlight error:', error);
                 }
                 onClose();
               }}

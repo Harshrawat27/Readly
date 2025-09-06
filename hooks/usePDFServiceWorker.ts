@@ -11,15 +11,15 @@ export function usePDFServiceWorker() {
         .register('/pdf-sw.js')
         .then((registration) => {
           swRef.current = registration;
-          console.log('PDF Service Worker registered');
+          // console.log('PDF Service Worker registered');
         })
         .catch((error) => {
-          console.error('Service Worker registration failed:', error);
+          // console.error('Service Worker registration failed:', error);
         });
 
       // Listen for service worker updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('Service Worker updated, reloading...');
+        // console.log('Service Worker updated, reloading...');
         window.location.reload();
       });
     }

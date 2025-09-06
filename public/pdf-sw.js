@@ -14,7 +14,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.log('Failed to cache some assets:', err);
+        // console.log('Failed to cache some assets:', err);
       });
     })
   );
@@ -167,7 +167,7 @@ self.addEventListener('message', (event) => {
 
   if (event.data.type === 'CLEAR_CACHE') {
     caches.delete(PDF_CACHE_NAME).then(() => {
-      console.log('PDF cache cleared');
+      // console.log('PDF cache cleared');
     });
   }
 });

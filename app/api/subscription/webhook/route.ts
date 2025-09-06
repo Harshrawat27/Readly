@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     await webhook.verify(rawBody, webhookHeaders);
     const payload = JSON.parse(rawBody);
 
-    console.log('Webhook received:', payload.type);
+    // console.log('Webhook received:', payload.type);
 
     if (payload.data.payload_type === 'Subscription') {
       const subscriptionId = payload.data.subscription_id;
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           await handleSubscriptionOnHold(subscriptionId);
           break;
         default:
-          console.log('Unhandled subscription event:', payload.type);
+          // console.log('Unhandled subscription event:', payload.type);
           break;
       }
     } else if (payload.data.payload_type === 'Payment') {
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
           await handlePaymentSucceeded(payload.data.payment_id);
           break;
         default:
-          console.log('Unhandled payment event:', payload.type);
+          // console.log('Unhandled payment event:', payload.type);
           break;
       }
     }
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Webhook verification failed:', error);
+    // console.error('Webhook verification failed:', error);
     return NextResponse.json(
       { message: 'Webhook verification failed' },
       { status: 400 }
@@ -77,7 +77,7 @@ async function handleSubscriptionActive(subscriptionId: string) {
     const subscription = await dodopayments.subscriptions.retrieve(
       subscriptionId
     );
-    console.log('Subscription activated:', subscription);
+    // console.log('Subscription activated:', subscription);
 
     const userId = subscription.metadata?.userId;
     const planName = subscription.metadata?.planName || 'pro_monthly';
@@ -98,7 +98,7 @@ async function handleSubscriptionActive(subscriptionId: string) {
       });
     }
   } catch (error) {
-    console.error('Error handling subscription active:', error);
+    // console.error('Error handling subscription active:', error);
   }
 }
 
@@ -117,7 +117,7 @@ async function handleSubscriptionFailed(subscriptionId: string) {
       });
     }
   } catch (error) {
-    console.error('Error handling subscription failed:', error);
+    // console.error('Error handling subscription failed:', error);
   }
 }
 
@@ -136,7 +136,7 @@ async function handleSubscriptionCancelled(subscriptionId: string) {
       });
     }
   } catch (error) {
-    console.error('Error handling subscription cancelled:', error);
+    // console.error('Error handling subscription cancelled:', error);
   }
 }
 
@@ -163,7 +163,7 @@ async function handleSubscriptionRenewed(subscriptionId: string) {
       });
     }
   } catch (error) {
-    console.error('Error handling subscription renewed:', error);
+    // console.error('Error handling subscription renewed:', error);
   }
 }
 
@@ -182,16 +182,16 @@ async function handleSubscriptionOnHold(subscriptionId: string) {
       });
     }
   } catch (error) {
-    console.error('Error handling subscription on hold:', error);
+    // console.error('Error handling subscription on hold:', error);
   }
 }
 
 async function handlePaymentSucceeded(paymentId: string) {
   try {
     const payment = await dodopayments.payments.retrieve(paymentId);
-    console.log('Payment succeeded:', payment);
+    // console.log('Payment succeeded:', payment);
     // Additional payment processing logic if needed
   } catch (error) {
-    console.error('Error handling payment succeeded:', error);
+    // console.error('Error handling payment succeeded:', error);
   }
 }

@@ -16,7 +16,10 @@ interface MessageActionsProps {
   messageContent: string;
   initialLiked?: boolean;
   initialDisliked?: boolean;
-  feedbackData?: { success: boolean; feedback?: { feedbackType: string } | null } | null;
+  feedbackData?: {
+    success: boolean;
+    feedback?: { feedbackType: string } | null;
+  } | null;
   onLike?: (messageId: string, liked: boolean) => void;
   onDislike?: (messageId: string, disliked: boolean, reason?: string) => void;
 }
@@ -196,7 +199,7 @@ export default function MessageActions({
   const [showDislikePopup, setShowDislikePopup] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const dislikeButtonRef = useRef<HTMLButtonElement>(null);
-  
+
   // Toast state
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -210,7 +213,7 @@ export default function MessageActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy text:', error);
+      // console.error('Failed to copy text:', error);
     }
   };
 
@@ -243,7 +246,7 @@ export default function MessageActions({
         });
       }
     } catch (error) {
-      console.error('Failed to save like feedback:', error);
+      // console.error('Failed to save like feedback:', error);
       // Revert the state if API call failed
       setLiked(!newLikedState);
       if (newLikedState && disliked) {
@@ -265,7 +268,7 @@ export default function MessageActions({
           method: 'DELETE',
         });
       } catch (error) {
-        console.error('Failed to remove dislike feedback:', error);
+        // console.error('Failed to remove dislike feedback:', error);
         // Revert the state if API call failed
         setDisliked(true);
       }
@@ -307,7 +310,7 @@ export default function MessageActions({
         }),
       });
     } catch (error) {
-      console.error('Failed to save dislike feedback:', error);
+      // console.error('Failed to save dislike feedback:', error);
       // Revert the state if API call failed
       setDisliked(false);
       if (liked) {
@@ -321,13 +324,13 @@ export default function MessageActions({
   const handleSpeak = async () => {
     // Prevent multiple clicks while loading or playing
     if (isLoadingTTS) {
-      console.log('🚫 Already loading TTS, ignoring click');
+      // console.log('🚫 Already loading TTS, ignoring click');
       return;
     }
 
     if (isPlaying && audioRef.current) {
       // Stop current playback
-      console.log('🛑 Stopping current playback');
+      // console.log('🛑 Stopping current playback');
       audioRef.current.pause();
       audioRef.current = null;
       setIsPlaying(false);
@@ -338,7 +341,7 @@ export default function MessageActions({
     setIsPlaying(false);
 
     try {
-      console.log('🎵 Starting MediaSource streaming...');
+      // console.log('🎵 Starting MediaSource streaming...');
 
       // Create MediaSource for progressive loading
       const mediaSource = new MediaSource();
@@ -351,18 +354,22 @@ export default function MessageActions({
 
       // MediaSource event handlers
       mediaSource.onsourceopen = async () => {
-        console.log('📺 MediaSource opened, setting up SourceBuffer');
-        
+        // console.log('📺 MediaSource opened, setting up SourceBuffer');
+
         try {
           sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-          
+
           sourceBuffer.onupdateend = () => {
-            console.log('📦 SourceBuffer updated, duration:', mediaSource.duration);
-            
+            // console.log('📦 SourceBuffer updated, duration:', mediaSource.duration);
+
             // Start playing once we have some content and audio is ready
-            if (!streamStarted && audioRef.current && audioRef.current.readyState >= 2) {
+            if (
+              !streamStarted &&
+              audioRef.current &&
+              audioRef.current.readyState >= 2
+            ) {
               streamStarted = true;
-              console.log('▶️ Starting playback');
+              // console.log('▶️ Starting playback');
               setIsLoadingTTS(false);
               setIsPlaying(true);
               audioRef.current.play().catch(console.error);
@@ -370,34 +377,33 @@ export default function MessageActions({
           };
 
           sourceBuffer.onerror = (e) => {
-            console.error('❌ SourceBuffer error:', e);
+            // console.error('❌ SourceBuffer error:', e);
             setIsLoadingTTS(false);
             setIsPlaying(false);
           };
 
           // Start streaming from TTS API
           await startTTSStream();
-
         } catch (error) {
-          console.error('❌ MediaSource setup error:', error);
+          // console.error('❌ MediaSource setup error:', error);
           setIsLoadingTTS(false);
           setIsPlaying(false);
         }
       };
 
       mediaSource.onsourceclose = () => {
-        console.log('📺 MediaSource closed');
+        // console.log('📺 MediaSource closed');
       };
 
       mediaSource.addEventListener('error', (e) => {
-        console.error('❌ MediaSource error:', e);
+        // console.error('❌ MediaSource error:', e);
         setIsLoadingTTS(false);
         setIsPlaying(false);
       });
 
       // Audio element event handlers
       audioRef.current.oncanplay = () => {
-        console.log('✅ Audio ready to play');
+        // console.log('✅ Audio ready to play');
         if (!streamStarted && sourceBuffer && chunks.length > 0) {
           streamStarted = true;
           setIsLoadingTTS(false);
@@ -407,14 +413,14 @@ export default function MessageActions({
       };
 
       audioRef.current.onended = () => {
-        console.log('🏁 Audio ended');
+        // console.log('🏁 Audio ended');
         setIsPlaying(false);
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
       };
 
       audioRef.current.onerror = (event) => {
-        console.error('❌ Audio error:', event);
+        // console.error('❌ Audio error:', event);
         setIsPlaying(false);
         setIsLoadingTTS(false);
       };
@@ -433,7 +439,9 @@ export default function MessageActions({
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(`TTS API failed: ${errorData.error || 'Unknown error'}`);
+          throw new Error(
+            `TTS API failed: ${errorData.error || 'Unknown error'}`
+          );
         }
 
         if (!response.body) {
@@ -450,14 +458,18 @@ export default function MessageActions({
           }
 
           isAppending = true;
-          
-          while (appendQueue.length > 0 && sourceBuffer && !sourceBuffer.updating) {
+
+          while (
+            appendQueue.length > 0 &&
+            sourceBuffer &&
+            !sourceBuffer.updating
+          ) {
             const chunk = appendQueue.shift()!;
-            
+
             try {
               sourceBuffer.appendBuffer(chunk);
-              console.log(`📦 Appended chunk (${chunk.length} bytes), queue: ${appendQueue.length}`);
-              
+              // console.log(`📦 Appended chunk (${chunk.length} bytes), queue: ${appendQueue.length}`);
+
               // Wait for append to complete
               await new Promise<void>((resolve, reject) => {
                 const onUpdateEnd = () => {
@@ -465,23 +477,22 @@ export default function MessageActions({
                   sourceBuffer!.removeEventListener('error', onError);
                   resolve();
                 };
-                
+
                 const onError = (e: Event) => {
                   sourceBuffer!.removeEventListener('updateend', onUpdateEnd);
                   sourceBuffer!.removeEventListener('error', onError);
                   reject(e);
                 };
-                
+
                 sourceBuffer!.addEventListener('updateend', onUpdateEnd);
                 sourceBuffer!.addEventListener('error', onError);
               });
-
             } catch (error) {
-              console.error('❌ Failed to append chunk:', error);
+              // console.error('❌ Failed to append chunk:', error);
               break;
             }
           }
-          
+
           isAppending = false;
         };
 
@@ -491,39 +502,40 @@ export default function MessageActions({
             const { done, value } = await reader.read();
 
             if (done) {
-              console.log(`✅ Stream complete, finalizing MediaSource`);
-              
+              // console.log(`✅ Stream complete, finalizing MediaSource`);
+
               // Append any remaining chunks
               await appendToBuffer();
-              
+
               // End the stream
               if (mediaSource.readyState === 'open') {
                 mediaSource.endOfStream();
               }
-              
+
               break;
             }
 
             if (value && sourceBuffer) {
               chunks.push(value);
               appendQueue.push(value);
-              
+
               // Start appending chunks immediately
               appendToBuffer();
             }
           }
         } catch (streamError) {
-          console.error('❌ Stream reading error:', streamError);
+          // console.error('❌ Stream reading error:', streamError);
           throw streamError;
         }
       };
-
     } catch (error) {
-      console.error('Failed to play speech:', error);
+      // console.error('Failed to play speech:', error);
       setIsLoadingTTS(false);
       setIsPlaying(false);
-      
-      setToastMessage(`TTS Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      setToastMessage(
+        `TTS Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setShowToast(true);
     }
   };
@@ -638,13 +650,7 @@ export default function MessageActions({
           )}
         </button>
         <CustomTooltip
-          text={
-            isLoadingTTS
-              ? 'Loading...'
-              : isPlaying
-              ? 'Stop'
-              : 'Read aloud'
-          }
+          text={isLoadingTTS ? 'Loading...' : isPlaying ? 'Stop' : 'Read aloud'}
           isVisible={speakTooltip}
           position='top'
           alignment='center'
@@ -658,13 +664,13 @@ export default function MessageActions({
         onSubmit={handleDislikeFeedback}
         position={popupPosition}
       />
-      
+
       {/* Toast */}
       <Toast
         isOpen={showToast}
         onClose={() => setShowToast(false)}
         message={toastMessage}
-        type="error"
+        type='error'
       />
     </div>
   );

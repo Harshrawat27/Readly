@@ -203,7 +203,7 @@ export default function MessageActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy text:', error);
+      // console.error('Failed to copy text:', error);
     }
   };
 
@@ -236,7 +236,7 @@ export default function MessageActions({
         });
       }
     } catch (error) {
-      console.error('Failed to save like feedback:', error);
+      // console.error('Failed to save like feedback:', error);
       // Revert the state if API call failed
       setLiked(!newLikedState);
       if (newLikedState && disliked) {
@@ -258,7 +258,7 @@ export default function MessageActions({
           method: 'DELETE',
         });
       } catch (error) {
-        console.error('Failed to remove dislike feedback:', error);
+        // console.error('Failed to remove dislike feedback:', error);
         // Revert the state if API call failed
         setDisliked(true);
       }
@@ -300,7 +300,7 @@ export default function MessageActions({
         }),
       });
     } catch (error) {
-      console.error('Failed to save dislike feedback:', error);
+      // console.error('Failed to save dislike feedback:', error);
       // Revert the state if API call failed
       setDisliked(false);
       if (liked) {
@@ -314,13 +314,13 @@ export default function MessageActions({
   const handleSpeak = async () => {
     // Prevent multiple clicks while loading or playing
     if (isLoadingTTS) {
-      console.log('🚫 Already loading TTS, ignoring click');
+      // console.log('🚫 Already loading TTS, ignoring click');
       return;
     }
 
     if (isPlaying && audioRef.current) {
       // Stop current playback
-      console.log('🛑 Stopping current playback');
+      // console.log('🛑 Stopping current playback');
       audioRef.current.pause();
       audioRef.current = null;
       setIsPlaying(false);
@@ -331,7 +331,7 @@ export default function MessageActions({
     setIsPlaying(false);
 
     try {
-      console.log('🎵 Starting MediaSource TTS streaming...');
+      // console.log('🎵 Starting MediaSource TTS streaming...');
 
       const response = await fetch('/api/tts', {
         method: 'POST',
@@ -345,7 +345,7 @@ export default function MessageActions({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('TTS API Error:', errorData);
+        // console.error('TTS API Error:', errorData);
         throw new Error(
           `TTS API failed: ${errorData.error || 'Unknown error'}`
         );
@@ -355,21 +355,21 @@ export default function MessageActions({
         throw new Error('No response body for streaming');
       }
 
-      console.log('TTS streaming response received, setting up audio...');
+      // console.log('TTS streaming response received, setting up audio...');
 
       // PROGRESSIVE STREAMING: Collect chunks and start playing early
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let hasStartedPlaying = false;
       
-      console.log('🎵 Starting progressive streaming...');
+      // console.log('🎵 Starting progressive streaming...');
       
       // Function to play audio with accumulated chunks
       const playAccumulatedAudio = async () => {
         try {
           if (chunks.length === 0) return;
           
-          console.log(`🎵 Playing with ${chunks.length} chunks`);
+          // console.log(`🎵 Playing with ${chunks.length} chunks`);
           
           // Combine all chunks into complete MP3
           const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -393,21 +393,21 @@ export default function MessageActions({
           audioRef.current = new Audio(audioUrl);
           
           audioRef.current.onloadedmetadata = () => {
-            console.log('📊 Audio duration:', audioRef.current?.duration);
+            // console.log('📊 Audio duration:', audioRef.current?.duration);
           };
           
           audioRef.current.oncanplay = () => {
-            console.log('✅ Audio ready to play');
+            // console.log('✅ Audio ready to play');
             setIsLoadingTTS(false);
           };
           
           audioRef.current.onplay = () => {
-            console.log('▶️ Audio started playing');
+            // console.log('▶️ Audio started playing');
             setIsPlaying(true);
           };
           
           audioRef.current.onended = () => {
-            console.log('🏁 Audio playback ended');
+            // console.log('🏁 Audio playback ended');
             setIsPlaying(false);
             if (audioRef.current) {
               URL.revokeObjectURL(audioRef.current.src);
@@ -416,7 +416,7 @@ export default function MessageActions({
           };
           
           audioRef.current.onerror = (event) => {
-            console.error('❌ Audio error:', event);
+            // console.error('❌ Audio error:', event);
             setIsPlaying(false);
             setIsLoadingTTS(false);
           };
@@ -424,7 +424,7 @@ export default function MessageActions({
           await audioRef.current.play();
           
         } catch (error) {
-          console.error('❌ Playback error:', error);
+          // console.error('❌ Playback error:', error);
           setIsPlaying(false);
           setIsLoadingTTS(false);
         }
@@ -437,7 +437,7 @@ export default function MessageActions({
           const { done, value } = await reader.read();
           
           if (done) {
-            console.log('✅ Stream complete!');
+            // console.log('✅ Stream complete!');
             // Play final audio with all chunks if not started yet
             if (!hasStartedPlaying) {
               await playAccumulatedAudio();
@@ -448,11 +448,11 @@ export default function MessageActions({
           if (value) {
             chunks.push(value);
             const totalSize = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-            console.log(`📦 Chunk ${chunks.length}: ${value.length} bytes (total: ${totalSize} bytes)`);
+            // console.log(`📦 Chunk ${chunks.length}: ${value.length} bytes (total: ${totalSize} bytes)`);
             
             // Start playing when we have enough chunks (30 chunks or 200KB)
             if (!hasStartedPlaying && (chunks.length >= 30 || totalSize >= 200000)) {
-              console.log(`🚀 Starting playback with ${chunks.length} chunks`);
+              // console.log(`🚀 Starting playback with ${chunks.length} chunks`);
               hasStartedPlaying = true;
               await playAccumulatedAudio();
             }
@@ -460,13 +460,13 @@ export default function MessageActions({
         }
         
       } catch (streamError) {
-        console.error('❌ Streaming error:', streamError);
+        // console.error('❌ Streaming error:', streamError);
         setIsLoadingTTS(false);
         setIsPlaying(false);
       }
       
     } catch (error) {
-      console.error('Failed to play speech:', error);
+      // console.error('Failed to play speech:', error);
       setIsLoadingTTS(false);
       setIsPlaying(false);
       
@@ -488,7 +488,7 @@ export default function MessageActions({
           }
         }
       } catch (error) {
-        console.error('Failed to load feedback state:', error);
+        // console.error('Failed to load feedback state:', error);
       }
     };
 

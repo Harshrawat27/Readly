@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     for (const plan of SUBSCRIPTION_PRODUCTS) {
       try {
-        console.log(`Creating product: ${plan.name}`);
+        // console.log(`Creating product: ${plan.name}`);
 
         const product = await dodopayments.products.create({
           price: {
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           },
         });
       } catch (error) {
-        console.error(`Failed to create ${plan.name}:`, error);
+        // console.error(`Failed to create ${plan.name}:`, error);
         results.push({
           success: false,
           plan: plan.name,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Product creation error:', error);
+    // console.error('Product creation error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to create products', 

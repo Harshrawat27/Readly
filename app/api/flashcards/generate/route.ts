@@ -103,7 +103,7 @@ Generate ${quantity} flashcards now:`;
       const jsonString = jsonMatch ? jsonMatch[0] : responseText;
       flashcards = JSON.parse(jsonString);
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', responseText);
+      // console.error('Failed to parse OpenAI response:', responseText);
       throw new Error(`Invalid response format from AI ${parseError}`);
     }
 
@@ -134,14 +134,14 @@ Generate ${quantity} flashcards now:`;
       );
     }
 
-    console.log(`Generated ${formattedFlashcards.length} AI flashcards`);
+    // console.log(`Generated ${formattedFlashcards.length} AI flashcards`);
 
     return NextResponse.json({
       flashcards: formattedFlashcards,
       count: formattedFlashcards.length,
     });
   } catch (error) {
-    console.error('Error generating AI flashcards:', error);
+    // console.error('Error generating AI flashcards:', error);
 
     if (error instanceof Error) {
       if (error.message.includes('API key')) {

@@ -116,17 +116,17 @@ export default function CommentSystem({
   const handlePageClick = useCallback(
     (event: React.MouseEvent) => {
       if (!isCommentMode) {
-        console.log('Not in comment mode');
+        // console.log('Not in comment mode');
         return;
       }
 
-      console.log('Click detected in comment mode');
+      // console.log('Click detected in comment mode');
       const target = event.target as HTMLElement;
       const pdfPage =
         target.closest('.pdf-page') || containerRef.current?.closest('.mb-4');
 
       if (!pdfPage) {
-        console.log('No PDF page found');
+        // console.log('No PDF page found');
         return;
       }
 
@@ -135,7 +135,7 @@ export default function CommentSystem({
         target.closest('[data-comment-pin]') ||
         target.closest('[data-comment-dialog]')
       ) {
-        console.log('Clicked on existing comment, ignoring');
+        // console.log('Clicked on existing comment, ignoring');
         return;
       }
 
@@ -143,7 +143,7 @@ export default function CommentSystem({
       const x = ((event.clientX - rect.left) / rect.width) * 100;
       const y = ((event.clientY - rect.top) / rect.height) * 100;
 
-      console.log('Creating comment dialog at:', x, y);
+      // console.log('Creating comment dialog at:', x, y);
       setNewCommentDialog({
         x,
         y,
@@ -173,7 +173,7 @@ export default function CommentSystem({
       await onCommentCreate?.(commentData);
       addToast('Comment created successfully!', 'success');
     } catch (error) {
-      console.error('Error creating comment:', error);
+      // console.error('Error creating comment:', error);
       addToast('Failed to create comment. Please try again.');
     }
   };

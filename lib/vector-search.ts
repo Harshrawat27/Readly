@@ -21,7 +21,7 @@ export async function findRelevantChunks(
   try {
     // If no query provided, return first few chunks as fallback
     if (!query.trim()) {
-      console.log('🔍 No query provided, returning first chunks as fallback');
+      // console.log('🔍 No query provided, returning first chunks as fallback');
       const chunks = await prisma.pDFChunk.findMany({
         where: { pdfId },
         orderBy: { chunkIndex: 'asc' },
@@ -37,7 +37,7 @@ export async function findRelevantChunks(
     }
 
     // Generate embedding for the query
-    console.log(
+    // console.log(
       `🔍 Finding relevant chunks for query: "${query.substring(0, 100)}${
         query.length > 100 ? '...' : ''
       }"`
@@ -54,12 +54,12 @@ export async function findRelevantChunks(
       pdfId
     );
     const totalChunksWithEmbeddings = Number(result[0].count);
-    console.log(
+    // console.log(
       `📊 Total chunks with embeddings for PDF ${pdfId}: ${totalChunksWithEmbeddings}`
     );
 
     if (totalChunksWithEmbeddings === 0) {
-      console.log(
+      // console.log(
         '⚠️ No chunks have embeddings! Falling back to regular chunks'
       );
       const fallbackChunks = await prisma.pDFChunk.findMany({
@@ -110,13 +110,13 @@ export async function findRelevantChunks(
       limit
     );
 
-    console.log(
+    // console.log(
       `✅ Found ${chunks.length} relevant chunks with similarity >= ${similarityThreshold}`
     );
 
     // Debug: Log similarity scores for troubleshooting
     if (chunks.length > 0) {
-      console.log(
+      // console.log(
         '📊 Top similarity scores:',
         chunks
           .slice(0, 3)
@@ -125,7 +125,7 @@ export async function findRelevantChunks(
       );
     } else {
       // Try to get ANY chunks regardless of threshold to see what scores we're getting
-      console.log('🔍 Checking what similarity scores exist (no threshold)...');
+      // console.log('🔍 Checking what similarity scores exist (no threshold)...');
       try {
         const allScores = await prisma.$queryRawUnsafe<
           Array<{
@@ -148,20 +148,20 @@ export async function findRelevantChunks(
           pdfId
         );
 
-        console.log(
+        // console.log(
           '📊 All similarity scores (top 5):',
           allScores
             .map((s) => `Page ${s.pageNumber}: ${s.similarity?.toFixed(3)}`)
             .join(', ')
         );
       } catch (debugError) {
-        console.error('❌ Debug query failed:', debugError);
+        // console.error('❌ Debug query failed:', debugError);
       }
     }
 
     // If no chunks meet the similarity threshold, fall back to first chunks
     if (chunks.length === 0) {
-      console.log(
+      // console.log(
         '⚠️ No chunks met similarity threshold, falling back to first chunks'
       );
       const fallbackChunks = await prisma.pDFChunk.findMany({
@@ -186,10 +186,10 @@ export async function findRelevantChunks(
       similarity: chunk.similarity,
     }));
   } catch (error) {
-    console.error('❌ Vector search error:', error);
+    // console.error('❌ Vector search error:', error);
 
     // Fallback to simple text chunks if vector search fails
-    console.log('🔄 Falling back to non-vector chunk retrieval');
+    // console.log('🔄 Falling back to non-vector chunk retrieval');
     const fallbackChunks = await prisma.pDFChunk.findMany({
       where: { pdfId },
       orderBy: { chunkIndex: 'asc' },
@@ -220,7 +220,7 @@ export async function searchAcrossPDFs(
       return [];
     }
 
-    console.log(
+    // console.log(
       `🔍 Searching across user's PDFs for: "${query.substring(0, 100)}${
         query.length > 100 ? '...' : ''
       }"`
@@ -264,10 +264,10 @@ export async function searchAcrossPDFs(
       limit
     );
 
-    console.log(`✅ Found ${results.length} relevant chunks across all PDFs`);
+    // console.log(`✅ Found ${results.length} relevant chunks across all PDFs`);
     return results;
   } catch (error) {
-    console.error('❌ Cross-PDF search error:', error);
+    // console.error('❌ Cross-PDF search error:', error);
     return [];
   }
 }

@@ -296,7 +296,7 @@ export default function ChatPanel({
         }
       }
     } catch (error) {
-      console.error('Failed to load more messages:', error);
+      // console.error('Failed to load more messages:', error);
     } finally {
       setIsLoadingMore(false);
     }
@@ -317,7 +317,7 @@ export default function ChatPanel({
         }
       }
     } catch (error) {
-      console.error('Failed to load message feedback:', error);
+      // console.error('Failed to load message feedback:', error);
     }
     return {};
   }, []);
@@ -368,9 +368,9 @@ export default function ChatPanel({
           );
         } catch (error: unknown) {
           if (error instanceof Error && error.message?.includes('404')) {
-            console.log(
-              `💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`
-            );
+            // console.log(
+              // `💬 [ChatPanel] No existing chat found for PDF ${pdfId} (this is normal for new PDFs)`
+            // );
             setMessages([]);
             setCurrentChatId(null);
             setHasMoreMessages(false);
@@ -434,7 +434,7 @@ export default function ChatPanel({
           setMessageFeedback({});
         }
       } catch (error) {
-        console.error('Failed to load chat history:', error);
+        // console.error('Failed to load chat history:', error);
         setMessages([]);
         setCurrentChatId(null);
         setIsInitialLoad(false);
@@ -513,11 +513,11 @@ export default function ChatPanel({
     const monthlyQuestionsUsed =
       subscriptionData?.usage?.monthlyQuestionsUsed || 0;
     const canSendQuestion = handleQuestion(monthlyQuestionsUsed, () => {
-      console.log('✅ [ChatPanel] Question limit OK, proceeding with message');
+      // console.log('✅ [ChatPanel] Question limit OK, proceeding with message');
     });
 
     if (!canSendQuestion) {
-      console.log('❌ [ChatPanel] Question blocked by subscription limits');
+      // console.log('❌ [ChatPanel] Question blocked by subscription limits');
       return;
     }
 
@@ -674,7 +674,7 @@ export default function ChatPanel({
                     );
                   }
                 } catch (e) {
-                  console.error('Error parsing SSE data:', e);
+                  // console.error('Error parsing SSE data:', e);
                 }
               }
             }
@@ -684,7 +684,7 @@ export default function ChatPanel({
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      // console.error('Error sending message:', error);
       setShowThinking(false);
 
       // Check if it's a limit-related error
@@ -930,20 +930,20 @@ export default function ChatPanel({
                               alt='Selected from PDF'
                               className='max-w-full h-32 object-contain rounded border bg-white'
                               onLoad={() => {
-                                console.log(
-                                  '✅ Image loaded successfully:',
-                                  message.imageUrl || message.imageData
-                                );
+                                // console.log(
+                                  // '✅ Image loaded successfully:',
+                                  // message.imageUrl || message.imageData
+                                // );
                               }}
                               onError={(e) => {
-                                console.error('❌ Image failed to load:', {
-                                  imageUrl: message.imageUrl,
-                                  imageData: message.imageData
-                                    ? 'base64 data present'
-                                    : 'no base64',
-                                  error: e,
-                                  src: message.imageUrl || message.imageData,
-                                });
+                                // console.error('❌ Image failed to load:', {
+                                  // imageUrl: message.imageUrl,
+                                  // imageData: message.imageData
+                                    // ? 'base64 data present'
+                                    // : 'no base64',
+                                  // error: e,
+                                  // src: message.imageUrl || message.imageData,
+                                // });
                               }}
                             />
                             {/* Debug info */}
@@ -981,9 +981,9 @@ export default function ChatPanel({
                       messageContent={message.content}
                       feedbackData={messageFeedback[message.id]}
                       onLike={(id, liked) => {
-                        console.log(
-                          `Message ${id} ${liked ? 'liked' : 'unliked'}`
-                        );
+                        // console.log(
+                          // `Message ${id} ${liked ? 'liked' : 'unliked'}`
+                        // );
                         // Update local feedback state
                         setMessageFeedback((prev) => ({
                           ...prev,
@@ -994,11 +994,11 @@ export default function ChatPanel({
                         }));
                       }}
                       onDislike={(id, disliked, reason) => {
-                        console.log(
-                          `Message ${id} ${
-                            disliked ? 'disliked' : 'undisliked'
-                          }${reason ? ` - ${reason}` : ''}`
-                        );
+                        // console.log(
+                          // `Message ${id} ${
+                            // disliked ? 'disliked' : 'undisliked'
+                          // }${reason ? ` - ${reason}` : ''}`
+                        // );
                         // Update local feedback state
                         setMessageFeedback((prev) => ({
                           ...prev,

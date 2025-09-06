@@ -40,7 +40,7 @@ export async function uploadPdfToS3(
     await s3Client.send(command);
     return key;
   } catch (error) {
-    console.error('Error uploading PDF to S3:', error);
+    // console.error('Error uploading PDF to S3:', error);
     throw new Error('Failed to upload PDF to S3');
   }
 }
@@ -57,7 +57,7 @@ export async function getPdfFromS3(key: string): Promise<string> {
     });
     return signedUrl;
   } catch (error) {
-    console.error('Error getting PDF from S3:', error);
+    // console.error('Error getting PDF from S3:', error);
     throw new Error('Failed to get PDF from S3');
   }
 }
@@ -71,7 +71,7 @@ export async function deletePdfFromS3(key: string): Promise<void> {
   try {
     await s3Client.send(command);
   } catch (error) {
-    console.error('Error deleting PDF from S3:', error);
+    // console.error('Error deleting PDF from S3:', error);
     throw new Error('Failed to delete PDF from S3');
   }
 }
@@ -110,7 +110,7 @@ export async function uploadImageToS3(
   });
 
   try {
-    console.log('📤 Uploading image to S3:', {
+    // console.log('📤 Uploading image to S3:', {
       bucket: BUCKET_NAME,
       key: key,
       size: imageBuffer.length,
@@ -120,13 +120,13 @@ export async function uploadImageToS3(
 
     await s3Client.send(command);
     
-    console.log('✅ Image uploaded successfully to S3');
+    // console.log('✅ Image uploaded successfully to S3');
     
     // Instead of returning the S3 key, return the key so we can generate fresh signed URLs when needed
     // This way we don't have expiring URLs stored in the database
     return key;
   } catch (error) {
-    console.error('❌ Error uploading image to S3:', error);
+    // console.error('❌ Error uploading image to S3:', error);
     throw new Error('Failed to upload image to S3');
   }
 }
@@ -144,7 +144,7 @@ export async function getImageFromS3(key: string): Promise<string> {
     });
     return signedUrl;
   } catch (error) {
-    console.error('Error getting image from S3:', error);
+    // console.error('Error getting image from S3:', error);
     throw new Error('Failed to get image from S3');
   }
 }

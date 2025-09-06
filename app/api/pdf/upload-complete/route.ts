@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
 
-    console.log(`💾 Completing upload for user: ${userId}`);
-    console.log(`🔑 S3 Key: ${s3Key}`);
-    console.log(`📁 File: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+    // console.log(`💾 Completing upload for user: ${userId}`);
+    // console.log(`🔑 S3 Key: ${s3Key}`);
+    // console.log(`📁 File: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
     // Download PDF from S3 to detect page count
-    console.log(`📄 [Upload-Complete] Downloading PDF from S3 to detect page count...`);
+    // console.log(`📄 [Upload-Complete] Downloading PDF from S3 to detect page count...`);
     const s3Client = new S3Client({
       region: process.env.AWS_REGION!,
       credentials: {
@@ -55,13 +55,13 @@ export async function POST(request: NextRequest) {
       const { PDFDocument } = await import('pdf-lib');
       const doc = await PDFDocument.load(pdfBuffer);
       actualPageCount = doc.getPageCount();
-      console.log(`✅ [Upload-Complete] Detected ${actualPageCount} pages`);
+      // console.log(`✅ [Upload-Complete] Detected ${actualPageCount} pages`);
     } catch (error) {
-      console.warn('Failed to detect page count, defaulting to 1:', error);
+      // console.warn('Failed to detect page count, defaulting to 1:', error);
     }
 
     // Check subscription limits with actual page count and file size
-    console.log(`🔍 [Upload-Complete] Checking subscription limits...`);
+    // console.log(`🔍 [Upload-Complete] Checking subscription limits...`);
     
     // Get user's current subscription and PDF count
     const user = await prisma.user.findUnique({
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     );
     
     if (!limitCheck.allowed) {
-      console.log(`❌ [Upload-Complete] Upload blocked: ${limitCheck.reason}`);
+      // console.log(`❌ [Upload-Complete] Upload blocked: ${limitCheck.reason}`);
       
       // Delete the uploaded file from S3 since we're rejecting it
       try {
@@ -95,9 +95,9 @@ export async function POST(request: NextRequest) {
           Key: s3Key,
         });
         await s3Client.send(deleteCommand);
-        console.log(`🗑️ [Upload-Complete] Deleted rejected file from S3`);
+        // console.log(`🗑️ [Upload-Complete] Deleted rejected file from S3`);
       } catch (deleteError) {
-        console.error('Failed to delete rejected file from S3:', deleteError);
+        // console.error('Failed to delete rejected file from S3:', deleteError);
       }
 
       return NextResponse.json(
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ [Upload-Complete] Subscription limits OK for ${currentPlan} plan`);
+    // console.log(`✅ [Upload-Complete] Subscription limits OK for ${currentPlan} plan`);
 
     // Save PDF info to database
     const pdf = await prisma.pDF.create({
@@ -120,12 +120,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`✅ PDF saved to database with ID: ${pdf.id}`);
+    // console.log(`✅ PDF saved to database with ID: ${pdf.id}`);
 
     // Increment user's monthly and total PDF upload counts
     await incrementPdfUpload(userId, limitCheck.shouldReset);
 
-    console.log(`🎉 Upload completed successfully`);
+    // console.log(`🎉 Upload completed successfully`);
 
     return NextResponse.json({
       id: pdf.id,
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error completing upload:', error);
+    // console.error('❌ Error completing upload:', error);
     return NextResponse.json(
       { error: 'Failed to complete upload' },
       { status: 500 }

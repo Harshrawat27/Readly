@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
     
-    console.log(`📝 Generating upload URL for user: ${userId}`);
-    console.log(`📁 File: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+    // console.log(`📝 Generating upload URL for user: ${userId}`);
+    // console.log(`📁 File: ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
 
     // Check subscription limits
     const canUpload = await canUserPerformAction(userId, 'upload_pdf', {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       expiresIn: 900, // 15 minutes
     });
 
-    console.log(`✅ Generated presigned URL for: ${s3Key}`);
+    // console.log(`✅ Generated presigned URL for: ${s3Key}`);
 
     return NextResponse.json({
       uploadUrl: presignedUrl,
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error generating upload URL:', error);
+    // console.error('❌ Error generating upload URL:', error);
     return NextResponse.json(
       { error: 'Failed to generate upload URL' },
       { status: 500 }

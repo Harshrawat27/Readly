@@ -34,7 +34,7 @@ const NavigationContext = createContext<
 function TextWithCitations({ children }: { children?: React.ReactNode }) {
   const onNavigateToPage = useContext(NavigationContext);
 
-  console.log('TextWithCitations called with:', typeof children, children);
+  // console.log('TextWithCitations called with:', typeof children, children);
 
   // Handle different children types
   if (React.isValidElement(children)) {
@@ -67,7 +67,7 @@ function TextWithCitations({ children }: { children?: React.ReactNode }) {
     return <>{text}</>;
   }
 
-  console.log('Found citations in text:', text);
+  // console.log('Found citations in text:', text);
 
   // Reset the regex
   citationPattern.lastIndex = 0;
@@ -76,7 +76,7 @@ function TextWithCitations({ children }: { children?: React.ReactNode }) {
   let match;
 
   while ((match = citationPattern.exec(text)) !== null) {
-    console.log('Processing citation match:', match);
+    // console.log('Processing citation match:', match);
 
     // Add text before citation
     if (match.index > lastIndex) {
@@ -90,9 +90,9 @@ function TextWithCitations({ children }: { children?: React.ReactNode }) {
     const navigationHandler =
       onNavigateToPage ||
       ((page: number) => {
-        console.log('Citation clicked - navigate to page:', page);
+        // console.log('Citation clicked - navigate to page:', page);
         // Fallback behavior - in production this should be handled properly
-        console.info(`Navigate to page ${page} - ${previewText}`);
+        // console.info(`Navigate to page ${page} - ${previewText}`);
       });
 
     parts.push(
@@ -252,7 +252,7 @@ function Codebar({ lang, codeString }: { lang: string; codeString: string }) {
         setCopied(false);
       }, 2000);
     } catch (error) {
-      console.error('Failed to copy code to clipboard:', error);
+      // console.error('Failed to copy code to clipboard:', error);
     }
   };
 

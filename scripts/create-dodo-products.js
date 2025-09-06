@@ -26,7 +26,7 @@ function loadEnvFile(filename) {
       }
     }
   } catch (error) {
-    console.log(`Could not load ${filename}: ${error.message}`);
+    // console.log(`Could not load ${filename}: ${error.message}`);
   }
 }
 
@@ -76,11 +76,11 @@ const PLANS = [
 ];
 
 async function createProducts() {
-  console.log('Creating Dodo Payment products...\n');
+  // console.log('Creating Dodo Payment products...\n');
 
   for (const plan of PLANS) {
     try {
-      console.log(`Creating: ${plan.name} ($${plan.price}/${plan.interval})`);
+      // console.log(`Creating: ${plan.name} ($${plan.price}/${plan.interval})`);
 
       const product = await dodopayments.products.create({
         name: plan.name,
@@ -95,52 +95,52 @@ async function createProducts() {
         },
       });
 
-      console.log(`✅ Created product: ${product.id} - ${product.name}`);
-      console.log(
+      // console.log(`✅ Created product: ${product.id} - ${product.name}`);
+      // console.log(
         `   Price: $${product.price_amount / 100} ${product.price_currency}`
       );
-      console.log('');
+      // console.log('');
     } catch (error) {
-      console.error(`❌ Failed to create ${plan.name}:`, error.message);
-      console.log('');
+      // console.error(`❌ Failed to create ${plan.name}:`, error.message);
+      // console.log('');
     }
   }
 }
 
 async function listExistingProducts() {
-  console.log('Existing products in your Dodo Payments account:\n');
+  // console.log('Existing products in your Dodo Payments account:\n');
 
   try {
     const products = await dodopayments.products.list();
 
     if (products.items && products.items.length > 0) {
       products.items.forEach((product) => {
-        console.log(
+        // console.log(
           `📦 ${product.name} - $${product.price_amount / 100} (${product.id})`
         );
       });
     } else {
-      console.log('No products found.');
+      // console.log('No products found.');
     }
-    console.log('');
+    // console.log('');
   } catch (error) {
-    console.error('Error listing products:', error.message);
+    // console.error('Error listing products:', error.message);
   }
 }
 
 async function main() {
   if (!process.env.DODO_API_KEY_TEST && !process.env.DODO_API_KEY_LIVE) {
-    console.error(
+    // console.error(
       '❌ Missing Dodo Payments API key. Set DODO_API_KEY_TEST or DODO_API_KEY_LIVE in your .env file'
     );
     process.exit(1);
   }
 
-  console.log(
+  // console.log(
     '🔑 Using Dodo Payments in:',
     process.env.NODE_ENV === 'production' ? 'LIVE mode' : 'TEST mode'
   );
-  console.log('');
+  // console.log('');
 
   await listExistingProducts();
 
@@ -155,9 +155,9 @@ async function main() {
     async (answer) => {
       if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
         await createProducts();
-        console.log('✨ Done! You can now use the subscription system.');
+        // console.log('✨ Done! You can now use the subscription system.');
       } else {
-        console.log('Skipped product creation.');
+        // console.log('Skipped product creation.');
       }
       rl.close();
     }

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     const { text } = await request.json();
 
-    console.log('TTS Request received for text length:', text?.length);
+    // console.log('TTS Request received for text length:', text?.length);
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Calling OpenAI TTS API with streaming...');
+    // console.log('Calling OpenAI TTS API with streaming...');
 
     // Use MP3 format for MediaSource streaming compatibility
     const response = await openai.audio.speech.create({
@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
       speed: 1.0,
     });
 
-    console.log('OpenAI TTS streaming response received, forwarding stream...');
+    // console.log('OpenAI TTS streaming response received, forwarding stream...');
 
     // PROPER streaming - forward the OpenAI stream correctly
-    console.log('OpenAI response ready, streaming to frontend...');
+    // console.log('OpenAI response ready, streaming to frontend...');
 
     // Return the OpenAI stream directly - no manipulation
     return new NextResponse(response.body, {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error('Text-to-speech error:', error);
+    // console.error('Text-to-speech error:', error);
 
     // Handle OpenAI API errors
     if (

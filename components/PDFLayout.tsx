@@ -79,15 +79,15 @@ const PDFLayout = memo(function PDFLayout({
 
   // Handle citation navigation
   const handleNavigateToPage = useCallback((pageNumber: number) => {
-    console.log('PDFLayout: Navigating to page', pageNumber);
+    // console.log('PDFLayout: Navigating to page', pageNumber);
     if (pdfNavigationRef.current) {
       pdfNavigationRef.current(pageNumber);
     } else {
-      console.warn('PDF navigation function not available yet');
+      // console.warn('PDF navigation function not available yet');
     }
   }, []);
 
-  console.log('here is the email of person ' + session.user.email);
+  // console.log('here is the email of person ' + session.user.email);
 
   return (
     <div className='h-screen overflow-hidden bg-[var(--background)] text-[var(--text-primary)]'>

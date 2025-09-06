@@ -35,8 +35,8 @@ export default function UploadPage() {
     const fileSizeKB = (file.size / 1024).toFixed(2);
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     
-    console.log(`📁 Attempting to upload file: ${file.name}`);
-    console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+    // console.log(`📁 Attempting to upload file: ${file.name}`);
+    // console.log(`📊 File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
 
     if (file.size > 100 * 1024 * 1024) { // 100MB limit (reasonable for PDFs)
       setToastMessage('File size must be less than 100MB.');
@@ -50,13 +50,13 @@ export default function UploadPage() {
 
     try {
       // Step 1: Check page count locally before doing anything
-      console.log(`📄 Checking PDF page count...`);
+      // console.log(`📄 Checking PDF page count...`);
       let pageCount;
       try {
         pageCount = await getPdfPageCount(file);
-        console.log(`✅ PDF has ${pageCount} pages`);
+        // console.log(`✅ PDF has ${pageCount} pages`);
       } catch (pageCountError) {
-        console.error('❌ Error checking PDF page count:', pageCountError);
+        // console.error('❌ Error checking PDF page count:', pageCountError);
         setIsUploading(false);
         setUploadProgress('');
         setToastMessage('Failed to read PDF file. Please make sure it\'s a valid PDF.');
@@ -67,12 +67,12 @@ export default function UploadPage() {
       
       // For this simple upload page, we could add basic limits here
       // For now, we'll let the server handle the subscription limits
-      console.log(`🔗 Using direct S3 upload with ${pageCount} pages`);
+      // console.log(`🔗 Using direct S3 upload with ${pageCount} pages`);
 
       setUploadProgress('Preparing upload...');
 
       // Step 2: Get presigned upload URL
-      console.log(`🔑 Requesting presigned upload URL...`);
+      // console.log(`🔑 Requesting presigned upload URL...`);
       const urlResponse = await fetch('/api/pdf/upload-url', {
         method: 'POST',
         headers: {
@@ -91,11 +91,11 @@ export default function UploadPage() {
       }
 
       const { uploadUrl, s3Key } = await urlResponse.json();
-      console.log(`✅ Got presigned URL for S3 key: ${s3Key}`);
+      // console.log(`✅ Got presigned URL for S3 key: ${s3Key}`);
 
       // Step 2: Upload directly to S3
       setUploadProgress('Uploading to S3...');
-      console.log(`☁️ Uploading directly to S3...`);
+      // console.log(`☁️ Uploading directly to S3...`);
 
       const s3Response = await fetch(uploadUrl, {
         method: 'PUT',
@@ -109,11 +109,11 @@ export default function UploadPage() {
         throw new Error(`S3 upload failed: ${s3Response.status} ${s3Response.statusText}`);
       }
 
-      console.log(`✅ S3 upload successful!`);
+      // console.log(`✅ S3 upload successful!`);
 
       // Step 3: Complete upload (save metadata to database)
       setUploadProgress('Finalizing upload...');
-      console.log(`💾 Saving metadata to database...`);
+      // console.log(`💾 Saving metadata to database...`);
 
       const completeResponse = await fetch('/api/pdf/upload-complete', {
         method: 'POST',
@@ -134,7 +134,7 @@ export default function UploadPage() {
 
       const result = await completeResponse.json();
       setUploadProgress('Upload successful!');
-      console.log(`🎉 Upload completed! PDF ID: ${result.id}`);
+      // console.log(`🎉 Upload completed! PDF ID: ${result.id}`);
       
       // Redirect to the PDF view page after a short delay
       setTimeout(() => {
@@ -143,7 +143,7 @@ export default function UploadPage() {
 
       return true;
     } catch (error) {
-      console.error('❌ Error uploading PDF:', error);
+      // console.error('❌ Error uploading PDF:', error);
       setToastMessage(error instanceof Error ? error.message : 'Error uploading PDF file. Please try again.');
       setToastType('error');
       setShowToast(true);
@@ -206,7 +206,7 @@ export default function UploadPage() {
         },
       });
     } catch (error) {
-      console.error('Sign out error:', error);
+      // console.error('Sign out error:', error);
       router.push('/signin');
     }
   };
