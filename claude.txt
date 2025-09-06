@@ -189,6 +189,8 @@ solution
   DONE -- hide modeing swithching
   -- make navbar responsive, add content
   -- almost donE!
+  -- async function handleSubscriptionFailed >>> here we should downgrade to old plan if suscription get failed not to free? 
+  -- async function handleSubscriptionOnHold >>> same for this
 
 
   -- when someone change pdf we'll reset search functionality. 
