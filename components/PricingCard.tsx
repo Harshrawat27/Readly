@@ -116,7 +116,7 @@ export default function PricingCard({
               <div className='text-3xl font-bold text-white'>
                 USD {monthlyPrice}
                 <span className='text-base font-normal text-gray-400'>
-                  {isYearlyPlan ? ' / month billed annually' : ' / month'}
+                  {isYearlyPlan ? ' / month, billed annually' : ' / month'}
                 </span>
               </div>
             ) : (
@@ -125,9 +125,7 @@ export default function PricingCard({
                 <div className='text-3xl font-bold text-white'>
                   USD {monthlyPrice}
                   <span className='text-base font-normal text-gray-400'>
-                    {isYearlyPlan
-                      ? ' / month billed annually'
-                      : ' / month billed monthly'}
+                    {isYearlyPlan ? ' / month, billed annually' : ' / month'}
                   </span>
                 </div>
               </div>

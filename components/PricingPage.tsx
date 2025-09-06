@@ -354,7 +354,7 @@ export default function PricingPage() {
               onSelectPlan={handlePlanSelection}
               isLoading={loadingPlanId === plan.id}
               currentPlan={subscriptionData?.user.subscriptionPlan}
-              isPopular={plan.name === 'ultimate'}
+              isPopular={plan.name === 'pro'}
               isYearly={isYearly}
             />
           ))}

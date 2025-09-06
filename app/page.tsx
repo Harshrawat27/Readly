@@ -146,7 +146,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              MAKE YOUR LIFE EASILY
+              MAKE YOUR LIFE EASY
             </motion.p>
             <motion.h1
               className='text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white leading-[0.9] tracking-tight mb-4'
