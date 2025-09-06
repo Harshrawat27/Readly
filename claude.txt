@@ -192,6 +192,7 @@ solution
   -- async function handleSubscriptionFailed >>> here we should downgrade to old plan if suscription get failed not to free? 
   -- async function handleSubscriptionOnHold >>> same for this
   -- on change plan upgrade based on webhook, don't update immediately, sometimes on hold
+  -- side bar closed version showing different logo, and some extra icons
 
 
   -- when someone change pdf we'll reset search functionality. 
