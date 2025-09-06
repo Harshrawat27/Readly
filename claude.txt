@@ -170,7 +170,7 @@ solution
   sometimes "PageX" format. The regex only handles the pure number format.
 
 
-  -- home page design 
+  DONE -- home page design 
   -- model swithching
   DONE -- subscription should working
   DONE -- search bar for pdf 
