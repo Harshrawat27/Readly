@@ -72,6 +72,14 @@ export const metadata: Metadata = {
   },
 };
 
+if (process.env.NODE_ENV !== 'development') {
+  console.log = function () {};
+  console.debug = function () {};
+  console.info = function () {};
+  console.warn = function () {};
+  console.error = function () {};
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
