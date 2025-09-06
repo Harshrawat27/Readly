@@ -652,10 +652,10 @@ export default function ChatPanel({
                     setMessages((prev) =>
                       prev.map((msg) =>
                         msg.id === assistantMessageId
-                          ? { 
-                              ...msg, 
+                          ? {
+                              ...msg,
                               id: data.messageId || msg.id, // Use real DB ID if available
-                              isStreaming: false 
+                              isStreaming: false,
                             }
                           : msg
                       )
@@ -1114,10 +1114,8 @@ export default function ChatPanel({
                   </svg>
                 </button>
               </div> */}
-
               {/* <div className='flex items-center gap-2'> */}
-
-              <div className='relative'>
+              {/* <div className='relative'>
                 <button
                   onClick={() => setShowModelDropdown(!showModelDropdown)}
                   className='flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] rounded-lg hover:bg-[var(--faded-white)] transition-colors'
@@ -1197,8 +1195,9 @@ export default function ChatPanel({
                     </div>
                   </div>
                 )}
-              </div>
-
+              </div> */}
+              {/* just to fill the area */}
+              <div className='relative'></div>
               <button
                 onClick={sendMessage}
                 disabled={!inputValue.trim() || !pdfId || isLoading}
