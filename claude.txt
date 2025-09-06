@@ -185,8 +185,8 @@ solution
   -- dropdown of side bar profile make it work. 
   -- not showing correct plan fix that.
   DONE -- update subscription/success page
-  -- month billed monthly, fix typo on pricing page
-  -- hide modeing swithching
+  DONE -- month billed monthly, fix typo on pricing page
+  DONE -- hide modeing swithching
   -- make navbar responsive, add content
 
 

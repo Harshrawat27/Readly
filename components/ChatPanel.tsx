@@ -79,7 +79,7 @@ export default function ChatPanel({
   const [showThinking, setShowThinking] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
+  // const [selectedModel, setSelectedModel] = useState('Claude Sonnet 4');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showChatContent, setShowChatContent] = useState(false);
 

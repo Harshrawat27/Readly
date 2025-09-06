@@ -64,7 +64,7 @@ export default function Home() {
             {/* Logo */}
             <div className='flex items-center space-x-3'>
               <Image
-                src='/logo.svg'
+                src='/logo-white.svg'
                 alt='ReaditEasy Logo'
                 width={32}
                 height={32}
@@ -132,7 +132,7 @@ export default function Home() {
             'linear-gradient(180deg, #1a1a1a 0%, #1a1a1a 50%, #1a1a1a 100%)',
         }}
       >
-        <div className='max-w-4xl mx-auto'>
+        <div className='max-w-4xl mx-auto relative z-10'>
           {/* Top Text */}
           <motion.div
             className='mb-4'
@@ -175,7 +175,20 @@ export default function Home() {
               href='/signup'
               className='inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#c96342] to-[#e07c54] text-white font-semibold text-lg rounded-2xl hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-[#c96342]/25'
             >
-              Start now
+              Upload{' '}
+              <svg
+                width='24'
+                height='24'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+                className='ml-2'
+              >
+                <path
+                  d='M11.025 21.9498C9.75833 21.8165 8.57917 21.4706 7.4875 20.9123C6.39583 20.354 5.44167 19.629 4.625 18.7373C3.80833 17.8456 3.16667 16.8248 2.7 15.6748C2.23333 14.5248 2 13.2998 2 11.9998C2 9.38314 2.87083 7.13314 4.6125 5.2498C6.35417 3.36647 8.49167 2.2998 11.025 2.0498V4.0748C9.04167 4.3248 7.375 5.19564 6.025 6.6873C4.675 8.17897 4 9.9498 4 11.9998C4 14.0498 4.675 15.8206 6.025 17.3123C7.375 18.804 9.04167 19.6748 11.025 19.9248V21.9498ZM11.025 16.9998V10.8248L8.425 13.4248L7.025 11.9998L12.025 6.9998L17.025 11.9998L15.6 13.3998L13.025 10.8248V16.9998H11.025ZM13.025 21.9498V19.9248C13.7583 19.8415 14.4542 19.6581 15.1125 19.3748C15.7708 19.0915 16.375 18.7331 16.925 18.2998L18.35 19.7498C17.6 20.3498 16.775 20.8415 15.875 21.2248C14.975 21.6081 14.025 21.8498 13.025 21.9498ZM16.9 5.6998C16.35 5.26647 15.75 4.90814 15.1 4.6248C14.45 4.34147 13.7583 4.15814 13.025 4.0748V2.0498C14.025 2.1498 14.975 2.39147 15.875 2.7748C16.775 3.15814 17.6 3.6498 18.35 4.2498L16.9 5.6998ZM19.75 18.3248L18.325 16.8998C18.7583 16.3498 19.1167 15.7456 19.4 15.0873C19.6833 14.429 19.8667 13.7331 19.95 12.9998H21.975C21.875 13.9998 21.6292 14.9498 21.2375 15.8498C20.8458 16.7498 20.35 17.5748 19.75 18.3248ZM19.95 10.9998C19.8667 10.2665 19.6833 9.57064 19.4 8.9123C19.1167 8.25397 18.7583 7.6498 18.325 7.0998L19.75 5.6748C20.35 6.4248 20.8458 7.2498 21.2375 8.1498C21.6292 9.0498 21.875 9.9998 21.975 10.9998H19.95Z'
+                  fill='#E3E3E3'
+                />
+              </svg>
             </Link>
           </motion.div>
 
@@ -570,7 +583,7 @@ export default function Home() {
           </div>
           <div className='text-center pt-8 border-t border-white/10'>
             <p className='text-white/40 text-sm'>
-              © 2024 ReaditEasy. All rights reserved.
+              © 2025 ReaditEasy. All rights reserved.
             </p>
           </div>
         </div>
