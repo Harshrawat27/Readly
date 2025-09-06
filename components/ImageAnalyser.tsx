@@ -356,7 +356,7 @@ export default function ImageAnalyser({
               ))}
             </div>
 
-            {/* Ask Readly button */}
+            {/* Ask ReaditEasy button */}
             <button
               onClick={handleAskReadily}
               className='w-full flex items-center justify-center gap-2 px-3 py-2 bg-[var(--accent)] text-white rounded-md hover:opacity-90 transition-opacity text-sm'

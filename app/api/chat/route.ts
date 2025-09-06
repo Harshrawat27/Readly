@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         : '';
 
     // System prompt for PDF chat assistant
-    const systemPrompt = `You are Readly, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation. it's very important to use LaTeX markdown notation for math formulas (wrap in $ for inline or $$ for display)
+    const systemPrompt = `You are ReaditEasy, an intelligent PDF reading assistant. You help users understand and analyze PDF documents through conversation. it's very important to use LaTeX markdown notation for math formulas (wrap in $ for inline or $$ for display)
 
     Key capabilities:
     - Answer questions about PDF content with precision and clarity
