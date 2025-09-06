@@ -111,12 +111,12 @@ export async function uploadImageToS3(
 
   try {
     // console.log('📤 Uploading image to S3:', {
-      bucket: BUCKET_NAME,
-      key: key,
-      size: imageBuffer.length,
-      contentType: `image/${imageType}`,
-      region: process.env.AWS_REGION
-    });
+    //   bucket: BUCKET_NAME,
+    //   key: key,
+    //   size: imageBuffer.length,
+    //   contentType: `image/${imageType}`,
+    //   region: process.env.AWS_REGION
+    // });
 
     await s3Client.send(command);
     

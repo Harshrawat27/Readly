@@ -221,10 +221,10 @@ export async function POST(request: NextRequest) {
 
       const isProduction = process.env.NODE_ENV === 'production';
       // console.log(
-        `🔧 [URL-to-PDF] Environment: ${
-          isProduction ? 'production (serverless)' : 'development (local)'
-        }`
-      );
+      //   `🔧 [URL-to-PDF] Environment: ${
+      //     isProduction ? 'production (serverless)' : 'development (local)'
+      //   }`
+      // );
 
       const browser = await createBrowser();
 
@@ -274,8 +274,8 @@ export async function POST(request: NextRequest) {
         const pdfSizeMB = (pdfBuffer.byteLength / (1024 * 1024)).toFixed(2);
         // console.log(`✅ [URL-to-PDF] PDF generated successfully!`);
         // console.log(
-          `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
-        );
+        //   `📊 [URL-to-PDF] PDF size: ${pdfSizeKB} KB (${pdfSizeMB} MB)`
+        // );
 
         // Get EXACT page count using pdf-lib on the generated PDF buffer
         // console.log(`📄 [URL-to-PDF] Detecting exact page count from generated PDF...`);
@@ -353,8 +353,8 @@ export async function POST(request: NextRequest) {
     await incrementPdfUpload(session.user.id, limitCheck.shouldReset);
 
     // console.log(
-      `🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`
-    );
+    //   `🎉 [URL-to-PDF] URL-to-PDF conversion completed successfully!`
+    // );
 
     return NextResponse.json({
       id: pdf.id,

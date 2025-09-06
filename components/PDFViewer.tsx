@@ -179,7 +179,7 @@ export default function PDFViewer({
           setHighlights(data);
         }
       } catch (error) {
-        // console.error('Failed to load highlights:', error);
+        console.error('Failed to load highlights:', error);
       }
     };
 
@@ -238,8 +238,8 @@ export default function PDFViewer({
     });
 
     // console.log(
-      `  Pre-filtered ${rects.length} rects down to ${filteredRects.length} potentially valid rects`
-    );
+    //   `  Pre-filtered ${rects.length} rects down to ${filteredRects.length} potentially valid rects`
+    // );
 
     // Sort rects by position (top-left to bottom-right)
     const sortedRects = [...filteredRects].sort((a, b) => {
@@ -323,7 +323,7 @@ export default function PDFViewer({
           body: JSON.stringify(highlight),
         });
       } catch (error) {
-        // console.error('Failed to save image highlight:', error);
+        console.error('Failed to save image highlight:', error);
         setHighlights((prev) => prev.filter((h) => h.id !== highlight.id));
       }
     },
@@ -333,14 +333,14 @@ export default function PDFViewer({
   const handleHighlight = useCallback(
     async (color: string, text: string) => {
       // console.log('handleHighlight called with:', {
-        color,
-        text,
-        pdfId,
-        hasSelectionData: !!currentSelectionData,
-      });
+      //   color,
+      //   text,
+      //   pdfId,
+      //   hasSelectionData: !!currentSelectionData,
+      // });
 
       if (!pdfId || !currentSelectionData) {
-        // console.log('Early return: missing pdfId or currentSelectionData', {
+        console.log('Early return: missing pdfId or currentSelectionData', {
           pdfId,
           currentSelectionData,
         });
@@ -349,7 +349,7 @@ export default function PDFViewer({
 
       const selectionData = currentSelectionData;
 
-      // console.log('Selection data:', {
+      console.log('Selection data:', {
         text: selectionData.text,
         rectsLength: selectionData.rects.length,
         hasRange: !!selectionData.range,
@@ -366,7 +366,7 @@ export default function PDFViewer({
       const allPageElements = Array.from(
         document.querySelectorAll('[data-page-number]')
       );
-      // console.log('Found page elements:', allPageElements.length);
+      console.log('Found page elements:', allPageElements.length);
 
       for (let i = 0; i < selectionData.rects.length; i++) {
         const rect = selectionData.rects[i];
@@ -402,7 +402,7 @@ export default function PDFViewer({
             const pageNumber = parseInt(
               bestMatch.getAttribute('data-page-number') || '1'
             );
-            // console.log(
+            console.log(
               `Rect ${i} assigned to page ${pageNumber} (overlap: ${(
                 bestOverlap * 100
               ).toFixed(1)}%)`
@@ -416,12 +416,12 @@ export default function PDFViewer({
             }
             rectsByPage.get(pageNumber)!.rects.push(rect);
           } else {
-            // console.log(`Rect ${i} could not be assigned to any page`);
+            console.log(`Rect ${i} could not be assigned to any page`);
           }
         }
       }
 
-      // console.log(
+      console.log(
         'Rects by page:',
         Array.from(rectsByPage.entries()).map(([pageNum, data]) => ({
           pageNumber: pageNum,
@@ -440,7 +440,7 @@ export default function PDFViewer({
         pageNumber: number;
       }> = [];
 
-      // console.log(
+      console.log(
         'About to process',
         rectsByPage.size,
         'pages for highlighting'
@@ -452,7 +452,7 @@ export default function PDFViewer({
         const pageRect = pdfCanvas.getBoundingClientRect();
         const highlightRects = [];
 
-        // console.log(`Processing page ${pageNumber}:`, {
+        console.log(`Processing page ${pageNumber}:`, {
           pageElementType: pageElement.tagName,
           usingCanvas: pdfCanvas !== pageElement,
           pageRect: {
@@ -466,7 +466,7 @@ export default function PDFViewer({
 
         // Consolidate overlapping rectangles to reduce rectangle count and avoid coverage issues
         const consolidatedRects = consolidateRects(rects);
-        // console.log(
+        console.log(
           `  Consolidated ${rects.length} rects into ${consolidatedRects.length} rects`
         );
 
@@ -493,7 +493,7 @@ export default function PDFViewer({
           return sizeValid && boundsValid;
         });
 
-        // console.log(
+        console.log(
           `  Filtered ${consolidatedRects.length} rects down to ${validRects.length} valid rects`
         );
 
@@ -515,7 +515,7 @@ export default function PDFViewer({
             relativeHeight <= 0 ||
             relativeHeight > 105
           ) {
-            // console.warn(`  Skipping invalid rect:`, {
+            console.warn(`  Skipping invalid rect:`, {
               relativeX,
               relativeY,
               relativeWidth,
@@ -537,7 +537,7 @@ export default function PDFViewer({
           });
         }
 
-        // console.log(`  Final highlight rects: ${highlightRects.length}`);
+        console.log(`  Final highlight rects: ${highlightRects.length}`);
 
         const highlight = {
           id: `highlight_${Date.now()}_page_${pageNumber}`,
@@ -551,26 +551,26 @@ export default function PDFViewer({
         highlights.push(highlight);
       }
 
-      // console.log('Created highlights:', highlights.length, highlights);
+      console.log('Created highlights:', highlights.length, highlights);
 
       // Add all highlights to state
       setHighlights((prev) => [...prev, ...highlights]);
 
       // Save all highlights to database
       try {
-        // console.log('Saving highlights to database...');
+        console.log('Saving highlights to database...');
         for (const highlight of highlights) {
-          // console.log('Saving highlight:', highlight);
+          console.log('Saving highlight:', highlight);
           const response = await fetch('/api/highlights', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(highlight),
           });
-          // console.log('Highlight save response:', response.status, response.ok);
+          console.log('Highlight save response:', response.status, response.ok);
         }
-        // console.log('All highlights saved successfully');
+        console.log('All highlights saved successfully');
       } catch (error) {
-        // console.error('Failed to save highlight:', error);
+        console.error('Failed to save highlight:', error);
         // Remove all highlights if save failed
         const highlightIds = highlights.map((h) => h.id);
         setHighlights((prev) =>
@@ -604,7 +604,7 @@ export default function PDFViewer({
       numPages: number,
       scale: number
     ) => {
-      // console.log(
+      console.log(
         '🔍 Pre-calculating base page dimensions for',
         numPages,
         'pages at scale',
@@ -631,7 +631,7 @@ export default function PDFViewer({
                   height: viewport.height,
                 };
               } catch (error) {
-                // console.error(
+                console.error(
                   `Error getting viewport for page ${pageNum}:`,
                   error
                 );
@@ -651,7 +651,7 @@ export default function PDFViewer({
           dimensionsMap.set(pageNumber, { width, height });
         });
 
-        // console.log(
+        console.log(
           '✅ Pre-calculated dimensions for',
           dimensionsMap.size,
           'pages'
@@ -665,7 +665,7 @@ export default function PDFViewer({
         });
         setPageHeights(heightsMap);
       } catch (error) {
-        // console.error('Error pre-calculating page dimensions:', error);
+        console.error('Error pre-calculating page dimensions:', error);
         // Fallback: use default base dimensions
         const fallbackDimensions = new Map<
           number,
@@ -726,7 +726,7 @@ export default function PDFViewer({
               });
             }
           } catch (pageError) {
-            // console.error(
+            console.error(
               `Error extracting text from page ${pageNum}:`,
               pageError
             );
@@ -753,14 +753,14 @@ export default function PDFViewer({
             const reason = isUrlUpload
               ? 'External URL upload'
               : `Large payload (${payloadSizeKB} KB)`;
-            // console.log(
+            console.log(
               '🎯 DETECTED LARGE/URL UPLOAD - Using server-side extraction'
             );
-            // console.log('   📄 PDF ID:', pdfId);
-            // console.log('   🔗 PDF URL:', pdfFile);
-            // console.log('   📊 Reason:', reason);
-            // console.log('   💾 Payload size:', `${payloadSizeKB} KB`);
-            // console.log('   🚀 Switching to server-side extraction method');
+            console.log('   📄 PDF ID:', pdfId);
+            console.log('   🔗 PDF URL:', pdfFile);
+            console.log('   📊 Reason:', reason);
+            console.log('   💾 Payload size:', `${payloadSizeKB} KB`);
+            console.log('   🚀 Switching to server-side extraction method');
 
             // Use server-side extraction for URL uploads or large payloads
             const serverResponse = await fetch('/api/pdf/extract-from-url', {
@@ -781,21 +781,21 @@ export default function PDFViewer({
             }
 
             const result = await serverResponse.json();
-            // console.log('✅ SERVER-SIDE TEXT EXTRACTION COMPLETED');
-            // console.log('   🎯 Method:', result.method);
-            // console.log('   📊 Pages processed:', result.pagesProcessed);
-            // console.log('   🔢 Chunks created:', result.chunksCreated);
+            console.log('✅ SERVER-SIDE TEXT EXTRACTION COMPLETED');
+            console.log('   🎯 Method:', result.method);
+            console.log('   📊 Pages processed:', result.pagesProcessed);
+            console.log('   🔢 Chunks created:', result.chunksCreated);
 
             return;
           }
         }
 
         // Fall back to client-side extraction for small direct uploads
-        // console.log(
+        console.log(
           '📁 DETECTED SMALL DIRECT UPLOAD - Using client-side extraction'
         );
-        // console.log('   📄 PDF ID:', pdfId);
-        // console.log('   🔗 S3 URL:', pdfFile);
+        console.log('   📄 PDF ID:', pdfId);
+        console.log('   🔗 S3 URL:', pdfFile);
 
         // Send pages in batches to avoid payload size limits (for small direct uploads only)
         if (allPages.length > 0) {
@@ -803,7 +803,7 @@ export default function PDFViewer({
           const BATCH_SIZE = allPages.length <= 100 ? allPages.length : 100;
           const totalBatches = Math.ceil(allPages.length / BATCH_SIZE);
 
-          // console.log(
+          console.log(
             `Processing ${allPages.length} pages in ${totalBatches} batch(es) (${BATCH_SIZE} pages per batch, client-side)`
           );
 
@@ -828,16 +828,16 @@ export default function PDFViewer({
               (1024 * 1024)
             ).toFixed(2);
 
-            // console.log(`🚀 Sending batch ${batchIndex + 1}/${totalBatches}`);
-            // console.log(
+            console.log(`🚀 Sending batch ${batchIndex + 1}/${totalBatches}`);
+            console.log(
               `   📄 Pages: ${batchPages[0].pageNumber}-${
                 batchPages[batchPages.length - 1].pageNumber
               } (${batchPages.length} pages)`
             );
-            // console.log(
+            console.log(
               `   📊 Payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`
             );
-            // console.log(
+            console.log(
               `   📝 Total characters in batch: ${batchPages.reduce(
                 (sum, page) => sum + page.content.length,
                 0
@@ -853,12 +853,12 @@ export default function PDFViewer({
             });
 
             if (!response.ok) {
-              // console.error(
+              console.error(
                 `❌ Batch ${batchIndex + 1} failed with status: ${
                   response.status
                 } ${response.statusText}`
               );
-              // console.error(
+              console.error(
                 `   📊 Failed payload size: ${payloadSizeKB} KB (${payloadSizeMB} MB)`
               );
               const errorData = await response
@@ -871,17 +871,17 @@ export default function PDFViewer({
               );
             }
 
-            // console.log(
+            console.log(
               `✅ Batch ${
                 batchIndex + 1
               }/${totalBatches} processed successfully`
             );
           }
 
-          // console.log('PDF text extracted successfully in background');
+          console.log('PDF text extracted successfully in background');
         }
       } catch (error) {
-        // console.error('Background text extraction failed:', error);
+        console.error('Background text extraction failed:', error);
       }
     },
     [pdfFile]
@@ -1151,7 +1151,7 @@ export default function PDFViewer({
               searchIndex = foundIndex + 1;
             }
           } catch (pageError) {
-            // console.error(`Error searching page ${pageNum}:`, pageError);
+            console.error(`Error searching page ${pageNum}:`, pageError);
           }
         }
 
@@ -1165,7 +1165,7 @@ export default function PDFViewer({
           setPendingNavigation(allResults[0].pageNumber);
         }
       } catch (error) {
-        // console.error('Search error:', error);
+        console.error('Search error:', error);
       } finally {
         setIsSearching(false);
       }
@@ -1305,12 +1305,12 @@ export default function PDFViewer({
   // Handle citation clicks - navigate to specific page
   const handleCitationClick = useCallback(
     (targetPage: number) => {
-      // console.log('🎯 handleCitationClick called for page:', targetPage);
+      console.log('🎯 handleCitationClick called for page:', targetPage);
 
       // Debug: Show current page dimensions state
       const currentDimensions = pageDimensions.get(targetPage);
       const currentHeight = getPageHeight(targetPage);
-      // console.log('📏 Target page dimensions:', {
+      console.log('📏 Target page dimensions:', {
         pageNumber: targetPage,
         dimensions: currentDimensions,
         calculatedHeight: currentHeight,
@@ -1319,7 +1319,7 @@ export default function PDFViewer({
 
       // If PDF isn't loaded yet or we're in the middle of loading a new PDF, queue the navigation
       if (!numPages || isLoadingPdf) {
-        // console.log(
+        console.log(
           'PDF not ready yet, queuing navigation to page:',
           targetPage,
           { numPages, isLoadingPdf }
@@ -1330,13 +1330,13 @@ export default function PDFViewer({
 
       // Validate against current PDF's actual page count
       if (targetPage < 1 || targetPage > numPages) {
-        // console.log('Invalid page range:', { targetPage, numPages, pdfId });
+        console.log('Invalid page range:', { targetPage, numPages, pdfId });
         return;
       }
 
       const scrollContainer = scrollContainerRef.current;
       if (!scrollContainer) {
-        // console.log('No scroll container found');
+        console.log('No scroll container found');
         return;
       }
 
@@ -1345,23 +1345,23 @@ export default function PDFViewer({
         `[data-page-number="${targetPage}"]`
       );
 
-      // console.log('Target element found:', !!targetElement);
+      console.log('Target element found:', !!targetElement);
 
       if (targetElement) {
-        // console.log('Scrolling to existing element for page:', targetPage);
+        console.log('Scrolling to existing element for page:', targetPage);
         // Calculate scroll position relative to container
         const containerRect = scrollContainer.getBoundingClientRect();
         const elementRect = targetElement.getBoundingClientRect();
         const scrollTop =
           scrollContainer.scrollTop + elementRect.top - containerRect.top - 20; // 20px offset from top
 
-        // console.log('Scroll position calculated:', scrollTop);
+        console.log('Scroll position calculated:', scrollTop);
         scrollContainer.scrollTo({
           top: scrollTop,
           behavior: 'smooth',
         });
       } else {
-        // console.log('Page not rendered, adding to visible pages:', targetPage);
+        console.log('Page not rendered, adding to visible pages:', targetPage);
         // If page isn't rendered yet, update visible pages and then scroll
         setVisiblePages((prev) => {
           const newSet = new Set(prev);
@@ -1373,7 +1373,7 @@ export default function PDFViewer({
           ) {
             newSet.add(i);
           }
-          // console.log('Updated visible pages:', Array.from(newSet));
+          console.log('Updated visible pages:', Array.from(newSet));
           return newSet;
         });
 
@@ -1382,7 +1382,7 @@ export default function PDFViewer({
           const element = scrollContainer.querySelector(
             `[data-page-number="${targetPage}"]`
           );
-          // console.log('After timeout, element found:', !!element);
+          console.log('After timeout, element found:', !!element);
           if (element) {
             const containerRect = scrollContainer.getBoundingClientRect();
             const elementRect = element.getBoundingClientRect();
@@ -1392,13 +1392,13 @@ export default function PDFViewer({
               containerRect.top -
               20;
 
-            // console.log('Delayed scroll position:', scrollTop);
+            console.log('Delayed scroll position:', scrollTop);
             scrollContainer.scrollTo({
               top: scrollTop,
               behavior: 'smooth',
             });
           } else {
-            // console.log('Element still not found after timeout');
+            console.log('Element still not found after timeout');
           }
         }, 200); // Increased timeout to ensure page renders
       }
@@ -1449,7 +1449,7 @@ export default function PDFViewer({
   // Handle pending navigation after PDF loads
   useEffect(() => {
     if (numPages && pendingNavigation) {
-      // console.log('Processing pending navigation to page:', pendingNavigation);
+      console.log('Processing pending navigation to page:', pendingNavigation);
       handleCitationClick(pendingNavigation);
       setPendingNavigation(null);
     }
@@ -1496,7 +1496,7 @@ export default function PDFViewer({
 
         // Don't process internal links if PDF is loading or not ready
         if (isLoadingPdf || !numPages) {
-          // console.log('PDF not ready for internal link navigation');
+          console.log('PDF not ready for internal link navigation');
           return;
         }
 
@@ -1511,7 +1511,7 @@ export default function PDFViewer({
           if (pageNumber > 0 && pageNumber <= numPages) {
             handleCitationClick(pageNumber);
           } else {
-            // console.log('Invalid page number for current PDF:', {
+            console.log('Invalid page number for current PDF:', {
               pageNumber,
               numPages,
               pdfId,
@@ -1537,7 +1537,7 @@ export default function PDFViewer({
 
         // Play the audio
         audio.play().catch((error) => {
-          // console.error('Failed to play audio:', error);
+          console.error('Failed to play audio:', error);
         });
 
         return;
@@ -1554,14 +1554,14 @@ export default function PDFViewer({
         }
       } catch (error) {
         // If URL parsing fails, it might be an internal link - try to extract page number
-        // console.log(
+        console.log(
           'Link parsing error, attempting internal navigation:',
           error
         );
 
         // Don't process internal links if PDF is loading or not ready
         if (isLoadingPdf || !numPages) {
-          // console.log('PDF not ready for internal link navigation (fallback)');
+          console.log('PDF not ready for internal link navigation (fallback)');
           return;
         }
 
@@ -1572,7 +1572,7 @@ export default function PDFViewer({
             event.preventDefault();
             handleCitationClick(pageNumber);
           } else {
-            // console.log('Invalid page number in fallback navigation:', {
+            console.log('Invalid page number in fallback navigation:', {
               pageNumber,
               numPages,
               pdfId,
@@ -1708,7 +1708,7 @@ export default function PDFViewer({
           );
         }
       } catch (error) {
-        // console.error('Selection error:', error);
+        console.error('Selection error:', error);
         setSelectionDialog((prev) =>
           prev.visible ? { ...prev, visible: false } : prev
         );
@@ -1852,7 +1852,7 @@ export default function PDFViewer({
           setIsLoadingPdf(false);
           setIsInitialLoad(false);
         } catch (error) {
-          // console.error('Error loading PDF:', error);
+          console.error('Error loading PDF:', error);
           setError('Failed to load PDF file');
           setPdfFile('/sample.pdf');
           setIsLoadingPdf(false);
@@ -2001,7 +2001,7 @@ export default function PDFViewer({
 
   const onDocumentLoadSuccess = useCallback(
     async ({ numPages }: { numPages: number }) => {
-      // console.log('📄 PDF loaded successfully with', numPages, 'pages');
+      console.log('📄 PDF loaded successfully with', numPages, 'pages');
       setNumPages(numPages);
       setCurrentPage(1);
       setError(null);
@@ -2020,7 +2020,7 @@ export default function PDFViewer({
           await preCalculatePageDimensions(pdfDocument, numPages, 1.0);
         }
       } catch (error) {
-        // console.error('Error pre-calculating page dimensions:', error);
+        console.error('Error pre-calculating page dimensions:', error);
       }
 
       // Initialize with first few pages visible
@@ -2039,7 +2039,7 @@ export default function PDFViewer({
   );
 
   const onDocumentLoadError = useCallback((error: Error) => {
-    // console.error('PDF load error:', error);
+    console.error('PDF load error:', error);
     setError('Failed to load PDF document');
     setPdfFile(null);
   }, []);
@@ -2059,7 +2059,7 @@ export default function PDFViewer({
     if (!pdfId) return;
 
     try {
-      // console.log('🔄 Force refreshing PDF, clearing cache...');
+      console.log('🔄 Force refreshing PDF, clearing cache...');
       setIsLoadingPdf(true);
       setError(null);
 
@@ -2087,9 +2087,9 @@ export default function PDFViewer({
       setIsLoadingPdf(false);
       setIsInitialLoad(false);
 
-      // console.log('✅ PDF refreshed successfully');
+      console.log('✅ PDF refreshed successfully');
     } catch (error) {
-      // console.error('❌ Force refresh failed:', error);
+      console.error('❌ Force refresh failed:', error);
       setError('Failed to refresh PDF. Please try again.');
       setIsLoadingPdf(false);
     }
@@ -2171,7 +2171,7 @@ export default function PDFViewer({
         }
       }
     } catch (error) {
-      // console.error('Fullscreen error:', error);
+      console.error('Fullscreen error:', error);
     }
   }, [isFullscreen]);
 
@@ -2224,7 +2224,7 @@ export default function PDFViewer({
       }
 
       // Last resort: use a reasonable default for A4 pages
-      // console.warn(
+      console.warn(
         `No dimensions found for page ${pageNumber}, using default base height`
       );
       return 842; // A4 height at base scale (1.0)
@@ -2724,11 +2724,11 @@ export default function PDFViewer({
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 onItemClick={({ pageNumber, dest }) => {
-                  // console.log('PDF onItemClick called:', { pageNumber, dest });
+                  console.log('PDF onItemClick called:', { pageNumber, dest });
 
                   // Handle internal page navigation
                   if (pageNumber) {
-                    // console.log('Navigating to page:', pageNumber);
+                    console.log('Navigating to page:', pageNumber);
                     handleCitationClick(pageNumber);
                     return;
                   }
@@ -2741,12 +2741,12 @@ export default function PDFViewer({
                   ) {
                     const pageNum = dest.pageNumber;
                     if (typeof pageNum === 'number') {
-                      // console.log('Navigating to dest page:', pageNum);
+                      console.log('Navigating to dest page:', pageNum);
                       handleCitationClick(pageNum);
                     }
                   }
 
-                  // console.log('onItemClick could not determine page number');
+                  console.log('onItemClick could not determine page number');
                 }}
                 loading={
                   <div className='text-center py-8'>

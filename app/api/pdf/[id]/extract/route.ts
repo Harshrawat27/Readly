@@ -172,12 +172,12 @@ export async function POST(
     
     // Log additional context
     // console.error('   📍 Error context:', {
-      hasPages: typeof pages !== 'undefined',
-      pagesLength: pages?.length,
-      hasBatchInfo: typeof batchInfo !== 'undefined',
-      batchInfo: batchInfo,
-      environment: process.env.NODE_ENV
-    });
+    //   hasPages: typeof pages !== 'undefined',
+    //   pagesLength: pages?.length,
+    //   hasBatchInfo: typeof batchInfo !== 'undefined',
+    //   batchInfo: batchInfo,
+    //   environment: process.env.NODE_ENV
+    // });
     
     return NextResponse.json(
       { error: 'Failed to extract text from PDF' },
@@ -528,12 +528,12 @@ async function processPages(
   } catch (dbError) {
     // console.error(`❌ Database error saving chunks:`, dbError);
     // console.error(`   📍 Error details:`, {
-      name: dbError instanceof Error ? dbError.name : 'Unknown',
-      message: dbError instanceof Error ? dbError.message : 'Unknown error',
-      code: (dbError as {code?: string})?.code || 'No code',
-      savedChunks,
-      totalChunks: embeddingResults.length
-    });
+    //   name: dbError instanceof Error ? dbError.name : 'Unknown',
+    //   message: dbError instanceof Error ? dbError.message : 'Unknown error',
+    //   code: (dbError as {code?: string})?.code || 'No code',
+    //   savedChunks,
+    //   totalChunks: embeddingResults.length
+    // });
     throw dbError;
   }
 

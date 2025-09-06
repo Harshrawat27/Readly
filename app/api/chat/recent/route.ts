@@ -81,9 +81,9 @@ export async function GET(request: NextRequest) {
           try {
             const signedUrl = await getImageFromS3(msg.imageUrl);
             // console.log('🔗 Generated signed URL for S3 key:', {
-              key: msg.imageUrl,
-              signedUrl: signedUrl.substring(0, 100) + '...'
-            });
+            //   key: msg.imageUrl,
+            //   signedUrl: signedUrl.substring(0, 100) + '...'
+            // });
             return { ...msg, imageUrl: signedUrl };
           } catch (error) {
             // console.error('❌ Failed to generate signed URL for key:', msg.imageUrl, error);
@@ -94,12 +94,12 @@ export async function GET(request: NextRequest) {
         // Debug logging for all images
         if (msg.imageUrl || msg.imageData) {
           // console.log('📷 Message with image:', {
-            id: msg.id,
-            hasImageUrl: !!msg.imageUrl,
-            hasImageData: !!msg.imageData,
-            imageUrlType: msg.imageUrl?.startsWith('http') ? 'URL' : 'S3Key',
-            imageDataLength: msg.imageData?.length
-          });
+          //   id: msg.id,
+          //   hasImageUrl: !!msg.imageUrl,
+          //   hasImageData: !!msg.imageData,
+          //   imageUrlType: msg.imageUrl?.startsWith('http') ? 'URL' : 'S3Key',
+          //   imageDataLength: msg.imageData?.length
+          // });
         }
         
         return msg;

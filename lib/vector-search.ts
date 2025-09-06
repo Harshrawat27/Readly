@@ -38,10 +38,10 @@ export async function findRelevantChunks(
 
     // Generate embedding for the query
     // console.log(
-      `🔍 Finding relevant chunks for query: "${query.substring(0, 100)}${
-        query.length > 100 ? '...' : ''
-      }"`
-    );
+    //   `🔍 Finding relevant chunks for query: "${query.substring(0, 100)}${
+    //     query.length > 100 ? '...' : ''
+    //   }"`
+    // );
     const queryEmbedding = await generateQueryEmbedding(query);
 
     // Debug: Check if there are any chunks with embeddings first
@@ -55,13 +55,13 @@ export async function findRelevantChunks(
     );
     const totalChunksWithEmbeddings = Number(result[0].count);
     // console.log(
-      `📊 Total chunks with embeddings for PDF ${pdfId}: ${totalChunksWithEmbeddings}`
-    );
+    //   `📊 Total chunks with embeddings for PDF ${pdfId}: ${totalChunksWithEmbeddings}`
+    // );
 
     if (totalChunksWithEmbeddings === 0) {
       // console.log(
-        '⚠️ No chunks have embeddings! Falling back to regular chunks'
-      );
+      //   '⚠️ No chunks have embeddings! Falling back to regular chunks'
+      // );
       const fallbackChunks = await prisma.pDFChunk.findMany({
         where: { pdfId },
         orderBy: { chunkIndex: 'asc' },
@@ -111,18 +111,18 @@ export async function findRelevantChunks(
     );
 
     // console.log(
-      `✅ Found ${chunks.length} relevant chunks with similarity >= ${similarityThreshold}`
-    );
+    //   `✅ Found ${chunks.length} relevant chunks with similarity >= ${similarityThreshold}`
+    // );
 
     // Debug: Log similarity scores for troubleshooting
     if (chunks.length > 0) {
       // console.log(
-        '📊 Top similarity scores:',
-        chunks
-          .slice(0, 3)
-          .map((c) => `${c.similarity?.toFixed(3)}`)
-          .join(', ')
-      );
+      //   '📊 Top similarity scores:',
+      //   chunks
+      //     .slice(0, 3)
+      //     .map((c) => `${c.similarity?.toFixed(3)}`)
+      //     .join(', ')
+      // );
     } else {
       // Try to get ANY chunks regardless of threshold to see what scores we're getting
       // console.log('🔍 Checking what similarity scores exist (no threshold)...');
@@ -149,11 +149,11 @@ export async function findRelevantChunks(
         );
 
         // console.log(
-          '📊 All similarity scores (top 5):',
-          allScores
-            .map((s) => `Page ${s.pageNumber}: ${s.similarity?.toFixed(3)}`)
-            .join(', ')
-        );
+        //   '📊 All similarity scores (top 5):',
+        //   allScores
+        //     .map((s) => `Page ${s.pageNumber}: ${s.similarity?.toFixed(3)}`)
+        //     .join(', ')
+        // );
       } catch (debugError) {
         // console.error('❌ Debug query failed:', debugError);
       }
@@ -162,8 +162,8 @@ export async function findRelevantChunks(
     // If no chunks meet the similarity threshold, fall back to first chunks
     if (chunks.length === 0) {
       // console.log(
-        '⚠️ No chunks met similarity threshold, falling back to first chunks'
-      );
+      //   '⚠️ No chunks met similarity threshold, falling back to first chunks'
+      // );
       const fallbackChunks = await prisma.pDFChunk.findMany({
         where: { pdfId },
         orderBy: { chunkIndex: 'asc' },
@@ -221,10 +221,10 @@ export async function searchAcrossPDFs(
     }
 
     // console.log(
-      `🔍 Searching across user's PDFs for: "${query.substring(0, 100)}${
-        query.length > 100 ? '...' : ''
-      }"`
-    );
+    //   `🔍 Searching across user's PDFs for: "${query.substring(0, 100)}${
+    //     query.length > 100 ? '...' : ''
+    //   }"`
+    // );
     const queryEmbedding = await generateQueryEmbedding(query);
 
     const queryVector = `[${queryEmbedding.join(',')}]`;

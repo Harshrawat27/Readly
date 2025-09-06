@@ -97,8 +97,8 @@ async function createProducts() {
 
       // console.log(`✅ Created product: ${product.id} - ${product.name}`);
       // console.log(
-        `   Price: $${product.price_amount / 100} ${product.price_currency}`
-      );
+      //   `   Price: $${product.price_amount / 100} ${product.price_currency}`
+      // );
       // console.log('');
     } catch (error) {
       // console.error(`❌ Failed to create ${plan.name}:`, error.message);
@@ -116,8 +116,8 @@ async function listExistingProducts() {
     if (products.items && products.items.length > 0) {
       products.items.forEach((product) => {
         // console.log(
-          `📦 ${product.name} - $${product.price_amount / 100} (${product.id})`
-        );
+        //   `📦 ${product.name} - $${product.price_amount / 100} (${product.id})`
+        // );
       });
     } else {
       // console.log('No products found.');
@@ -131,15 +131,15 @@ async function listExistingProducts() {
 async function main() {
   if (!process.env.DODO_API_KEY_TEST && !process.env.DODO_API_KEY_LIVE) {
     // console.error(
-      '❌ Missing Dodo Payments API key. Set DODO_API_KEY_TEST or DODO_API_KEY_LIVE in your .env file'
-    );
+    //   '❌ Missing Dodo Payments API key. Set DODO_API_KEY_TEST or DODO_API_KEY_LIVE in your .env file'
+    // );
     process.exit(1);
   }
 
   // console.log(
-    '🔑 Using Dodo Payments in:',
-    process.env.NODE_ENV === 'production' ? 'LIVE mode' : 'TEST mode'
-  );
+  //   '🔑 Using Dodo Payments in:',
+  //   process.env.NODE_ENV === 'production' ? 'LIVE mode' : 'TEST mode'
+  // );
   // console.log('');
 
   await listExistingProducts();
